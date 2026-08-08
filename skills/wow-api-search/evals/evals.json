@@ -1,0 +1,40 @@
+{
+  "skill_name": "wow-api-search",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm writing a WoW retail addon and I want to show the player's position on the current map. What exactly does C_Map.GetPlayerMapPosition take and return? I also heard some map APIs have taint restrictions — anything I should know there?",
+      "expected_output": "Signature: uiMapID (number), unitToken (UnitToken) -> position (vector2/Vector2DMixin, nilable). Mentions the AllowedWhenUntainted secret-arguments restriction.",
+      "files": [],
+      "assertions": [
+        "States both arguments: uiMapID (number) and unitToken (UnitToken)",
+        "States the return is a nilable vector2 position (Vector2DMixin)",
+        "Mentions a taint/secret-arguments restriction (AllowedWhenUntainted) for the function",
+        "Cites the source documentation file (MapDocumentation.lua) or system"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "quick q — what are all the values of Enum.UIMapType in retail? and what fields does UiMapDetails have? writing a map filter for my addon",
+      "expected_output": "All 7 UIMapType values with numbers (Cosmic=0 ... Orphan=6) and the 5 UiMapDetails fields (mapID, name, mapType, parentMapID, flags).",
+      "files": [],
+      "assertions": [
+        "Lists all 7 UIMapType values: Cosmic, World, Continent, Zone, Dungeon, Micro, Orphan",
+        "Gives correct numeric values (Cosmic=0 through Orphan=6)",
+        "Lists all 5 UiMapDetails fields: mapID, name, mapType, parentMapID, flags"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "My addon needs to react when the player's target changes. Which event should I register, what's in its payload, and can you show me how Blizzard's own nameplate code handles target changes?",
+      "expected_output": "PLAYER_TARGET_CHANGED with empty payload; shows Blizzard_NamePlates.lua registering and handling the event.",
+      "files": [],
+      "assertions": [
+        "Identifies PLAYER_TARGET_CHANGED as the event",
+        "States the event has no payload (empty payload)",
+        "Shows or references Blizzard_NamePlates code handling the event (RegisterEvent / OnEvent dispatch)",
+        "Includes a source file path for the implementation code"
+      ]
+    }
+  ]
+}

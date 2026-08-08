@@ -1,0 +1,12 @@
+# Build artifact — regenerate with skills/ellesmereui-search/scripts/build_index.py --ensure
+skills/ellesmereui-search/references/index/
+
+# skill-creator eval runs and snapshots
+*-workspace/
+
+# Packaged bundles for claude.ai upload
+*.skill
+
+__pycache__/
+*.pyc
+.DS_Store
