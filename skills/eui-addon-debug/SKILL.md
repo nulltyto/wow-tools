@@ -52,10 +52,21 @@ to find the module that owns the setting, the line that reads it, and the handle
 that acts on it. Raw `grep` across the tree followed by `sed -n` on line ranges
 works, and it costs a dozen round trips to learn what one index query answers.
 
+A report names a **label**, not a key — "Always Show Buttons", not
+`alwaysShowButtons`. The label lives in the options row that also names the
+key, so start there: Grep the module's `_Options.lua` for the quoted label and
+read the `getValue`/`SGet` beside it. That one grep converts the report into
+something the index can answer.
+
 Find all of these before editing anything:
 
 - the settings key and its default
 - every site that reads the key (a guard is often duplicated and only one copy is wrong)
+- **every caller of every function you are about to change** — the `callers`
+  field on the `symbols.jsonl` record. This is the step that gets replaced by
+  `grep -n` on a 13,000-line file, once per function, and it answers "what else
+  breaks" that grep does not. A record carrying `caller_ambiguity` instead is
+  telling you to grep; a record with `callers` is telling you not to.
 - every event the handler is registered for
 - the git history of the guard — `git log -S"<key>"`. A guard that used to be
   correct tells you which change broke it, and the commit message usually says
@@ -84,6 +95,12 @@ Look up, every time:
 - **Blizzard's own handler for the same problem.** Grep `Blizzard_*` for the
   event. If the default UI solves this, its solution is the specification, and
   it is already correct about the timing you were about to guess.
+- **whether a secure snippet can do what your fix needs**, if the fix runs in
+  one. `Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua` defines the
+  whole frame-handle surface as `function HANDLE:Name`; the environment file
+  beside it lists the callable globals. `wow-api-search` documents both. A
+  method missing from that file is missing, not merely undocumented, and
+  designing around one that is not there costs the whole fix.
 
 Then state your theory with the source attached. "`UNIT_SPELLCAST_START` lands
 after the server acknowledges, so a same-frame read sees nothing" is a claim. It

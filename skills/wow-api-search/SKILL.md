@@ -123,6 +123,30 @@ re-derives what the index already holds, and only for the one struct grepped.
 
 For partial-name or fuzzy searches, grep the index without the quotes/colon anchor (`pattern="MapInfo"`). If you need more than the index provides (full system docs, related types), the `file` field names the source file in `Blizzard_APIDocumentationGenerated/`.
 
+### What a secure snippet may do in combat — `Blizzard_RestrictedAddOnEnvironment/`
+
+An addon that drives action bars, unit frames, or anything protected runs part
+of itself as a **secure snippet**, inside a restricted environment with its own
+much smaller API. "Can I do this in combat" has two different answers there,
+and guessing either one produces a fix that works out of combat and does
+nothing in a raid:
+
+- **the frame handle surface** — `RestrictedFrames.lua` defines every method a
+  snippet can call on a frame, as `function HANDLE:Name(...)`. If a method has
+  no `HANDLE:` definition, a snippet cannot call it. Grep the file for
+  `^function HANDLE:` for the whole list, or for one method name to settle one
+  question.
+- **the callable whitelist** — `RestrictedEnvironment.lua` lists the global
+  functions a snippet may call (`HasAction`, `GetActionInfo`, …). A function
+  absent from it is unreachable, not merely discouraged.
+
+The surface is deliberately narrow and the omissions matter more than the
+inclusions. `HANDLE:SetAlpha` and `HANDLE:EnableMouse` exist; there is no
+`SetMouseMotionEnabled`, so a snippet can turn a button's mouse fully on or
+fully off and cannot make it motion-only. Confirm the method exists **before**
+designing around it, and say so in the comment — this is not something the
+generated API documentation covers, so the file is the only specification.
+
 ### For UI implementation details — use targeted Grep on the source clone
 
 When looking for how Blizzard implements something (mixins, frame setup, event handling), search the relevant addon folder:
@@ -163,6 +187,8 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 | Frame template / XML layout | Grep xml files for the template name |
 | Mixin implementation | Grep lua files for `MixinName` — look for `Mixin = {}` definition |
 | Can I read this field in combat | Grep the index for the struct name, check `never_secret` per field |
+| Can a secure snippet call this method in combat | Grep `Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua` for `HANDLE:<Name>` — no definition means no |
+| Can a secure snippet call this global | Grep `Blizzard_RestrictedAddOnEnvironment/RestrictedEnvironment.lua` for the name |
 | Which Blizzard code writes a field | Grep the owning `Blizzard_*` folder for the field name — the writer is usually one function, and finding it beats inferring the rule |
 | What events a frame registers | Search lua/xml for `RegisterEvent` in the relevant addon folder |
 
