@@ -27,7 +27,7 @@ from . import addons as addons_mod
 from . import install as engine
 from . import registry, wow
 from . import skills as skills_mod
-from .install import Method
+from .install import Method, Outcome
 
 # --------------------------------------------------------------------------
 #  Selection
@@ -473,12 +473,20 @@ def _run_skills(args, uninstalling: bool) -> int:
     if not groups:
         return 0
 
+    # Each directory is announced once, with the harnesses reading it and the
+    # method that will be used, and its results land underneath. Printing the
+    # plan and then re-printing the same headings over the results said
+    # everything twice for the common case of one directory.
     print()
     verb = "Uninstalling" if uninstalling else "Installing"
     print(f"{verb} {len(chosen)} skill(s) into {len(groups)} director{'y' if len(groups) == 1 else 'ies'} "
           f"({args.scope} scope):")
+
+    methods = {}
     for directory, hs in groups.items():
-        print(f"\n{directory}")
+        method, method_note = _method_for(directory, args, uninstalling)
+        methods[directory] = method
+        print(f"\n{directory}{method_note}")
         print(f"  for: {', '.join(h.name for h in hs)}")
 
     if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
@@ -487,32 +495,39 @@ def _run_skills(args, uninstalling: bool) -> int:
             return 1
 
     failed = False
-    print()
+    changed = False
     for directory in groups:
-        method, method_note = _method_for(directory, args, uninstalling)
-        print(f"{directory}{method_note}")
+        print()
+        if len(groups) > 1:
+            print(f"{directory}")
         for s in chosen:
             if uninstalling:
                 r = engine.uninstall_item(s, directory, dry_run=args.dry_run)
             else:
                 r = engine.install_item(
-                    s, directory, method, force=args.force, dry_run=args.dry_run
+                    s, directory, methods[directory], force=args.force, dry_run=args.dry_run
                 )
             print(r)
             failed = failed or not r.outcome.ok
-        print()
+            changed = changed or r.outcome not in (Outcome.CURRENT, Outcome.ABSENT)
 
     if failed:
-        print("Some entries were left alone. Re-run with --force to replace them.")
+        print("\nSome entries were left alone. Re-run with --force to replace them.")
         return 1
 
     if not uninstalling and not args.dry_run:
         notes = [h for hs in groups.values() for h in hs if h.note]
         if notes:
-            print("Notes:")
+            print("\nNotes:")
             for h in notes:
                 print(f"  {h.name}: {h.note}")
-        print("\nRestart your harness (or reload its skills) to pick these up.")
+        # Advice to restart is only advice when something moved. Printing it
+        # after a run that changed nothing invites a pointless restart, and
+        # makes a no-op look like work.
+        if changed:
+            print("\nRestart your harness (or reload its skills) to pick these up.")
+        else:
+            print("\nEverything was already in place; nothing to restart.")
     return 0
 
 
@@ -569,6 +584,7 @@ def _run_addons(args, uninstalling: bool) -> int:
             return 1
 
     failed = False
+    changed = False
     for a in chosen:
         if uninstalling:
             r = engine.uninstall_item(a, directory, dry_run=args.dry_run)
@@ -578,6 +594,7 @@ def _run_addons(args, uninstalling: bool) -> int:
             )
         print(r)
         failed = failed or not r.outcome.ok
+        changed = changed or r.outcome not in (Outcome.CURRENT, Outcome.ABSENT)
 
     if failed:
         print("\nSome entries were left alone. Re-run with --force to replace them.")
@@ -589,7 +606,12 @@ def _run_addons(args, uninstalling: bool) -> int:
             print("\nMissing dependencies — these addons will not load without them:")
             for addon_name, deps in missing:
                 print(f"  {addon_name} needs {', '.join(deps)}")
-        print("\n/reload in game, or restart the client, to pick these up.")
+        # A /reload interrupts whatever the player is doing. Asking for one
+        # after a run that moved nothing is worse than merely redundant.
+        if changed:
+            print("\n/reload in game, or restart the client, to pick these up.")
+        else:
+            print("\nEverything was already in place; no /reload needed.")
     return 0
 
 

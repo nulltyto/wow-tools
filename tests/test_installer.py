@@ -272,3 +272,32 @@ def test_an_unrecognisable_key_still_lists_them_all():
     with pytest.raises(KeyError) as excinfo:
         registry.get("zzzz")
     assert "Known:" in excinfo.value.args[0]
+
+
+def test_restart_advice_only_appears_when_something_moved(tmp_path, capsys):
+    """Advice to restart is advice only when there is something to pick up.
+
+    Printing it after a run that changed nothing invites a pointless restart
+    and makes a no-op read as work.
+    """
+    argv = ["install", "--harness", "kiro", "--skills", "all",
+            "--scope", "project", "--project-root", str(tmp_path), "--yes"]
+
+    assert main(argv) == 0
+    first = capsys.readouterr().out
+    assert "Restart your harness" in first
+
+    assert main(argv) == 0
+    second = capsys.readouterr().out
+    assert "Restart your harness" not in second
+    assert "already in place" in second
+
+
+def test_a_single_directory_is_named_once(tmp_path, capsys):
+    """The plan and the results used to print the same heading twice, which for
+    one directory -- the common case -- said everything two times."""
+    main(["install", "--harness", "kiro", "--skills", "all",
+          "--scope", "project", "--project-root", str(tmp_path), "--yes"])
+    out = capsys.readouterr().out
+    directory = str(tmp_path / ".kiro" / "skills")
+    assert out.count(f"\n{directory}\n") == 1
