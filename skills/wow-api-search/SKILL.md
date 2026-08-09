@@ -41,9 +41,16 @@ Lookup keys:
 - **Tables**: enum, structure, or constants name (`UiMapDetails`, `AddOnProfilerMetric`)
 
 Entry structure:
-- **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], secret_arguments?, returns_never_secret?, preconditions? }`
-- **Events**: `{ system, file, literal_name, name, payload: [{name, type, nilable}] }`
-- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, never_secret?}] }`
+- **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], documentation?, secret_arguments?, returns_never_secret?, preconditions? }`
+- **Events**: `{ system, file, literal_name, name, payload: [{name, type, nilable}], documentation? }`
+- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, never_secret?, documentation?}] }`
+
+`documentation` is Blizzard's own prose note, carried on the entry and on
+individual fields. Read it — it holds semantics no signature can, and the
+caveats are the expensive part to rediscover. `SpellCooldownInfo.isOnGCD` says
+"do not trust this field unless responding to a SPELL_UPDATE_COOLDOWN event";
+`GetSpellCharges` says it "may return nil if spell is not found or is not
+charge-based". Quote the note when it changes how the API has to be called.
 - **Predicates**: `{ system, file, failure_mode }` — under the `predicates` section
 
 When the same unqualified name exists in several namespaces (`GetName`, `IsEnabled`, ...), the value is an **array** of entries instead of a single object — check `namespace`/`qualified_name` to pick the right one. The one-grep-returns-everything property still holds.

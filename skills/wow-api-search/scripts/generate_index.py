@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-BUILDER_VERSION = 3
+BUILDER_VERSION = 4
 
 DOCS_SUBPATH = Path("Interface/AddOns/Blizzard_APIDocumentationGenerated")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "references" / "api_index.json"
@@ -95,6 +95,26 @@ def read_index_header(output_path):
     return header
 
 
+# Blizzard's own prose note on a function, event, structure or single field.
+# It carries semantics no type signature can: which event a field is only
+# trustworthy in, what a nil means, which category decides a duration. The
+# export writes it on one line, so a line-wise clause match is enough.
+DOC_CLAUSE = re.compile(r'Documentation\s*=\s*\{(.*)\}')
+DOC_STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')
+# An entry's own note sits at three tabs; a field's note is inline on the
+# field line at four, so anchoring keeps the two from being read as one.
+ENTRY_DOC = re.compile(r'^\t\t\tDocumentation\s*=\s*\{(.*)\}', re.M)
+
+
+def parse_documentation(text):
+    """Pull the note strings out of a `Documentation = { "..." }` clause."""
+    m = DOC_CLAUSE.search(text)
+    if not m:
+        return []
+    return [sm.group(1).replace('\\"', '"').replace("\\\\", "\\")
+            for sm in DOC_STRING.finditer(m.group(1))]
+
+
 def parse_lua_table_entries(text, section_name):
     """Extract named entries from a lua table array like Functions = { ... }."""
     # Find the section. Anchored to one-tab indentation so an outer table
@@ -148,6 +168,13 @@ def parse_entry(text):
     # more often than any other flag it carries.
     if re.search(r'\bReturnsNeverSecret\s*=\s*true', text):
         entry["returns_never_secret"] = True
+
+    # Blizzard's prose note on the entry itself.
+    m = ENTRY_DOC.search(text)
+    if m:
+        notes = parse_documentation(m.group(0))
+        if notes:
+            entry["documentation"] = notes
 
     # Failure behavior (for predicates)
     m = re.search(r'FailureMode\s*=\s*"([^"]+)"', text)
@@ -212,7 +239,9 @@ def parse_sub_fields(text, field_name):
         fm = FIELD_LINE.search(line)
         if not fm:
             continue
-        rest = fm.group(2)
+        # The note is prose and may itself contain `Type = "..."` or a comma,
+        # so it is split off before the scalar keys are read out of the line.
+        rest, _, doc_clause = fm.group(2).partition("Documentation")
         field = {"name": fm.group(1)}
 
         tm = FIELD_TYPE.search(rest)
@@ -239,6 +268,11 @@ def parse_sub_fields(text, field_name):
         sm = FIELD_NEVER_SECRET.search(rest)
         if sm:
             field["never_secret"] = sm.group(1) == "true"
+
+        if doc_clause:
+            notes = parse_documentation("Documentation" + doc_clause)
+            if notes:
+                field["documentation"] = notes
 
         fields.append(field)
 
@@ -332,6 +366,8 @@ def build_index(docs_dir):
                 "arguments": func.get("arguments", []),
                 "returns": func.get("returns", []),
             }
+            if func.get("documentation"):
+                entry["documentation"] = func["documentation"]
             if "secret_arguments" in func:
                 entry["secret_arguments"] = func["secret_arguments"]
             if func.get("returns_never_secret"):
@@ -352,17 +388,22 @@ def build_index(docs_dir):
                 "name": camel,
                 "payload": event.get("payload", []),
             }
+            if event.get("documentation"):
+                entry["documentation"] = event["documentation"]
             if literal:
                 add_entry(event_lookup, literal, entry)
             add_entry(event_lookup, camel, entry)
 
         for tbl in system["tables"]:
-            add_entry(table_lookup, tbl["name"], {
+            entry = {
                 "system": sys_name,
                 "file": system["file"],
                 "type": tbl.get("type", ""),
                 "fields": tbl.get("fields", []),
-            })
+            }
+            if tbl.get("documentation"):
+                entry["documentation"] = tbl["documentation"]
+            add_entry(table_lookup, tbl["name"], entry)
 
     if empty_files:
         print(f"Warning: {len(empty_files)} doc file(s) contain entries but "
@@ -376,6 +417,17 @@ def build_index(docs_dir):
     def total(lookup):
         return sum(len(v) if isinstance(v, list) else 1 for v in lookup.values())
 
+    # Counted so a reformat of the export shows up as a coverage drop rather
+    # than as notes that quietly stop being extracted.
+    documented = 0
+    for system in systems:
+        for section in ("functions", "events", "tables", "predicates"):
+            for item in system[section]:
+                documented += 1 if item.get("documentation") else 0
+                for field_list in ("arguments", "returns", "payload", "fields"):
+                    documented += sum(1 for f in item.get(field_list, [])
+                                      if f.get("documentation"))
+
     return {
         "builder_version": BUILDER_VERSION,
         "generated_from": str(docs_dir),
@@ -387,6 +439,7 @@ def build_index(docs_dir):
         "total_events": total(event_lookup),
         "total_tables": total(table_lookup),
         "total_predicates": total(predicate_lookup),
+        "total_documented": documented,
         "functions": function_lookup,
         "events": event_lookup,
         "tables": table_lookup,
@@ -491,6 +544,7 @@ def main():
     print(f"  Functions: {index['total_functions']}")
     print(f"  Events:    {index['total_events']}")
     print(f"  Tables:    {index['total_tables']}")
+    print(f"  Doc notes: {index['total_documented']}")
 
 
 if __name__ == "__main__":
