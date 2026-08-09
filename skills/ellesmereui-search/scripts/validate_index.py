@@ -124,6 +124,30 @@ def main() -> int:
            if not (root / f).is_file()]
     c.report("modules load_order", len(load_order), bad)
 
+    print("\nCAPS -- every truncated list says how long it really is")
+    # The index caps long lists to keep a record greppable on one line. A cap
+    # is fine; a cap the caller cannot see is not, because a truncated list
+    # reads exactly like a complete one. Each capped field must ship a count,
+    # and the count must never be smaller than the list it describes.
+    for fname, field, count_field, cap in (
+        ("settings.jsonl", "refs", "ref_count", 60),
+        ("settings.jsonl", "options_refs", "options_ref_count", 10),
+        ("events.jsonl", "sites", "count", 40),
+        ("locale.jsonl", "sites", "count", 40),
+    ):
+        rows = load(fname)
+        bad = []
+        for r in rows:
+            if count_field not in r:
+                bad.append(f"{fname}: {field} has no {count_field}")
+                break
+            if len(r[field]) > cap:
+                bad.append(f"{fname}: {field} of {len(r[field])} exceeds its cap of {cap}")
+            elif r[count_field] < len(r[field]):
+                bad.append(f"{fname}: {count_field}={r[count_field]} "
+                           f"< {len(r[field])} listed")
+        c.report(f"{fname} {field}", len(rows), bad)
+
     print("\nRECALL -- every named declaration has a record")
     indexed = {(r["file"], r["line"]) for r in load("symbols.jsonl")}
     total = 0

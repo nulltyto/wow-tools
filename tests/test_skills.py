@@ -98,11 +98,7 @@ def test_bundled_api_index_is_internally_consistent():
     """
     import json
 
-    index = json.loads(
-        (REPO / "skills" / "wow-api-search" / "references" / "api_index.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    index = _bundled_index()
     for section in ("functions", "events", "tables", "predicates"):
         entries = sum(
             len(v) if isinstance(v, list) else 1 for v in index[section].values()
@@ -110,3 +106,63 @@ def test_bundled_api_index_is_internally_consistent():
         assert entries == index[f"total_{section}"], (
             f"{section}: header says {index[f'total_{section}']}, found {entries}"
         )
+
+
+def _bundled_index():
+    import json
+
+    return json.loads(
+        (REPO / "skills" / "wow-api-search" / "references" / "api_index.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def _first(entry):
+    """Collided names are stored as a list; take the single or the first."""
+    return entry[0] if isinstance(entry, list) else entry
+
+
+def test_constants_tables_carry_their_values():
+    """A Constants table is only useful if its members came through.
+
+    Constants write their members under `Values`, not `Fields`, so a parser
+    that reads Fields alone indexes all 55 of them as empty shells and every
+    lookup for a named constant comes back with nothing. That failed silently
+    for four builder versions -- the entry existed, so nothing looked wrong.
+    """
+    tables = _bundled_index()["tables"]
+    consts = {k: _first(v) for k, v in tables.items() if _first(v).get("type") == "Constants"}
+    assert consts, "no Constants tables in the index at all"
+    empty = sorted(k for k, v in consts.items() if not v.get("fields"))
+    assert not empty, f"Constants tables indexed with no members: {empty}"
+
+    # The one that made the gap visible: Blizzard's own CooldownViewer compares
+    # SPELL_UPDATE_COOLDOWN's startRecoveryCategory against it to tell a global
+    # cooldown apart from a spell cooldown.
+    gcd = consts["SpellCooldownConsts"]
+    assert gcd["fields"][0] == {
+        "name": "GLOBAL_RECOVERY_CATEGORY", "type": "number", "value": 133,
+    }
+
+
+def test_table_systems_are_not_a_sibling_table_name():
+    """A table's `system` names its system, never the table above it.
+
+    207 of the 592 export files declare no system-level Name. An unanchored
+    search there fell through to the first table's Name and stamped it on
+    every entry in the file, so SpellCooldownConsts reported its system as
+    ConfirmationPromptUIType -- a wrong answer that reads like a real one.
+    """
+    tables = _bundled_index()["tables"]
+    by_file = {}
+    for name, entry in tables.items():
+        by_file.setdefault(_first(entry)["file"], []).append((name, _first(entry)["system"]))
+
+    wrong = [
+        (f, name, system)
+        for f, entries in by_file.items()
+        for name, system in entries
+        if system in {n for n, _ in entries}
+    ]
+    assert not wrong, f"tables whose system names a sibling table: {wrong[:5]}"
