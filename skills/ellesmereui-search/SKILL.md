@@ -1,6 +1,6 @@
 ---
 name: ellesmereui-search
-description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use this skill whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, EllesmereUINameplates, EllesmereUIUnitFrames, EllesmereUIRaidFrames, EllesmereUICooldownManager, and the other EllesmereUI* child addons). Triggers on questions like "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "what reads this profile key", "which files handle event E", or any navigation task in this addon. This indexes EllesmereUI's own code — for Blizzard's API, events, and default UI implementation, use wow-api-search instead.
+description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use this skill whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, EllesmereUINameplates, EllesmereUIUnitFrames, EllesmereUIRaidFrames, EllesmereUICooldownManager, and the other EllesmereUI* child addons). Triggers on questions like "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "what reads this profile key", "which files handle event E", or any navigation task in this addon. Reach for it first when a bug report arrives, before grepping the tree by hand. This indexes EllesmereUI's own code — for Blizzard's API, events, and default UI implementation, use wow-api-search instead.
 ---
 
 # EllesmereUI Search
@@ -37,7 +37,7 @@ current counts, the git commit it was built from, and the addon root path.
 | File | Grep for | Record fields |
 |---|---|---|
 | `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` |
-| `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `refs_other_modules` `used_by` |
+| `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by` |
 | `locale.jsonl` | `"key":"Enable Nameplates"` | `key` `count` `sites` |
 | `events.jsonl` | `"event":"UNIT_HEALTH"` | `event` `count` `sites` |
 | `slash.jsonl` | `"command":"/enp"` | `command` `token` `module` `file` `line` |
@@ -77,6 +77,35 @@ Shared by both:
   when this is non-zero and the in-module refs don't explain the behaviour, grep
   globally.
 
+## Lists are capped — read the count, not the list
+
+Long lists are truncated so a record stays on one greppable line, and every
+capped field ships its true length beside it. **Compare the two before
+answering "where is this used".** A list at its cap is a sample, not an answer.
+
+| Field | Cap | True length |
+|---|---|---|
+| `settings.refs` | 60 | `ref_count` |
+| `settings.options_refs` | 10 | `options_ref_count` |
+| `events.sites` | 40 | `count` |
+| `locale.sites` | 40 | `count` |
+
+About a third of settings keys sit at the `options_refs` cap, so this matters
+most for "which control builds this setting". When the count exceeds the list,
+Grep the module's `_Options.lua` for the key rather than trusting the sample.
+
+`symbols.jsonl` and `slash.jsonl` are never truncated.
+
+## What has no record at all
+
+A key is indexed only if it has a **declaration** — a defaults-table entry, or
+a write to a SavedVariables global. A key that is read but never declared has
+no record and no default, and the index cannot tell you it exists. There are
+about a dozen of these (`absorbAlpha`, `showAllEnemyBuffs`, `targetArrowStyle`,
+and similar). An empty result for a key you can see in the source means this,
+not a build failure — Grep it and read the fallback the caller supplies
+(`p.someKey or 40`), because that inline fallback *is* the effective default.
+
 ## Falling back to Grep
 
 The index covers *definitions and identifier references*. Go straight to Grep for
@@ -108,6 +137,7 @@ when stale; `--force` always rebuilds. The index is a build artifact and is
 gitignored — it is derived entirely from the addon checkout.
 
 `scripts/validate_index.py` checks the built index against the source: that every
-record lands on the line it names, and that no named function declaration is missing.
-Run it after changing an extractor, or after a refactor big enough to want proof the
-index still sees everything.
+record lands on the line it names, that every capped list carries its true length,
+and that no named function declaration is missing. Run it after changing an
+extractor, or after a refactor big enough to want proof the index still sees
+everything.

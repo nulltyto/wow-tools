@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 1
+BUILDER_VERSION = 2
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -366,6 +366,7 @@ def extract_saved_variable_keys(
     rows: list[dict] = []
     for (sv, key), sites in hits.items():
         ordered = sorted(s for _, s in sites)
+        options = [s for s in ordered if "_Options.lua" in s]
         rows.append(
             {
                 "key": key,
@@ -378,7 +379,8 @@ def extract_saved_variable_keys(
                 "line": int(ordered[0].rsplit(":", 1)[1]),
                 "refs": ordered[:60],
                 "ref_count": len(ordered),
-                "options_refs": [s for s in ordered if "_Options.lua" in s][:10],
+                "options_refs": options[:10],
+                "options_ref_count": len(options),
                 "used_by": sorted({mod for mod, _ in sites}),
             }
         )
@@ -641,7 +643,13 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
         )
         row["refs"] = sites[:60]
         row["ref_count"] = len(sites)
-        row["options_refs"] = [s for s in sites if "_Options.lua" in s][:10]
+        options = [s for s in sites if "_Options.lua" in s]
+        row["options_refs"] = options[:10]
+        # Every capped list carries its true length. Without this the caller
+        # cannot tell ten references from ten of ninety, and a third of these
+        # rows sit exactly at the cap -- a silent truncation reads as a
+        # complete answer to "where is this setting's control built".
+        row["options_ref_count"] = len(options)
         # Same short name defined/read in other modules -- grep globally if the
         # in-module references do not explain the behaviour you are chasing.
         row["refs_other_modules"] = len(hits) - len(

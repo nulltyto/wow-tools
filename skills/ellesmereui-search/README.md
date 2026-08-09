@@ -73,12 +73,13 @@ Settings references are scoped to the declaring module, because short key names
 Each record carries a `refs_other_modules` count so a genuinely cross-module read is
 still visible.
 
-`scripts/validate_index.py` checks the built index against the source on two axes that
+`scripts/validate_index.py` checks the built index against the source on three axes that
 fail differently: **precision** (every record lands on a line that actually contains
-what it claims — a wrong line number is worse than no index) and **recall** (every
-named function declaration has a record, which is how you notice an extractor regex
-silently losing coverage after the codebase adopts a new idiom). A clean run asserts
-90,000+ record-to-source checks with zero named declarations missed.
+what it claims — a wrong line number is worse than no index), **caps** (every truncated
+list carries its true length, so a sample can never be mistaken for a complete answer),
+and **recall** (every named function declaration has a record, which is how you notice
+an extractor regex silently losing coverage after the codebase adopts a new idiom). A
+clean run asserts 90,000+ record-to-source checks with zero named declarations missed.
 
 ## Limitations
 
