@@ -21,6 +21,7 @@ harnesses is the whole point of the standard.
 
 from __future__ import annotations
 
+import difflib
 from dataclasses import dataclass, field
 
 # The cross-agent path from the open standard. Honoured by the large majority
@@ -258,10 +259,39 @@ class Resolution:
     shared_with: list[str] = field(default_factory=list)
 
 
+def suggest(key: str) -> list[str]:
+    """Keys a mistyped one plausibly meant.
+
+    Almost every miss is a short form of a longer key -- `claude` for
+    `claude-code`, `copilot` for `copilot-cli` -- or a name in place of a key,
+    so substring matching answers more of them than edit distance does. Close
+    spellings are covered as a second pass.
+    """
+    lowered = key.strip().lower()
+    if not lowered:
+        return []
+    # `k in lowered` catches an over-typed key (`claude-code-cli`), but only for
+    # keys long enough to mean something -- `pi` is a substring of `copilot`.
+    hits = [k for k in HARNESS_BY_KEY
+            if lowered in k or (len(k) >= 4 and k in lowered)]
+    hits += [k for k, h in HARNESS_BY_KEY.items()
+             if k not in hits and lowered in h.name.lower()]
+    if not hits:
+        hits = difflib.get_close_matches(lowered, HARNESS_BY_KEY, n=3, cutoff=0.6)
+    return sorted(hits)
+
+
 def get(key: str) -> Harness:
-    try:
-        return HARNESS_BY_KEY[key]
-    except KeyError:
+    # Keys are lowercase by construction, so `Cursor` is a spelling of `cursor`
+    # rather than a mistake worth an error.
+    normalised = key.strip().lower()
+    if normalised in HARNESS_BY_KEY:
+        return HARNESS_BY_KEY[normalised]
+    near = suggest(key)
+    if near:
         raise KeyError(
-            f"unknown harness {key!r}. Known: {', '.join(sorted(HARNESS_BY_KEY))}"
+            f"unknown harness {key!r}. Did you mean: {', '.join(near)}?"
         ) from None
+    raise KeyError(
+        f"unknown harness {key!r}. Known: {', '.join(sorted(HARNESS_BY_KEY))}"
+    ) from None

@@ -431,7 +431,9 @@ def _run_skills(args, uninstalling: bool) -> int:
         try:
             harnesses = [registry.get(k) for k in keys]
         except KeyError as e:
-            print(f"error: {e}", file=sys.stderr)
+            # KeyError reprs its argument, which wraps a written-out message in
+            # quotes. The message is the whole value here, so unwrap it.
+            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         harnesses = choose_harnesses()
@@ -449,7 +451,9 @@ def _run_skills(args, uninstalling: bool) -> int:
         try:
             chosen = skills_mod.resolve_names(specs, found)
         except KeyError as e:
-            print(f"error: {e}", file=sys.stderr)
+            # KeyError reprs its argument, which wraps a written-out message in
+            # quotes. The message is the whole value here, so unwrap it.
+            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         chosen = choose_skills(found)
@@ -526,7 +530,9 @@ def _run_addons(args, uninstalling: bool) -> int:
         try:
             chosen = addons_mod.resolve_names(specs, found)
         except KeyError as e:
-            print(f"error: {e}", file=sys.stderr)
+            # KeyError reprs its argument, which wraps a written-out message in
+            # quotes. The message is the whole value here, so unwrap it.
+            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         chosen = choose_addons(found)
@@ -668,13 +674,28 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+COMMANDS = ("install", "uninstall", "list", "status", "doctor")
+
+
+def _with_default_command(argv: list[str]) -> list[str]:
+    """Let the install options be passed without naming the subcommand.
+
+    `install.sh` is the documented entry point and installing is what it is
+    for, so `install.sh --harness codex --skills all` has to mean what it
+    plainly says. Without this, argparse reads the first flag's value as the
+    subcommand and reports an invalid choice, naming the wrong thing.
+    """
+    if not argv:
+        return ["install"]
+    first = argv[0]
+    if first in COMMANDS or first in ("-h", "--help"):
+        return argv
+    return ["install", *argv]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = build_parser()
-    args = ap.parse_args(argv)
-    if not getattr(args, "command", None):
-        # Bare invocation is the common case from a bootstrap script, and the
-        # thing the user wants then is the interactive installer.
-        args = ap.parse_args(["install", *(argv or [])])
+    args = ap.parse_args(_with_default_command(list(argv if argv is not None else sys.argv[1:])))
     try:
         return args.func(args)
     except KeyboardInterrupt:

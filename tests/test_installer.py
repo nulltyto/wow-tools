@@ -217,3 +217,58 @@ def test_cli_list_runs_clean(capsys):
     assert "wow-api-search" in out
     for h in registry.HARNESSES:
         assert h.key in out
+
+
+# --------------------------------------------------------------------------
+#  CLI entry ergonomics
+# --------------------------------------------------------------------------
+
+def test_install_options_work_without_naming_the_subcommand():
+    """`install.sh --harness x --skills y` is what the README documents.
+
+    Without a default, argparse reads the first flag's *value* as the
+    subcommand and reports an invalid choice, naming the wrong thing entirely.
+    """
+    from wow_tools.__main__ import _with_default_command
+
+    assert _with_default_command(["--harness", "codex"]) == ["install", "--harness", "codex"]
+    assert _with_default_command([]) == ["install"]
+
+
+def test_an_explicit_subcommand_is_left_alone():
+    from wow_tools.__main__ import _with_default_command
+
+    for cmd in ("install", "uninstall", "list", "status", "doctor"):
+        assert _with_default_command([cmd, "--yes"]) == [cmd, "--yes"]
+    # Top-level help must stay top-level, not become `install --help`.
+    assert _with_default_command(["--help"]) == ["--help"]
+
+
+def test_a_near_miss_harness_key_is_suggested():
+    """The keys are hyphenated and the names are not, so short forms are the
+    common typo -- and a wall of twenty keys does not answer which was meant."""
+    from wow_tools import registry
+
+    with pytest.raises(KeyError) as excinfo:
+        registry.get("claude")
+    assert "claude-code" in excinfo.value.args[0]
+
+    assert registry.suggest("gemini") == ["gemini-cli"]
+    assert registry.suggest("vscode") == ["vscode-copilot"]
+    # A short key must not match on being a substring of an unrelated word.
+    assert "pi" not in registry.suggest("copilot")
+
+
+def test_harness_keys_are_case_insensitive():
+    from wow_tools import registry
+
+    assert registry.get("Cursor").key == "cursor"
+    assert registry.get(" CLAUDE-CODE ").key == "claude-code"
+
+
+def test_an_unrecognisable_key_still_lists_them_all():
+    from wow_tools import registry
+
+    with pytest.raises(KeyError) as excinfo:
+        registry.get("zzzz")
+    assert "Known:" in excinfo.value.args[0]
