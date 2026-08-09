@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-BUILDER_VERSION = 2
+BUILDER_VERSION = 3
 
 DOCS_SUBPATH = Path("Interface/AddOns/Blizzard_APIDocumentationGenerated")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "references" / "api_index.json"
@@ -143,6 +143,12 @@ def parse_entry(text):
     if m:
         entry["secret_arguments"] = m.group(1)
 
+    # The whole return set is readable by a tainted addon. Promoted out of
+    # `flags` because "can I read this in combat" is asked of a function far
+    # more often than any other flag it carries.
+    if re.search(r'\bReturnsNeverSecret\s*=\s*true', text):
+        entry["returns_never_secret"] = True
+
     # Failure behavior (for predicates)
     m = re.search(r'FailureMode\s*=\s*"([^"]+)"', text)
     if m:
@@ -184,6 +190,10 @@ FIELD_NILABLE = re.compile(r'Nilable\s*=\s*(true|false)')
 FIELD_ENUM_VALUE = re.compile(r'EnumValue\s*=\s*(-?\d+)')
 FIELD_MIXIN = re.compile(r'Mixin\s*=\s*"([^"]+)"')
 FIELD_DEFAULT = re.compile(r'Default\s*=\s*([^,}\s]+)')
+# Blizzard marks the fields a tainted addon may read in restricted combat. It is
+# the field-level half of a function's SecretArguments, and the question an
+# addon asks most often about a structure: which of these can I compare?
+FIELD_NEVER_SECRET = re.compile(r'NeverSecret\s*=\s*(true|false)')
 
 
 def parse_sub_fields(text, field_name):
@@ -225,6 +235,10 @@ def parse_sub_fields(text, field_name):
         dm = FIELD_DEFAULT.search(rest)
         if dm:
             field["default"] = dm.group(1)
+
+        sm = FIELD_NEVER_SECRET.search(rest)
+        if sm:
+            field["never_secret"] = sm.group(1) == "true"
 
         fields.append(field)
 
@@ -320,6 +334,8 @@ def build_index(docs_dir):
             }
             if "secret_arguments" in func:
                 entry["secret_arguments"] = func["secret_arguments"]
+            if func.get("returns_never_secret"):
+                entry["returns_never_secret"] = True
             preconditions = [f for f in func.get("flags", []) if f in file_predicates]
             if preconditions:
                 entry["preconditions"] = preconditions

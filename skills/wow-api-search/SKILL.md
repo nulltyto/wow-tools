@@ -1,6 +1,6 @@
 ---
 name: wow-api-search
-description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use this skill whenever the user asks about WoW API functions, events, frame XML, UI templates, mixin implementations, or how Blizzard implements any part of the default UI. Also use when writing WoW addon code and you need to look up how a specific API works, what arguments a function takes, what events are available, what values an enum has, or how Blizzard's own code handles something. Triggers on questions like "what args does X take", "how does Blizzard do Y", "find the event for Z", "what mixin handles W", or any reference to searching Blizzard's exported interface code.
+description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use this skill whenever the user asks about WoW API functions, events, frame XML, UI templates, mixin implementations, or how Blizzard implements any part of the default UI. Also use it when writing addon code and you need a signature, an event payload, an enum value, or Blizzard's own handling of something — and when debugging against Blizzard's behaviour rather than looking up a name: "why does Blizzard's frame do X", "which Blizzard function sets this field", "what refreshes this cached value", "is this field secret in combat", "can I compare this while tainted", "what args does X take", "find the event for Z", "what mixin handles W". Reach for it the moment the answer is in Blizzard's code rather than the addon's, including mid-investigation.
 ---
 
 # WoW API Search
@@ -41,14 +41,39 @@ Lookup keys:
 - **Tables**: enum, structure, or constants name (`UiMapDetails`, `AddOnProfilerMetric`)
 
 Entry structure:
-- **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], secret_arguments?, preconditions? }`
+- **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], secret_arguments?, returns_never_secret?, preconditions? }`
 - **Events**: `{ system, file, literal_name, name, payload: [{name, type, nilable}] }`
-- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?}] }`
+- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, never_secret?}] }`
 - **Predicates**: `{ system, file, failure_mode }` — under the `predicates` section
 
 When the same unqualified name exists in several namespaces (`GetName`, `IsEnabled`, ...), the value is an **array** of entries instead of a single object — check `namespace`/`qualified_name` to pick the right one. The one-grep-returns-everything property still holds.
 
 `secret_arguments` marks taint restrictions: `NotAllowed` (rejects secret values), `AllowedWhenUntainted`, or `AllowedWhenTainted`. Worth flagging when the user is writing combat- or protected-context code.
+
+### Which fields survive combat — `never_secret`
+
+In restricted combat an addon gets **secret values** back from many APIs. A
+secret can be passed around and handed back to Blizzard, but comparing it,
+concatenating it, or indexing it **raises a Lua error** — so "which of these
+fields can I actually branch on" decides the shape of the code, not just its
+correctness. Blizzard answers it per field, and the index carries the answer:
+
+- a struct field with `"never_secret": true` is readable and comparable by a
+  tainted addon, always
+- a field **without** the marker may read secret — treat it as opaque, or
+  classify it before use
+
+```
+Grep pattern="\"SpellChargeInfo\":" path="<index_path>" output_mode="content"
+```
+
+returns `maxCharges` and `isActive` marked `never_secret`, and `currentCharges`
+unmarked — which is exactly why a charge count has to be inferred from
+`isActive` rather than compared against zero. `returns_never_secret` on a
+function says the same thing about its whole return set.
+
+Answer this from the index. Grepping `NeverSecret` in the docs export works but
+re-derives what the index already holds, and only for the one struct grepped.
 
 `preconditions` lists the predicate names a function requires (e.g. `RequiresNonReadOnlyCVar`). Grep the predicate name in the `predicates` section for its `failure_mode`: `Error` means the call raises, `ReturnNothing` means it silently returns nothing — useful when explaining why an API "doesn't work".
 
@@ -90,6 +115,8 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 | How Blizzard calls an API | Grep across `Blizzard_*` lua files for the function name |
 | Frame template / XML layout | Grep xml files for the template name |
 | Mixin implementation | Grep lua files for `MixinName` — look for `Mixin = {}` definition |
+| Can I read this field in combat | Grep the index for the struct name, check `never_secret` per field |
+| Which Blizzard code writes a field | Grep the owning `Blizzard_*` folder for the field name — the writer is usually one function, and finding it beats inferring the rule |
 | What events a frame registers | Search lua/xml for `RegisterEvent` in the relevant addon folder |
 
 ## Presenting Results

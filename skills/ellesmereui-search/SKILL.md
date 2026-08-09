@@ -87,6 +87,20 @@ function rather than its definition, and for anything the extractors don't model
 Treat the index as the fast way to find the right file and line, then read the
 source. It is a navigation aid, not a substitute for reading the code.
 
+## Handing off to wow-api-search
+
+Most investigations here stop being about EllesmereUI partway through. The
+moment the question becomes what a Blizzard API returns, which field of a
+Blizzard structure is readable in combat, what refreshes a Blizzard cache
+field, or how Blizzard's own consumers of an API behave, **use
+`wow-api-search`** rather than grepping the interface export by hand — it
+carries the answers already indexed, including the per-field `never_secret`
+markers, and one grep of its index replaces several of the source clone.
+
+The tell is a fix that has to agree with Blizzard's behaviour rather than
+merely compile: at that point Blizzard's code is the specification, and
+reading it is the cheaper half of the work.
+
 ## Rebuilding
 
 `--ensure` (default) rebuilds if stale; `--check` reports FRESH/STALE and exits 1
