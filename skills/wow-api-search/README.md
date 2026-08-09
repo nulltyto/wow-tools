@@ -54,7 +54,9 @@ After regenerating, cross-check the parse:
 python3 scripts/validate_index.py
 ```
 
-It re-extracts every entry with an independent brace-depth parser (the generator uses indentation-anchored regexes) and verifies recall, precision, and header totals. If Blizzard reformats the export, this is what notices.
+It re-extracts every entry with an independent brace-depth parser (the generator uses indentation-anchored regexes) and verifies recall, precision, per-entry content, documentation coverage, and header totals. If Blizzard reformats the export, this is what notices.
+
+Content and notes are the checks that earn their keep. Name-level recall and precision pass whenever an entry merely exists, so for four builder versions they said nothing while every `Constants` table indexed with no members, 13 `CallbackType` signatures were dropped, and 25 predicate notes went missing — the names were all correct and the counts all matched. The content check compares each entry's arguments, returns, payload and fields against the independent parser, in order; the notes check counts Blizzard's prose per file straight off the source with its own regexes.
 
 ## Attribution
 

@@ -35,6 +35,19 @@
         "Shows or references Blizzard_NamePlates code handling the event (RegisterEvent / OnEvent dispatch)",
         "Includes a source file path for the implementation code"
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "My GCD bar arms off SPELL_UPDATE_COOLDOWN but it also fires for ordinary spell cooldowns and charge refills. Is there a way to tell from the event itself that this one is the global cooldown starting, or do I have to infer it?",
+      "expected_output": "SPELL_UPDATE_COOLDOWN's fourth payload argument, startRecoveryCategory, compared against Constants.SpellCooldownConsts.GLOBAL_RECOVERY_CATEGORY (133). Blizzard's CooldownViewer does exactly this.",
+      "files": [],
+      "assertions": [
+        "Lists the full payload: spellID, baseSpellID, category, startRecoveryCategory",
+        "Identifies startRecoveryCategory as the discriminator, not spellID or category",
+        "Gives the constant Constants.SpellCooldownConsts.GLOBAL_RECOVERY_CATEGORY with the value 133",
+        "Does not tell the user to infer the GCD from cast bars, durations, or timers",
+        "Shows or references Blizzard's own comparison (Blizzard_CooldownViewer/CooldownViewer.lua)"
+      ]
     }
   ]
 }

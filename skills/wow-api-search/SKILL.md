@@ -1,6 +1,6 @@
 ---
 name: wow-api-search
-description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use this skill whenever the user asks about WoW API functions, events, frame XML, UI templates, mixin implementations, or how Blizzard implements any part of the default UI. Also use it when writing addon code and you need a signature, an event payload, an enum value, or Blizzard's own handling of something — and when debugging against Blizzard's behaviour rather than looking up a name: "why does Blizzard's frame do X", "which Blizzard function sets this field", "what refreshes this cached value", "is this field secret in combat", "can I compare this while tainted", "what args does X take", "find the event for Z", "what mixin handles W". Reach for it the moment the answer is in Blizzard's code rather than the addon's, including mid-investigation.
+description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use this skill whenever the user asks about WoW API functions, events, frame XML, UI templates, mixin implementations, or how Blizzard implements any part of the default UI. Also use it when writing addon code and you need a signature, an event payload, an enum value, or Blizzard's own handling of something — and when debugging against Blizzard's behaviour rather than looking up a name: "why does Blizzard's frame do X", "which Blizzard function sets this field", "what refreshes this cached value", "is this field secret in combat", "can I compare this while tainted", "what args does X take", "find the event for Z". Reach for it the moment the answer is in Blizzard's code rather than the addon's, and always before asserting when an event fires, what its full payload carries, or what a constant means — never from memory.
 ---
 
 # WoW API Search
@@ -43,7 +43,7 @@ Lookup keys:
 Entry structure:
 - **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], documentation?, secret_arguments?, returns_never_secret?, preconditions? }`
 - **Events**: `{ system, file, literal_name, name, payload: [{name, type, nilable}], documentation? }`
-- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, never_secret?, documentation?}] }`
+- **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, value?, never_secret?, documentation?}] }` — `enum_value` on an Enumeration member, `value` on a Constants member
 
 `documentation` is Blizzard's own prose note, carried on the entry and on
 individual fields. Read it — it holds semantics no signature can, and the
@@ -56,6 +56,43 @@ charge-based". Quote the note when it changes how the API has to be called.
 When the same unqualified name exists in several namespaces (`GetName`, `IsEnabled`, ...), the value is an **array** of entries instead of a single object — check `namespace`/`qualified_name` to pick the right one. The one-grep-returns-everything property still holds.
 
 `secret_arguments` marks taint restrictions: `NotAllowed` (rejects secret values), `AllowedWhenUntainted`, or `AllowedWhenTainted`. Worth flagging when the user is writing combat- or protected-context code.
+
+### Read the whole payload, not the argument you expected
+
+An event handler that binds fewer arguments than the event sends throws away
+the discriminator that would have made the code simple. Before writing or
+editing a handler, grep the event and read every payload field — the later
+ones carry the classification, and a handler shared between several events
+must bind each one at its own position.
+
+`SPELL_UPDATE_COOLDOWN` is the worked example. It sends four arguments —
+`spellID, baseSpellID, category, startRecoveryCategory` — and the fourth is
+how Blizzard tells a global cooldown apart from a spell cooldown:
+
+```lua
+-- Blizzard_CooldownViewer/CooldownViewer.lua
+if startRecoveryCategory == Constants.SpellCooldownConsts.GLOBAL_RECOVERY_CATEGORY then
+```
+
+An addon that reads only `spellID` cannot make that distinction and ends up
+inferring it from cast bars and timers instead.
+
+Watch the position, too. `UNIT_*` events lead with a unit token; most others
+do not. One `OnEvent` handling both must not read them at shared offsets.
+
+### Named constants — `Constants.<Table>.<NAME>`
+
+Blizzard compares against named numbers rather than literals, and the index
+carries their values. When a payload field or a struct field is "a category",
+"a type", or "an index", the constant it is compared against is in a
+Constants table, and finding it beats inferring the meaning from behaviour:
+
+```
+Grep pattern="\"SpellCooldownConsts\":" path="<index_path>" output_mode="content"
+```
+
+returns `GLOBAL_RECOVERY_CATEGORY` with `"value": 133`. Grep the constant's
+own name when you have the name but not its table.
 
 ### Which fields survive combat — `never_secret`
 
@@ -118,6 +155,9 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 | Function signature / args / returns | Grep the index for `"Name":` |
 | Event name and payload | Grep the index for the event name (literal or camelCase) |
 | Enum values / structure fields | Grep the index for the type name |
+| Value of a named constant | Grep the index for the constant name, or for its `Consts`/`Constants` table |
+| What a `category` / `type` argument means | Find the Constants table Blizzard compares it against, then grep `Blizzard_*` for that constant |
+| When an event fires relative to another | The index does not say. Grep `Blizzard_*` for both `RegisterEvent` names and read the handler order Blizzard relies on |
 | All functions in a system | Grep the index for the system name |
 | How Blizzard calls an API | Grep across `Blizzard_*` lua files for the function name |
 | Frame template / XML layout | Grep xml files for the template name |
@@ -136,12 +176,20 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 
 ## Version and Regeneration
 
-The bundled index records its provenance in its first lines: `source_version` (git describe of the wow-ui-source checkout), `generated_on`, `source_fingerprint`, and entry counts. If the user's game version differs or the export has been updated, regenerate:
+The bundled index is committed and works standalone, so — unlike `ellesmereui-search` — this skill does **not** rebuild on every use. It has no way to know the game patched; nothing checks freshness unless you ask.
 
 ```bash
-python3 <skill>/scripts/generate_index.py --ensure
+python3 <skill>/scripts/generate_index.py --check    # FRESH/STALE, exit 1 if stale
+python3 <skill>/scripts/generate_index.py --ensure   # rebuild only if the export changed
 ```
 
-`--ensure` (default) fingerprints the docs export and rebuilds only when it changed; `--check` reports FRESH/STALE and exits 1 when stale; `--force` always rebuilds. The script auto-locates the clone via `$WOW_UI_SOURCE` or common paths, or takes the docs directory as its first argument. This only matters when a local wow-ui-source clone exists — the bundled index works standalone.
+Run `--check` when any of these is true, and not otherwise:
 
-`scripts/validate_index.py` re-extracts every entry with an independent parser and cross-checks the index (recall, precision, and header totals). Run it after regenerating, or when a lookup result smells wrong after a game patch.
+- a lookup returns nothing for a name the user is sure exists
+- the user mentions a patch, a PTR or beta client, or a new expansion feature
+- an indexed signature disagrees with what the user is seeing in game
+- you are about to rely on the index for something expensive to get wrong
+
+Staleness is decided by a content hash of the export plus the builder version, so a rebuild is also forced when the extractor itself changes — not only when Blizzard ships new files. `--force` always rebuilds. The script auto-locates the clone via `$WOW_UI_SOURCE` or common paths, or takes the docs directory as its first argument. All of this needs a local wow-ui-source clone; with none, the bundled index is what you have, and its `source_version` and `generated_on` in the first lines tell the user what it is.
+
+`scripts/validate_index.py` re-extracts every entry with an independent parser and cross-checks recall, precision, per-entry content, note coverage, and header totals. Run it after regenerating, or when a lookup result smells wrong after a game patch.
