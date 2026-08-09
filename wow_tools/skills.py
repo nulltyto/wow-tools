@@ -38,6 +38,11 @@ class Skill:
     def slug(self) -> str:
         return self.path.name
 
+    @property
+    def signature(self) -> str:
+        """The file whose presence marks an installed copy as a skill."""
+        return "SKILL.md"
+
     def summary(self, width: int = 68) -> str:
         """First sentence of the description, for the selection menu."""
         first = self.description.split(". ")[0].rstrip(".")
@@ -120,8 +125,11 @@ def discover(root: Path | None = None) -> tuple[list[Skill], list[str]]:
 
 
 def resolve_names(requested: list[str], available: list[Skill]) -> list[Skill]:
-    """Map `--skills` values to skills. 'all' selects everything."""
-    if any(r.strip().lower() == "all" for r in requested):
+    """Map `--skills` values to skills. 'all' selects everything, 'none' nothing."""
+    lowered = [r.strip().lower() for r in requested]
+    if any(r == "none" for r in lowered):
+        return []
+    if any(r == "all" for r in lowered):
         return list(available)
     by_name = {s.name: s for s in available}
     picked: list[Skill] = []

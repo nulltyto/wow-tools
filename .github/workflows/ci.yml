@@ -25,6 +25,13 @@ jobs:
         with:
           enable-cache: true
 
+      # tools/diag/harness.lua loads the diagnostics addon under a stubbed WoW
+      # API. Without an interpreter that test skips, and a load-order break in
+      # the addon would reach main unnoticed.
+      - name: Lua interpreter
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
       - name: Test
         run: uv run --python ${{ matrix.python }} pytest -q
 
@@ -41,6 +48,20 @@ jobs:
           uv run --python ${{ matrix.python }} python -m wow_tools install --harness codex,claude-code,kiro --skills all --yes
           uv run --python ${{ matrix.python }} python -m wow_tools status
           uv run --python ${{ matrix.python }} python -m wow_tools uninstall --harness codex,claude-code,kiro --skills all --yes
+
+      # Addons go to a path that has to be discovered rather than looked up, so
+      # the end-to-end check builds a game tree and points the installer at it
+      # through the same environment variable a real user would use.
+      - name: Install an addon into a fake game tree
+        shell: bash
+        run: |
+          export WOW_ADDONS_DIR="$PWD/fake-wow/World of Warcraft/_retail_/Interface/AddOns"
+          mkdir -p "$WOW_ADDONS_DIR"
+          uv run --python ${{ matrix.python }} python -m wow_tools install --addons all --yes
+          uv run --python ${{ matrix.python }} python -m wow_tools status --wow-addons "$WOW_ADDONS_DIR"
+          test -f "$WOW_ADDONS_DIR/EllesmereUISecretsDiag/EllesmereUISecretsDiag.toc"
+          uv run --python ${{ matrix.python }} python -m wow_tools uninstall --addons all --yes
+          test ! -e "$WOW_ADDONS_DIR/EllesmereUISecretsDiag"
 
   lint:
     runs-on: ubuntu-latest

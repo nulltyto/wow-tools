@@ -1,10 +1,11 @@
 # wow-tools
 
-Skills, tools, and scripts for World of Warcraft addon development.
+Skills, addons, and scripts for World of Warcraft addon development.
 
-Built as [Agent Skills](https://agentskills.io) — the open standard Anthropic
-released in December 2025 — so the same skill works in Claude Code, Codex,
-Cursor, Gemini CLI, opencode, Copilot, and about twenty other harnesses.
+The skills are [Agent Skills](https://agentskills.io) — the open standard
+Anthropic released in December 2025 — so the same skill works in Claude Code,
+Codex, Cursor, Gemini CLI, opencode, Copilot, and about twenty other harnesses.
+The addon is a real WoW addon, and the installer places it in the game.
 
 ## Skills
 
@@ -19,6 +20,34 @@ Blizzard implement this". `ellesmereui-search` answers "where does EllesmereUI
 define or read this". `ellesmereui-pr-check` answers "will this change survive
 review". Each skill's own README documents its format, scripts, and limitations.
 
+## Addons
+
+| Addon | What it does |
+|---|---|
+| [`EllesmereUISecretsDiag`](addons/EllesmereUISecretsDiag/) | In-game developer diagnostics for the EllesmereUI suite: CPU and memory per module, taint tracking, secret-value probes, and a sampling recorder. `/euidiag` |
+
+It depends on `EllesmereUI` and does nothing without it. Installing it is
+opt-in — the interactive installer defaults to no addons, since putting a
+diagnostics addon into somebody's game is not a side effect of installing a
+search skill.
+
+Two offline tools go with it, and stay in this repo rather than in the game:
+
+| Tool | What it does |
+|---|---|
+| [`tools/diag/harness.lua`](tools/diag/) | Loads all five addon files under a stubbed WoW API and dispatches every `/euidiag` command. Catches load-order faults, registration errors, and dispatch bugs that a syntax check cannot see. Runs in CI. |
+| [`tools/perf/euidiag-perf.py`](tools/perf/) | Turns `/euidiag rec` recordings into per-module statistics, CSV, a shareable JSON summary, and an optional plot. |
+
+```bash
+cd tools/diag && lua5.1 harness.lua        # smoke test, exit 0 means clean
+./tools/perf/euidiag-perf.py               # summarise the newest recording
+```
+
+`euidiag-perf.py` finds the SavedVariables file by locating the game the same
+way the installer does. `$WOW_SAVEDVARIABLES` pins one file; `$WOW_INSTALL`
+points at a game the search does not reach. Each tool's own README covers the
+rest, including what the numbers mean and what sampling rate can and cannot buy.
+
 ## Install
 
 ```bash
@@ -29,8 +58,9 @@ cd ~/Repos/wow-tools
 ```
 
 The installer asks which harness you use and which skills you want, then puts
-them where that harness reads them. It needs Python 3.9+ and nothing else; if
-none is on `PATH` it will use `uv` to provide one.
+them where that harness reads them, and finally offers the addons. It needs
+Python 3.9+ and nothing else; if none is on `PATH` it will use `uv` to provide
+one.
 
 Non-interactive:
 
@@ -38,19 +68,48 @@ Non-interactive:
 ./install.sh --harness claude-code --skills all --yes
 ./install.sh --harness codex,cursor,gemini-cli --skills wow-api-search --yes
 ./install.sh --harness claude-code --scope project --project-root ~/Repos/my-addon --yes
+./install.sh --addons all --yes                        # addons only
+./install.sh --addons EllesmereUISecretsDiag --wow-addons "/path/to/Interface/AddOns" --yes
 ```
+
+Skills and addons are independent halves. Passing `--harness` runs only the
+skills half, `--addons` only the addons half, and neither runs both.
 
 | | |
 |---|---|
-| `list` | every skill and harness, with the directory each resolves to |
+| `list` | every skill, addon, harness, and WoW install found |
 | `status` | what is installed where right now |
 | `install` | `--dry-run`, `--copy`, `--force`, `--scope user\|project` |
 | `uninstall` | removes only what this installer placed |
 
-Skills are **symlinked** by default, so `git pull` updates every harness at
-once. Where symlinks are unavailable — Windows without Developer Mode, an
-exFAT or NTFS mount — the installer detects it and copies instead, which needs
-a re-run after a pull. `--copy` forces that everywhere.
+Both are **symlinked** by default, so `git pull` updates every harness — and
+the running game — at once. Where symlinks are unavailable — Windows without
+Developer Mode, an exFAT or NTFS mount, which is a real possibility for a game
+install — the installer detects it and copies instead, which needs a re-run
+after a pull. `--copy` forces that everywhere.
+
+Nothing is ever silently replaced. A directory or symlink the installer did not
+create is reported and left alone until you pass `--force`, which matters most
+in an AddOns folder, where a hand-installed copy of the same addon is the
+normal case rather than the strange one.
+
+### Finding the game
+
+Skills go to a path that is known per harness. An addon goes wherever you
+installed the game, which on Linux is usually several levels inside a Proton or
+Wine prefix. So [`wow_tools/wow.py`](wow_tools/wow.py) answers it in order:
+
+1. `--wow-addons`, then `$WOW_ADDONS_DIR`, then `$WOW_INSTALL`
+2. the platform's usual location — `/Applications`, `C:\Program Files (x86)`, …
+3. a **bounded** search of likely bases (`~`, `~/Games`, `~/.local/share`,
+   `/mnt`, `/media`, Steam's `compatdata`) to six levels deep
+
+Step 3 is a guess and is treated as one: the install it found is printed before
+anything is written, and if it finds more than one, an unattended run stops and
+asks you to name one rather than picking. Retail is ordered first. A `.toc`
+dependency that is not in the same AddOns folder is reported after installing,
+because the client's response to a missing dependency is to load nothing and
+say nothing.
 
 ### Which harnesses
 
@@ -104,6 +163,13 @@ script a `SKILL.md` tells an agent to run still exists and answers `--help`,
 that no harness path is absolute or Windows-hostile, and that the installer
 never overwrites a directory it did not create.
 
+The addon side is held to the same standard, against the failures the WoW
+client reports with silence: a `.toc` not named after its folder (loads
+nothing), a file listed in a `.toc` but missing from disk (skipped without a
+word), and a load order that puts `Core.lua` anywhere but first. `harness.lua`
+runs as part of the suite wherever a Lua interpreter is available, so a
+registration or dispatch break fails CI instead of failing in game.
+
 Each skill also ships its own validator, which is the real correctness check
 and needs the source it indexes:
 
@@ -127,8 +193,10 @@ the index deliberately does not attempt.
 
 ```
 skills/            One directory per Agent Skill, each self-contained
-wow_tools/         The installer: harness registry, link/copy engine, CLI
-tests/             Hookup and installer tests
+addons/            One directory per WoW addon, installed into the game
+tools/             Offline tools that stay here rather than shipping in-game
+wow_tools/         The installer: harness registry, game discovery, link/copy engine, CLI
+tests/             Hookup, addon, and installer tests
 docs/              Design notes and evaluations
 install.sh         Bootstrap (POSIX)
 install.ps1        Bootstrap (Windows)
@@ -141,6 +209,8 @@ World of Warcraft is a trademark of Blizzard Entertainment, Inc. The
 sourced via [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source);
 that underlying game data belongs to Blizzard. EllesmereUI is by Ellesmere
 Gaming; `ellesmereui-search` contains no addon code, only tooling that builds
-an index from a local checkout. The Apache-2.0 license here covers the skills
-and tooling in this repo, not Blizzard's data. This project is unaffiliated
-with Blizzard.
+an index from a local checkout. `EllesmereUISecretsDiag` is a development-only
+diagnostics addon that measures that suite and follows its conventions; it is
+not part of a release and is not meant to be shipped to players. The Apache-2.0
+license here covers the skills and tooling in this repo, not Blizzard's data.
+This project is unaffiliated with Blizzard.
