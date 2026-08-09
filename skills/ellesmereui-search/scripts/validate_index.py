@@ -50,6 +50,17 @@ def caller_pattern(row: dict) -> re.Pattern:
 # string for the whole file.
 CALL_ON_LINE = re.compile(r"([A-Za-z_][\w.]*[ \t]*[.:][ \t]*)?\b([A-Za-z_]\w*)[ \t]*\(")
 
+# The opening line of a defaults table, whole or one branch of one. Matched a
+# line at a time, where the builder scans offsets across the whole file.
+DEFAULTS_LINE = re.compile(
+    r"^[ \t]*(?:local[ \t]+)?((?:[A-Za-z_]\w*)(?:\.[A-Za-z_]\w*)*(?:\[[^\]]+\])*)[ \t]*=[ \t]*\{[ \t]*$"
+)
+DEFAULTS_COMPONENT = re.compile(r"(?i)(?:^|\.)\w*defaults(?:\[|$|\.)")
+# A named key inside a table. A table named `defaults` holding only positional
+# entries -- a CVar list, a colour triple -- declares no key to look up, so it
+# is not a miss when it produces no records.
+NAMED_KEY = re.compile(r"^[ \t]*(?:[A-Za-z_]\w*|\[[ \t]*[\"'][^\"']+[\"'][ \t]*\])[ \t]*=(?!=)")
+
 
 class Checker:
     def __init__(self, root: Path, verbose: bool):
@@ -235,6 +246,36 @@ def main() -> int:
                 bad.append(f"{rel}:{r['line']} {r['name']}: index says "
                            f"{r['caller_count']}, scan finds {expect}")
     c.report("local caller counts", total, bad)
+
+    # Every defaults table in the source must have produced records. A settings
+    # key can only be looked up if its declaration was seen, and a declaration
+    # written in a shape the extractor does not match fails silently: the
+    # lookup returns nothing, which reads exactly like "this key does not
+    # exist". That is how the whole per-bar namespace -- `alwaysShowButtons`,
+    # `clickThrough`, `barVisibility` -- stayed invisible while the index
+    # reported 3,876 settings and looked healthy.
+    declared: dict[tuple[str, str], int] = {}
+    for rel, path in iter_lua(root):
+        lines = mask_lua(path.read_text(encoding="utf-8", errors="replace")).splitlines()
+        for lineno, line in enumerate(lines, 1):
+            m = DEFAULTS_LINE.match(line)
+            if not m or not DEFAULTS_COMPONENT.search(m.group(1)):
+                continue
+            # Walk to the closing brace by depth, counting a line at a time --
+            # the builder matches braces by offset, so this stays a second
+            # implementation rather than a restatement.
+            depth, named = 0, False
+            for body in lines[lineno - 1 :]:
+                named = named or bool(NAMED_KEY.match(body))
+                depth += body.count("{") - body.count("}")
+                if depth <= 0:
+                    break
+            if named:
+                declared.setdefault((rel, m.group(1)), lineno)
+    covered = {(r["file"], r["table"]) for r in settings if r["store"] == "defaults"}
+    bad = [f"{rel}:{declared[(rel, tbl)]} defaults table {tbl!r} has no records"
+           for rel, tbl in sorted(declared) if (rel, tbl) not in covered]
+    c.report("defaults tables indexed", len(declared), bad)
 
     indexed = {(r["file"], r["line"]) for r in symbols}
     total = 0

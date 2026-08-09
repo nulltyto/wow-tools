@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 3
+BUILDER_VERSION = 4
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -200,8 +200,12 @@ def extract_symbols(src: Source, module: str) -> list[dict]:
 #  Settings (defaults tables)
 # --------------------------------------------------------------------------
 
+# A defaults table, either whole (`local defaults = {`) or one branch of one
+# filled in later (`defaults.profile.bars[info.key] = {`). The second form is
+# how a per-entry namespace gets built -- one literal in a loop, one entry per
+# bar -- and it holds keys that exist nowhere else.
 DEFAULTS_ASSIGN = re.compile(
-    r"^[ \t]*(?:local[ \t]+)?([A-Za-z_][\w.]*)[ \t]*=[ \t]*\{",
+    r"^[ \t]*(?:local[ \t]+)?([A-Za-z_][\w.]*)((?:\[[^\]\n]+\])*)[ \t]*=[ \t]*\{",
     re.M,
 )
 DEFAULTS_NAME = re.compile(r"(?i)defaults$")
@@ -241,6 +245,17 @@ def _read_value(mask: str, text: str, start: int, end: int) -> tuple[str, int]:
         i += 1
     raw = " ".join(text[start:i].split())
     return raw[:160], i
+
+
+def _names_keys(mask: str, open_idx: int) -> bool:
+    """Does the table at open_idx hold a named key anywhere below it?
+
+    Anywhere, not at its own level: `bars = { { key = "cooldowns" } }` is an
+    array whose own level names nothing, yet every entry below it does. Only a
+    table with no named key at any depth has no leaf to record.
+    """
+    end = _match_brace(mask, open_idx)
+    return TABLE_KEY.search(mask, open_idx + 1, end - 1) is not None
 
 
 def parse_defaults_table(src: Source, open_idx: int) -> list[tuple[str, str, int]]:
@@ -295,10 +310,14 @@ def parse_defaults_table(src: Source, open_idx: int) -> list[tuple[str, str, int
         while j < end and mask[j] in " \t\n":
             j += 1
 
-        if j < end and mask[j] == "{":
+        if j < end and mask[j] == "{" and _names_keys(mask, j):
             pending = key
             i = j
             continue
+
+        # A table with no named key below it -- `gold = {0.886, 0.675, 0.478}`,
+        # `paging = {}`. Descending finds no leaf to record, so the key would
+        # vanish. The key itself is the setting; the constructor is its value.
 
         literal, after = _read_value(mask, text, j, end)
         out.append((".".join(path[1:] + [key]), literal, src.line(i)))
@@ -307,14 +326,31 @@ def parse_defaults_table(src: Source, open_idx: int) -> list[tuple[str, str, int
     return out
 
 
+def defaults_prefix(var: str, subscripts: str) -> list[str] | None:
+    """Path components between the defaults table and the literal being read.
+
+    `defaults` is the root, so the components after it name the branch this
+    literal fills in. A `[expr]` subscript is a key chosen at runtime -- a bar
+    id, a profile name -- so it becomes the same `[]` placeholder the nested
+    walk already uses. Returns None when the target is not a defaults table.
+    """
+    parts = var.split(".")
+    root = next((i for i, p in enumerate(parts) if DEFAULTS_NAME.search(p)), None)
+    if root is None:
+        return None
+    return parts[root + 1 :] + ["[]"] * subscripts.count("[")
+
+
 def extract_settings(src: Source, module: str) -> list[dict]:
     rows: list[dict] = []
     for m in DEFAULTS_ASSIGN.finditer(src.mask):
         var = m.group(1)
-        if not DEFAULTS_NAME.search(var.split(".")[-1]):
+        prefix = defaults_prefix(var, m.group(2))
+        if prefix is None:
             continue
-        open_idx = src.mask.index("{", m.start())
-        for path, literal, line in parse_defaults_table(src, open_idx):
+        open_idx = m.end() - 1
+        for sub_path, literal, line in parse_defaults_table(src, open_idx):
+            path = ".".join(prefix + [sub_path])
             # Profiles are keyed under `profile` at the AceDB layer but read as
             # bare `p.key` at runtime -- index the name the code actually uses.
             key_path = path[len("profile.") :] if path.startswith("profile.") else path
@@ -327,7 +363,7 @@ def extract_settings(src: Source, module: str) -> list[dict]:
                     "store": "defaults",
                     "default": literal,
                     "module": module,
-                    "table": var,
+                    "table": var + m.group(2),
                     "file": src.rel,
                     "line": line,
                 }

@@ -263,3 +263,70 @@ def test_indistinguishable_definitions_state_that_instead_of_guessing():
     for row in rows.values():
         assert ("callers" in row) != ("caller_ambiguity" in row), row
     assert rows[("ModA/a.lua", "getValue")]["caller_ambiguity"] == 2
+
+
+def _settings(source: str, rel="ModA/a.lua", module="ModA"):
+    """Run settings extraction over one in-memory source."""
+    B = _eui_builder()
+    rows = B.extract_settings(B.Source(rel, source), module)
+    return {r["path"]: r for r in rows}
+
+
+def test_a_defaults_branch_filled_in_a_loop_is_still_indexed():
+    """Per-entry settings are declared once and shared by every entry.
+
+    EllesmereUI builds its per-bar namespace as one literal inside a `for`,
+    assigned through a runtime subscript. Matching only whole `defaults = {`
+    literals lost all ~89 of those keys -- including `alwaysShowButtons`, the
+    subject of a bug report -- while the index still reported 3,876 settings
+    and looked healthy. The runtime key becomes `[]`, as it does for any other
+    table keyed at runtime.
+    """
+    rows = _settings(
+        "local defaults = { profile = { scale = 1 } }\n"
+        "for _, info in ipairs(BAR_CONFIG) do\n"
+        "    defaults.profile.bars[info.key] = {\n"
+        "        alwaysShowButtons = true,\n"
+        "        clickThrough = false,\n"
+        "    }\n"
+        "end\n"
+    )
+    assert "bars.[].alwaysShowButtons" in rows
+    assert rows["bars.[].alwaysShowButtons"]["key"] == "alwaysShowButtons"
+    assert rows["bars.[].alwaysShowButtons"]["default"] == "true"
+    assert rows["bars.[].alwaysShowButtons"]["line"] == 4
+    assert "scale" in rows, "the plain form must keep working"
+
+
+def test_a_key_whose_value_is_a_positional_table_is_the_leaf():
+    """Descending finds no named key below it, so the key itself is recorded.
+
+    `gold = { 0.886, 0.675, 0.478 }` is a declared default with a real value.
+    Walking into it looking for named leaves finds none and drops the key.
+    """
+    rows = _settings(
+        "local ICON_DEFAULTS = {\n"
+        "    gold = { 0.886, 0.675, 0.478 },\n"
+        "    paging = {},\n"
+        "}\n"
+    )
+    assert rows["gold"]["default"] == "{ 0.886, 0.675, 0.478 }"
+    assert rows["paging"]["default"] == "{}"
+
+
+def test_an_array_of_named_tables_is_walked_not_collapsed():
+    """A table naming nothing at its own level can still name keys below it.
+
+    `bars = { { key = "cooldowns" } }` is the shape CooldownManager uses for
+    its default bars. Treating "no named key at this level" as "no leaf below"
+    collapsed 153 real records into one.
+    """
+    rows = _settings(
+        "local DEFAULTS = {\n"
+        "    bars = {\n"
+        '        { key = "cooldowns", iconSize = 42 },\n'
+        "    },\n"
+        "}\n"
+    )
+    assert rows["bars.[].key"]["default"] == '"cooldowns"'
+    assert rows["bars.[].iconSize"]["default"] == "42"

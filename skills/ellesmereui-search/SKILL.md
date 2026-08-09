@@ -21,7 +21,7 @@ python3 <skill>/scripts/build_index.py --ensure
 library and Python 3.9+.
 
 It rebuilds only when the source actually changed (content hash of every indexed
-file, so it catches uncommitted edits too) and takes ~12 seconds from cold. Running
+file, so it catches uncommitted edits too) and takes ~16 seconds from cold. Running
 it costs nothing when the index is current, and skipping it risks acting on stale
 line numbers — this codebase changes fast.
 
@@ -88,6 +88,13 @@ declaration, and `path` gives the dotted position within it
 (`player.absorbCleanAlpha`) with the AceDB `profile.` prefix stripped, since runtime
 code reads bare `p.key`.
 
+A `[]` in the path is a key chosen at runtime, so the declaration is shared by
+every entry under it. `bars.[].alwaysShowButtons` is declared once and holds
+per bar; the `line` points at that single declaration, and the setting exists
+independently for bar 1 through bar 10. Most of what a bug report is about
+lives under a `[]` — `clickThrough`, `barVisibility`, `mouseoverEnabled` — so
+do not read the placeholder as "unresolved".
+
 **`store: "EllesmereUIDB"`** (or another SavedVariables global) — a suite-wide key
 written directly as `EllesmereUIDB.someKey`, with inline `or` / `~= false` fallbacks
 instead of a defaults table. `profiles`, `unlockAnchors`, `partyMode`, and `ppUIScale`
@@ -125,6 +132,24 @@ Grep the module's `_Options.lua` for the key rather than trusting the sample.
 
 `symbols.jsonl` and `slash.jsonl` are never truncated.
 
+## Starting from a UI label, not a key
+
+A bug report names what the user sees — "Always Show Buttons" — and the index
+is keyed by `alwaysShowButtons`. `locale.jsonl` does **not** bridge the two: it
+records `EllesmereUI.L()` call sites, and option labels are plain `text=`
+fields in a table-driven options row, so a label lookup there returns nothing.
+
+Grep the owning module's `_Options.lua` for the quoted label instead. The row
+that carries the label also carries the key, a couple of lines below it:
+
+```lua
+{ type="toggle", text="Always Show Buttons",
+  getValue=function()
+      local v = SGet("alwaysShowButtons")
+```
+
+One grep, and the report is now a key the index can answer. Do this first.
+
 ## What has no record at all
 
 A key is indexed only if it has a **declaration** — a defaults-table entry, or
@@ -134,6 +159,21 @@ about a dozen of these (`absorbAlpha`, `showAllEnemyBuffs`, `targetArrowStyle`,
 and similar). An empty result for a key you can see in the source means this,
 not a build failure — Grep it and read the fallback the caller supplies
 (`p.someKey or 40`), because that inline fallback *is* the effective default.
+
+Before concluding that, check you have the right key: `alwaysShow` and
+`alwaysShowButtons` are different settings in different modules, and a partial
+name matches the wrong one confidently. Grep the exact `"key":"<name>"`.
+
+## Reading a record
+
+Grep returns whole lines, so read them as they come. Do **not** pipe Grep into
+a JSON parser — a shell wrapper that annotates grep output turns every line
+into invalid JSON, and the decode error looks like a corrupt index. When a
+record is too wide to read comfortably, parse the file directly instead:
+
+```bash
+python3 -c 'import json;[print(json.dumps(json.loads(l),indent=1)) for l in open("<index>/settings.jsonl") if "\"key\":\"alwaysShowButtons\"" in l]'
+```
 
 ## Falling back to Grep
 

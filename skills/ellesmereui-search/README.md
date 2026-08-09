@@ -52,7 +52,7 @@ python3 scripts/build_index.py --ensure
 ```
 
 `--ensure` hashes the content of every indexed file and rebuilds only when something
-actually changed, so it is a no-op when current and ~12 seconds when not. It detects
+actually changed, so it is a no-op when current and ~16 seconds when not. It detects
 uncommitted working-tree edits, not just commits — which matters, since you are
 usually asking about code you just wrote.
 
@@ -73,6 +73,17 @@ Settings references are scoped to the declaring module, because short key names
 Each record carries a `refs_other_modules` count so a genuinely cross-module read is
 still visible.
 
+A defaults table is recognised whole (`local defaults = {`) or one branch at a time
+(`defaults.profile.bars[info.key] = {` inside a loop), because a per-entry namespace
+is declared once and shared by every entry. A runtime subscript becomes `[]` in the
+path, so `bars.[].alwaysShowButtons` reads as "declared once, holds per bar". The
+second form matters more than it looks: it holds most of what a bug report is about
+(`clickThrough`, `barVisibility`, `alwaysShowButtons`), and matching only the first
+form lost all of it while the index still reported 3,876 settings and looked healthy.
+A key whose value is a positional table — `gold = { 0.886, 0.675, 0.478 }`, `paging =
+{}` — is recorded as its own leaf, since there is no named key below it to record
+instead.
+
 Call sites are matched on the whole call expression, not the bare name. A method
 counts only `owner:Name(`, a field only `owner.Name(`, and a local only calls in
 its own file, since one Lua file is one chunk. Bare-name matching would report
@@ -91,9 +102,17 @@ averaged over 1402 candidates would read like an answer while being noise.
 fail differently: **precision** (every record lands on a line that actually contains
 what it claims — a wrong line number is worse than no index), **caps** (every truncated
 list carries its true length, so a sample can never be mistaken for a complete answer),
-and **recall** (every named function declaration has a record, which is how you notice
-an extractor regex silently losing coverage after the codebase adopts a new idiom). A
-clean run asserts 120,000+ record-to-source checks with zero named declarations missed.
+and **recall** (every named function declaration has a record, and every defaults table
+in the source produced records — which is how you notice an extractor regex silently
+losing coverage after the codebase adopts a new idiom). A clean run asserts 120,000+
+record-to-source checks with zero declarations missed.
+
+Recall is the axis that earns its keep, because losing coverage is invisible from the
+index alone: a lookup that returns nothing reads exactly like "this key does not
+exist". The defaults-table check finds a whole namespace going missing by re-deriving
+the tables from source with a line-oriented scan and requiring each one that names a
+key to have records. It found the per-bar namespace absent — ~89 keys, including the
+subject of an open bug report — from an index that otherwise passed every check.
 
 Caller records are checked on both axes, and the checks are worth the trouble: they
 caught `GetFFD(frame).refreshVerticalScroll()` being credited to a same-named local,
@@ -106,7 +125,10 @@ rather than merely restate the resolution rules.
 ## Limitations
 
 The index covers definitions and identifier references. It does not model
-`hooksecurefunc` targets, dynamically constructed key names, or table-driven config.
+`hooksecurefunc` targets, dynamically constructed key names, or table-driven config —
+which includes the options rows, so a user-visible label like "Always Show Buttons"
+has no record and cannot be looked up. Grep the module's `_Options.lua` for the label;
+the row that carries it also carries the key, and the key is what the index answers.
 Callers are recorded per definition, but this is not a call graph: a record names
 the lines that call a function, not the function that encloses each of those lines,
 so it answers "what breaks if I change this" and not "trace this path". Free-text
