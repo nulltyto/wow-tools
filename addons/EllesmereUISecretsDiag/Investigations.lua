@@ -1629,11 +1629,31 @@ end
 -------------------------------------------------------------------------------
 local chargeWatch = nil
 
--- The Cooldown Manager item frame showing this spell. It cannot be found by
--- searching: item:GetSpellID() returns a SECRET number to a tainted addon, so
--- matching it against the watched ID is exactly the comparison the secret
--- system forbids. Take the frame from the mouse instead -- pointing at an icon
--- is clean, unambiguous, and needs no ID at all.
+-- Find the item frame by asking each one for its spell ID. In COMBAT that read
+-- is a secret number and the comparison raises, which is why this is wrapped in
+-- pcall and treated as "no answer" rather than as an error -- but out of combat
+-- it is clean, and a watch started at the target dummy before pulling attaches
+-- on the first tick. Nothing here writes to a Blizzard frame.
+local function findCdmItem(spellID)
+    for _, name in ipairs({ "EssentialCooldownViewer", "UtilityCooldownViewer" }) do
+        local viewer = _G[name]
+        if viewer and viewer.GetChildren then
+            for _, item in ipairs({ viewer:GetChildren() }) do
+                if item.GetSpellID and item.GetCooldownID then
+                    -- Both the call and the compare go inside the pcall: either
+                    -- can raise once the value turns secret.
+                    local ok, hit = pcall(function() return item:GetSpellID() == spellID end)
+                    if ok and hit then return item, (item.GetName and item:GetName()) or name end
+                end
+            end
+        end
+    end
+end
+
+-- Fallback for when the ID read is already secret: take the frame from the
+-- mouse. This needs the icon to be mouse-enabled, which is not guaranteed --
+-- three capture attempts came back empty -- so it is the second choice now, not
+-- the first.
 local function pickCdmItem()
     local foci
     if GetMouseFoci then
@@ -1674,9 +1694,111 @@ end
 -- launder a secret -- it hands back a secret string, which then blows up in
 -- table.concat and string.format one call later. classify is the only safe
 -- stringifier here, and it reports a secret as the plain word SECRET.
+-- Latch the item frame the moment either route works, and keep retrying until
+-- then. The frame does not have to be found at start: the ID route needs the
+-- player out of combat and the mouse route needs a hover, so both can arrive
+-- mid-run. Once attached it is never re-resolved.
+-- IsDesaturated() stops answering once the texture has been written from a
+-- secret, so it cannot show who wins a contested icon. Watch the WRITES instead:
+-- a post-hook on SetDesaturated sees every caller, Blizzard's and every addon's,
+-- in order, and records what each one passed. The last write before a sample is
+-- what the icon is actually wearing.
+--
+-- Two textures get hooked, because the CDM item and EllesmereUI do not
+-- necessarily resolve the same object: GetIconTexture() returns self.Icon
+-- unconditionally, while EllesmereUI descends to frame.Icon.Icon when frame.Icon
+-- is not itself a texture. A write landing on the other one would otherwise be
+-- indistinguishable from no write at all.
+-- Each write also records WHERE it came from. Knowing that the last write was
+-- `false` says the icon is lit but not who lit it, and this file has 23 separate
+-- SetDesaturated call sites plus Blizzard's own -- so the value alone cannot
+-- close the question. debugstack gives the caller directly.
+local function writeOrigin()
+    if not debugstack then return "?" end
+    local ok, s = pcall(debugstack, 3, 4, 0)
+    if not ok then return "?" end
+    -- debugstack returns a SECRET string once execution is tainted, and indexing
+    -- one raises -- so this must be tested before any string method is reached,
+    -- not after. Field-confirmed 2026-08-09: it reads clean out of combat and
+    -- secret in it, so the census is a partial record by design.
+    if isSecret(s) then return "SECRET-STACK" end
+    if type(s) ~= "string" then return "?" end
+    -- Innermost frame that is not this probe: that is the actual writer.
+    -- The capture keeps the ".lua", so the skip must too. Comparing against a
+    -- bare "Investigations" never matched, and every write the stamp could not
+    -- name was reported as this file's own spy line instead of "blizzard?".
+    for file, line in s:gmatch("([%w_]+%.lua):(%d+)") do
+        if file ~= "Investigations.lua" then return file .. ":" .. line end
+    end
+    return "?"
+end
+
+local function armDesatSpy(w, item)
+    local seen = {}
+    w.srcCount = {}
+    w.ring = {}
+    local function watch(tex, tag)
+        if type(tex) ~= "table" or not tex.SetDesaturated or seen[tex] then return end
+        seen[tex] = true
+        w.texTags = (w.texTags and (w.texTags .. "+") or "") .. tag
+        hooksecurefunc(tex, "SetDesaturated", function(_, v)
+            local src = writeOrigin()
+            -- EllesmereUI stamps its own write sites into __euiZCStats.__last,
+            -- which survives where debugstack does not: it is a plain string set
+            -- by clean code, so it stays readable in combat. A write with no
+            -- fresh stamp came from outside EllesmereUI -- i.e. Blizzard.
+            local stats = _G.__euiZCStats
+            local stamp = stats and stats.__last
+            if stats then stats.__last = nil end
+            local who = stamp or (src ~= "SECRET-STACK" and src) or "blizzard?"
+            w.lastWrite = tag .. "=" .. classify(v)
+            w.lastSrc = who
+            w.writeCount = (w.writeCount or 0) + 1
+            -- Ordered tail: the LAST few writes, in sequence. Totals cannot show
+            -- that our true is followed by someone else's false, and only the
+            -- order distinguishes "we never wrote" from "we were overwritten".
+            --
+            -- READ IT WITH THE NESTING IN MIND, or it says the opposite of the
+            -- truth. This spy is a post-hook and it is registered LAST, so for any
+            -- write it runs after every EllesmereUI hook on the texture. When one
+            -- of those hooks answers a write with a write of its own, the inner
+            -- write completes -- and is recorded -- while the outer one is still
+            -- unwinding, so the reply is logged BEFORE the write it replies to.
+            -- A pair "ours=true, blizzard=false" therefore means Blizzard wrote
+            -- false and we corrected it to true, which is the fix working, not
+            -- losing. Misread twice on 2026-08-09. To get true call order the spy
+            -- has to wrap the method instead of post-hooking it.
+            local ring = w.ring
+            ring[#ring + 1] = who .. "=" .. classify(v)
+            while #ring > 6 do table.remove(ring, 1) end
+            local key = who .. " -> " .. classify(v)
+            w.srcCount[key] = (w.srcCount[key] or 0) + 1
+        end)
+    end
+    local icon = item.GetIconTexture and item:GetIconTexture() or nil
+    watch(icon, "icon")
+    -- The same descend EllesmereUI performs when resolving its own icon widget.
+    if icon and not icon.GetTexture and icon.Icon then watch(icon.Icon, "icon.Icon") end
+    return icon
+end
+
+local function attachCdmItem(w)
+    if w.item then return end
+    local item, label = findCdmItem(w.spellID)
+    local how = "spell ID"
+    if not item then item, label = pickCdmItem(); how = "mouse" end
+    if not item then return end
+    w.item = item
+    w.tex = armDesatSpy(w, item)
+    w.sig = nil                    -- force the next sample to print the new columns
+    outf("  attached to CDM item %s via %s at %.2fs", tostring(label), how, GetTime() - w.t0)
+    outf("  watching SetDesaturated on: %s", tostring(w.texTags or "NOTHING"))
+end
+
 local function chargeSample()
     local w = chargeWatch
     if not w then return end
+    attachCdmItem(w)
     local cd = C_Spell.GetSpellCooldown and C_Spell.GetSpellCooldown(w.spellID)
     local ch = C_Spell.GetSpellCharges and C_Spell.GetSpellCharges(w.spellID)
     local item = w.item
@@ -1687,34 +1809,82 @@ local function chargeSample()
     local actualCD   = classify(item and item.isOnActualCooldown)
     local fromCharge = classify(item and item.wasSetFromCharges)
     local desat      = classify(item and item.cooldownDesaturated)
+    -- What is actually on screen. cooldownDesaturated is only Blizzard's CACHED
+    -- intent; this is the value the texture is currently wearing, so it also
+    -- reflects whatever EllesmereUI's SetDesaturated hooks wrote afterwards --
+    -- which is the half of the fix that has to be verified.
+    local onScreen = "-"
+    if w.tex and w.tex.IsDesaturated then
+        local ok, v = pcall(w.tex.IsDesaturated, w.tex)
+        onScreen = ok and classify(v) or "ERR"
+    end
 
     -- Signature of the state, not of the clock. Durations are in it because a
     -- cooldown being REPLACED (recharge -> global) changes them, while ordinary
     -- ticking does not, so this prints a line per transition rather than per
     -- sample. A field that reads SECRET classifies to a constant and so drops
     -- out of the signature -- the clean fields have to carry the transitions.
+    -- The write count is in the signature so every SetDesaturated call prints a
+    -- line even when nothing else moved -- a contested icon is exactly a burst of
+    -- writes with no state change between them, and averaging that away would
+    -- hide the thing being looked for.
+    local lastWrite = w.lastWrite or "-"
     local sig = table.concat({
-        cdActive, cdOnGCD, chActive, actualCD, fromCharge, desat,
+        cdActive, cdOnGCD, chActive, actualCD, fromCharge, desat, onScreen,
+        lastWrite, tostring(w.writeCount or 0),
         classify(cd and cd.duration), classify(ch and ch.cooldownDuration),
     }, "/")
     if sig == w.sig then return end
     w.sig = sig
 
-    outf("%6.2f cd[active=%s gcd=%s left=%s dur=%s] ch[active=%s left=%s max=%s cur=%s] item[actualCD=%s fromCharges=%s desat=%s]",
+    outf("%6.2f cd[active=%s gcd=%s left=%s dur=%s] ch[active=%s left=%s max=%s cur=%s] item[actualCD=%s fromCharges=%s desat=%s] GREY=%s SET=%s x%d BY=%s\n         writes: %s",
         GetTime() - w.t0,
         cdActive, cdOnGCD,
         remain(cd and cd.startTime, cd and cd.duration), classify(cd and cd.duration),
         chActive,
         remain(ch and ch.cooldownStartTime, ch and ch.cooldownDuration),
         classify(ch and ch.maxCharges), classify(ch and ch.currentCharges),
-        actualCD, fromCharge, desat)
+        actualCD, fromCharge, desat, onScreen, lastWrite, w.writeCount or 0,
+        tostring(w.lastSrc or "-"),
+        (w.ring and #w.ring > 0) and table.concat(w.ring, " ") or "-")
+end
+
+-- Census of every SetDesaturated caller seen during the run, printed on stop.
+-- One glance says whether EllesmereUI wrote at all, and with what.
+local function reportDesatWriters(w)
+    -- Counters the Cooldown Manager's zero-charge pass keeps while its temporary
+    -- diagnostic is in place. This is the only view into WHY the pass declines:
+    -- the write census cannot show a write that never happened.
+    local zc = _G.__euiZCStats
+    if zc then
+        local keys = {}
+        for k in pairs(zc) do keys[#keys + 1] = k end
+        table.sort(keys)
+        emit("zero-charge pass counters (EllesmereUICdmHooks):")
+        for _, k in ipairs(keys) do outf("  %8d  %s", zc[k], k) end
+        _G.__euiZCStats = nil        -- reset so each run reads on its own
+    else
+        emit("zero-charge pass counters: ABSENT -- the hook never ran, or the")
+        emit("  Cooldown Manager build in game predates the diagnostic")
+    end
+    if not w.srcCount or not next(w.srcCount) then
+        emit("no SetDesaturated writes were seen at all")
+        return
+    end
+    local rows = {}
+    for key, n in pairs(w.srcCount) do rows[#rows + 1] = { key = key, n = n } end
+    table.sort(rows, function(a, b) return a.n > b.n end)
+    emit("SetDesaturated writers this run:")
+    for _, r in ipairs(rows) do outf("  %5d  %s", r.n, r.key) end
 end
 
 local function setChargeWatch(spellID)
     if chargeWatch then
         chargeWatch.ticker:Cancel()
+        local stopped = chargeWatch
         chargeWatch = nil
         emit("charge watch OFF")
+        reportDesatWriters(stopped)
         if not spellID then return end
     end
     if not spellID then
@@ -1726,20 +1896,18 @@ local function setChargeWatch(spellID)
         outf("charge watch: %d reports no charge data -- is it a charge spell?", spellID)
         return
     end
-    local item, label = pickCdmItem()
-    chargeWatch = { spellID = spellID, t0 = GetTime(), item = item }
+    chargeWatch = { spellID = spellID, t0 = GetTime() }
     -- 20 Hz: a global cooldown is 12+ samples wide, which is enough to place the
     -- flip inside it, and the emit-on-change gate keeps the log short.
     chargeWatch.ticker = C_Timer.NewTicker(0.05, chargeSample)
     outf("charge watch ON for %d (%s)", spellID,
         classify(C_Spell.GetSpellName and C_Spell.GetSpellName(spellID)))
-    if item then
-        outf("  CDM item taken from the mouse: %s", label)
-        outf("  item.isOnActualCooldown reads %s", classify(item.isOnActualCooldown))
-        outf("  item.wasSetFromCharges reads %s", classify(item.wasSetFromCharges))
+    attachCdmItem(chargeWatch)
+    if chargeWatch.item then
+        outf("  item.isOnActualCooldown reads %s", classify(chargeWatch.item.isOnActualCooldown))
+        outf("  item.wasSetFromCharges reads %s", classify(chargeWatch.item.wasSetFromCharges))
     else
-        emit("  no CDM item under the mouse -- the item[] columns will be nil.")
-        emit("  hover the icon in the Cooldown Manager and re-run to capture them.")
+        emit("  no CDM item yet -- still looking; it attaches on its own out of combat.")
     end
     emit("spend every charge, then press another ability just before the last one returns")
     chargeSample()
