@@ -5,15 +5,16 @@ Skills, tools, and scripts for World of Warcraft addon development with
 
 ## Skills
 
-| Skill | What it searches | Index |
-|---|---|---|
-| [`wow-api-search`](skills/wow-api-search/) | Blizzard's API: functions, events, enums, structures, and the exported interface code | Bundled JSON, committed to this repo |
-| [`ellesmereui-search`](skills/ellesmereui-search/) | The EllesmereUI addon suite's own source: symbols, settings keys, locale strings, events, slash commands | Built locally from your checkout, gitignored |
+| Skill | What it does |
+|---|---|
+| [`wow-api-search`](skills/wow-api-search/) | Searches Blizzard's API: functions, events, enums, structures, and the exported interface code. Bundled index, committed here. |
+| [`ellesmereui-search`](skills/ellesmereui-search/) | Searches the EllesmereUI addon suite's own source: symbols, settings keys, locale strings, events, slash commands. Index built locally from your checkout. |
+| [`ellesmereui-pr-check`](skills/ellesmereui-pr-check/) | Checks EllesmereUI changes against the code style rules in the addon's `CONTRIBUTING.md` before a PR goes up. Diff-scoped. |
 
-The two skills are companions. `wow-api-search` answers "what does this
-Blizzard API do" and "how does Blizzard implement this". `ellesmereui-search`
-answers "where does EllesmereUI define or read this". Each skill's own README
-documents its index format, scripts, and limitations.
+`wow-api-search` answers "what does this Blizzard API do" and "how does
+Blizzard implement this". `ellesmereui-search` answers "where does EllesmereUI
+define or read this". `ellesmereui-pr-check` answers "will this change survive
+review". Each skill's own README documents its format, scripts, and limitations.
 
 ## Install
 
@@ -22,8 +23,9 @@ directory:
 
 ```bash
 git clone git@github.com:nulltyto/wow-tools.git ~/Repos/wow-tools
-ln -s ~/Repos/wow-tools/skills/wow-api-search    ~/.claude/skills/wow-api-search
-ln -s ~/Repos/wow-tools/skills/ellesmereui-search ~/.claude/skills/ellesmereui-search
+for s in wow-api-search ellesmereui-search ellesmereui-pr-check; do
+  ln -s ~/Repos/wow-tools/skills/$s ~/.claude/skills/$s
+done
 ```
 
 Restart Claude Code. The symlinks mean `git pull` updates the live skills.
