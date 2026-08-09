@@ -1,0 +1,53 @@
+[project]
+name = "wow-tools"
+version = "0.1.0"
+description = "Skills, tools, and scripts for World of Warcraft addon development"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+
+# No runtime dependencies, and that is a deliberate constraint rather than an
+# accident. Every script under skills/ is stdlib-only so it can be run directly
+# by an agent harness that knows nothing about this project -- `python3 <skill>/
+# scripts/x.py` has to work from a bare clone, on a machine with no uv and no
+# virtualenv. uv is what makes development and testing reproducible; it is not
+# what makes the skills run.
+dependencies = []
+
+[project.scripts]
+wow-tools = "wow_tools.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wow_tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+# 3.9 is the floor the skill scripts actually need (Path.is_relative_to).
+target-version = "py39"
+line-length = 100
+extend-exclude = ["skills/*/references"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    # The skill scripts are written to be read as prose by an agent; long
+    # explanatory strings and regexes are not worth wrapping.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These predate the lint config and target 3.9 syntax deliberately.
+"skills/*/scripts/*.py" = ["UP"]

@@ -10,3 +10,6 @@ skills/ellesmereui-search/references/index/
 __pycache__/
 *.pyc
 .DS_Store
+
+# uv / local virtualenv
+.venv/
