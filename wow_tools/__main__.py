@@ -18,6 +18,7 @@ from a bare clone before anything is set up.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -316,6 +317,66 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_doctor(args) -> int:
+    """Answer "is what I am editing what the game loads".
+
+    `status` says where things are installed. This says whether an edit will
+    reach the game, which is a different question once an AddOns folder holds
+    a checkout of its own: a folder named after an installed addon, holding
+    that addon's `.toc`, reads exactly like the source and swallows edits in
+    silence. Nothing here writes anything.
+    """
+    game_addons, _ = addons_mod.discover()
+    if not game_addons:
+        print("No addons in this repository.")
+        return 0
+
+    directory, candidates = wow.resolve_addons_dir(getattr(args, "wow_addons", None))
+    dirs = [directory] if directory is not None else [c.addons for c in candidates]
+    dirs = [d for d in dirs if d is not None and d.is_dir()]
+    if not dirs:
+        print("No World of Warcraft AddOns folder found.")
+        print("Pass --wow-addons PATH, or set $WOW_ADDONS_DIR.")
+        return 1
+
+    problems = 0
+    for d in dirs:
+        print(f"{d}")
+        for addon in game_addons:
+            target = d / addon.name
+            if not target.is_symlink() and not target.exists():
+                print(f"  {addon.name}: not installed")
+                continue
+
+            try:
+                live = target.resolve()
+            except OSError:
+                live = target
+            if target.is_symlink() and not target.exists():
+                print(f"  {addon.name}: BROKEN LINK -> {os.readlink(target)}")
+                problems += 1
+                continue
+
+            mine = live == addon.path.resolve()
+            print(f"  {addon.name}: loads {live}")
+            if not mine:
+                print("    ^ that is NOT this repository's copy — edits here will not reach it")
+                problems += 1
+
+            for shadow in wow.find_shadow_copies(d, addon.name, live):
+                print(f"    shadow copy: {shadow}")
+                print("      nothing loads it; editing it changes nothing in game")
+                problems += 1
+
+    if problems:
+        print(f"\n{problems} problem(s). A shadow copy is safe to delete once you have "
+              "checked it holds nothing the live copy lacks:")
+        print("  diff -r <shadow> <live>")
+        return 1
+    print("\nEvery installed addon resolves into this repository, with nothing shadowing it.")
+    return 0
+
+
 def _run(args, uninstalling: bool) -> int:
     """Skills and addons are independent halves; either can be asked for alone."""
     skills_wanted = bool(args.harness or args.skills)
@@ -598,6 +659,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--project-root", type=Path, default=None)
     p_status.add_argument("--wow-addons", metavar="PATH", default=None)
     p_status.set_defaults(func=cmd_status)
+
+    p_doctor = sub.add_parser(
+        "doctor", help="check that an edit to an addon here reaches the game")
+    p_doctor.add_argument("--wow-addons", metavar="PATH", default=None)
+    p_doctor.set_defaults(func=cmd_doctor)
 
     return ap
 

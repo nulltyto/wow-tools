@@ -79,6 +79,7 @@ skills half, `--addons` only the addons half, and neither runs both.
 |---|---|
 | `list` | every skill, addon, harness, and WoW install found |
 | `status` | what is installed where right now |
+| `doctor` | whether an edit to an addon here reaches the game |
 | `install` | `--dry-run`, `--copy`, `--force`, `--scope user\|project` |
 | `uninstall` | removes only what this installer placed |
 
@@ -110,6 +111,24 @@ asks you to name one rather than picking. Retail is ordered first. A `.toc`
 dependency that is not in the same AddOns folder is reported after installing,
 because the client's response to a missing dependency is to load nothing and
 say nothing.
+
+### Shadow copies
+
+`status` says where things are installed. `doctor` answers the different
+question of whether an edit will reach the game:
+
+```bash
+python3 -m wow_tools doctor
+```
+
+It resolves each installed addon to the path the client actually loads, then
+looks for other folders under `AddOns` carrying the same `<name>/<name>.toc`.
+Such a folder reads exactly like the source and answers a `grep -rn` from the
+AddOns directory, but nothing loads it — so an edit changes nothing in game and
+reports no error. This happens whenever an addon checkout lives inside `AddOns`
+and keeps a copy of something that is separately symlinked at the top level,
+which is the normal state of affairs after moving an addon between repos. It
+cost a full debugging session before the check existed.
 
 ### Which harnesses
 

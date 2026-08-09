@@ -212,6 +212,52 @@ def resolve_addons_dir(explicit: str | Path | None = None) -> tuple[Path | None,
     return None, installs
 
 
+# How deep under AddOns to look for a duplicate of an addon that is already
+# installed. Two is enough for the case that matters -- a whole addon checkout
+# living inside AddOns, carrying its own copy of a folder that is separately
+# symlinked at the top level -- without walking a hundred unrelated addons.
+_SHADOW_DEPTH = 2
+
+
+def find_shadow_copies(addons_dir: Path, name: str, live: Path | None) -> list[Path]:
+    """Other directories under `addons_dir` that also look like the addon `name`.
+
+    The game loads exactly one path. Anything else carrying the same
+    `<name>/<name>.toc` is a decoy: it reads like the source, it answers a
+    `grep -rn` from the AddOns directory, and an edit to it changes nothing in
+    game and reports no error. That failure mode cost a whole debugging session
+    -- three rounds of "the fix did not take" against a copy nothing loads --
+    which is why it is worth a check rather than a note in a README.
+
+    `live` is the resolved path the game actually reads, and is excluded.
+    """
+    out: list[Path] = []
+    resolved_live = None
+    if live is not None:
+        try:
+            resolved_live = live.resolve()
+        except OSError:
+            resolved_live = live
+
+    for depth in range(1, _SHADOW_DEPTH + 1):
+        pattern = "*/" * depth + name
+        try:
+            candidates = sorted(addons_dir.glob(pattern))
+        except OSError:
+            continue
+        for candidate in candidates:
+            try:
+                if not (candidate / f"{name}.toc").is_file():
+                    continue
+                real = candidate.resolve()
+            except OSError:
+                continue
+            if real == resolved_live or real in [p.resolve() for p in out]:
+                continue
+            out.append(candidate)
+    return out
+
+
 def looks_like_addons_dir(path: Path) -> bool:
     """Whether `path` is plausibly an AddOns folder.
 

@@ -352,3 +352,89 @@ def test_harness_runs_clean(tmp_path):
     )
     assert r.returncode == 0, f"harness failed:\n{r.stdout[-3000:]}\n{r.stderr[-2000:]}"
     assert "ALL COMMANDS RAN CLEAN" in r.stdout
+
+
+# --------------------------------------------------------------------------
+#  doctor: is what I am editing what the game loads
+# --------------------------------------------------------------------------
+
+def _addons_dir_with(tmp_path, live_target: Path) -> Path:
+    flavor = make_install(tmp_path)
+    addons = flavor / "Interface" / "AddOns"
+    (addons / "EllesmereUISecretsDiag").symlink_to(live_target)
+    return addons
+
+
+def test_shadow_copy_under_a_checkout_is_found(tmp_path):
+    """The failure this exists for: an addon checkout living inside AddOns.
+
+    A folder named after an installed addon, holding that addon's .toc, reads
+    like the source and answers a grep from the AddOns directory -- but nothing
+    loads it, so an edit to it changes nothing and reports no error.
+    """
+    live = make_addon(tmp_path / "repo", "Widget")
+    flavor = make_install(tmp_path)
+    addons = flavor / "Interface" / "AddOns"
+    (addons / "Widget").symlink_to(live)
+    shadow = make_addon(addons / "SomeFork", "Widget")
+
+    found = wow.find_shadow_copies(addons, "Widget", live)
+    assert found == [shadow]
+
+
+def test_the_live_copy_is_never_reported_as_its_own_shadow(tmp_path):
+    """A checkout installed by path rather than by symlink is not a decoy."""
+    flavor = make_install(tmp_path)
+    addons = flavor / "Interface" / "AddOns"
+    live = make_addon(addons, "Widget")
+    assert wow.find_shadow_copies(addons, "Widget", live) == []
+
+
+def test_a_folder_without_the_toc_is_not_a_shadow(tmp_path):
+    """Name collisions are common; only a loadable duplicate can take an edit."""
+    live = make_addon(tmp_path / "repo", "Widget")
+    flavor = make_install(tmp_path)
+    addons = flavor / "Interface" / "AddOns"
+    (addons / "Widget").symlink_to(live)
+    (addons / "Other" / "Widget").mkdir(parents=True)
+    assert wow.find_shadow_copies(addons, "Widget", live) == []
+
+
+def test_doctor_passes_on_a_clean_install(tmp_path, monkeypatch, capsys):
+    from wow_tools import __main__ as cli
+
+    addons = _addons_dir_with(tmp_path, REPO / "addons" / "EllesmereUISecretsDiag")
+    monkeypatch.setenv("WOW_ADDONS_DIR", str(addons))
+    rc = cli.main(["doctor"])
+    assert rc == 0
+    assert "shadow copy" not in capsys.readouterr().out
+
+
+def test_doctor_fails_on_a_shadow_copy(tmp_path, monkeypatch, capsys):
+    from wow_tools import __main__ as cli
+
+    real = REPO / "addons" / "EllesmereUISecretsDiag"
+    addons = _addons_dir_with(tmp_path, real)
+    monkeypatch.setenv("WOW_ADDONS_DIR", str(addons))
+    decoy = addons / "SomeFork" / "EllesmereUISecretsDiag"
+    decoy.mkdir(parents=True)
+    (decoy / "EllesmereUISecretsDiag.toc").write_text("## Interface: 120000\n", encoding="utf-8")
+
+    rc = cli.main(["doctor"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "shadow copy" in out
+    assert str(decoy) in out
+
+
+def test_doctor_reports_an_addon_that_resolves_outside_this_repo(tmp_path, monkeypatch, capsys):
+    """The other half of the same question: the link is fine, the target is not ours."""
+    from wow_tools import __main__ as cli
+
+    elsewhere = make_addon(tmp_path / "elsewhere", "EllesmereUISecretsDiag")
+    addons = _addons_dir_with(tmp_path, elsewhere)
+    monkeypatch.setenv("WOW_ADDONS_DIR", str(addons))
+    rc = cli.main(["doctor"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "NOT this repository's copy" in out
