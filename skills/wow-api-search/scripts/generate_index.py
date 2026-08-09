@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-BUILDER_VERSION = 4
+BUILDER_VERSION = 5
 
 DOCS_SUBPATH = Path("Interface/AddOns/Blizzard_APIDocumentationGenerated")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "references" / "api_index.json"
@@ -97,13 +97,19 @@ def read_index_header(output_path):
 
 # Blizzard's own prose note on a function, event, structure or single field.
 # It carries semantics no type signature can: which event a field is only
-# trustworthy in, what a nil means, which category decides a duration. The
-# export writes it on one line, so a line-wise clause match is enough.
-DOC_CLAUSE = re.compile(r'Documentation\s*=\s*\{(.*)\}')
-DOC_STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')
+# trustworthy in, what a nil means, which category decides a duration.
+# Nearly every note is written on one line, but a lua string may carry a
+# `\` line continuation, so these span lines rather than stopping at the
+# first newline and losing the note.
+DOC_CLAUSE = re.compile(r'Documentation\s*=\s*\{(.*)\}', re.S)
+DOC_STRING = re.compile(r'"((?:[^"\\]|\\.)*)"', re.S)
 # An entry's own note sits at three tabs; a field's note is inline on the
 # field line at four, so anchoring keeps the two from being read as one.
-ENTRY_DOC = re.compile(r'^\t\t\tDocumentation\s*=\s*\{(.*)\}', re.M)
+# The close is pinned to the end of a line so a `}` inside the prose does
+# not end the clause early.
+ENTRY_DOC = re.compile(r'^\t\t\tDocumentation\s*=\s*\{.*?\}\s*,?[ \t]*$', re.M | re.S)
+# A lua string continued with a trailing backslash holds a real newline.
+DOC_CONTINUATION = re.compile(r'\\\r?\n')
 
 
 def parse_documentation(text):
@@ -111,7 +117,8 @@ def parse_documentation(text):
     m = DOC_CLAUSE.search(text)
     if not m:
         return []
-    return [sm.group(1).replace('\\"', '"').replace("\\\\", "\\")
+    return [DOC_CONTINUATION.sub("\n", sm.group(1))
+            .replace('\\"', '"').replace("\\\\", "\\")
             for sm in DOC_STRING.finditer(m.group(1))]
 
 
@@ -158,6 +165,12 @@ def parse_entry(text):
     if m:
         entry["type"] = m.group(1)
 
+    # A few functions carry their own Namespace, different from the system's
+    # (C_StringUtil inside Localization). It wins over the file-level one.
+    m = re.search(r'Namespace\s*=\s*"([^"]+)"', text)
+    if m:
+        entry["namespace"] = m.group(1)
+
     # Taint/secret restrictions on function arguments
     m = re.search(r'SecretArguments\s*=\s*"([^"]+)"', text)
     if m:
@@ -202,8 +215,11 @@ def parse_entry(text):
     if payload:
         entry["payload"] = payload
 
-    # Fields (for structures and enums)
-    fields = parse_sub_fields(text, "Fields")
+    # Fields (for structures and enums). A Constants table writes the same
+    # shape under a different key -- `Values = { { Name, Type, Value } }` --
+    # so reading Fields alone indexed all 55 of them empty, and a lookup for
+    # a constant such as GLOBAL_RECOVERY_CATEGORY found nothing at all.
+    fields = parse_sub_fields(text, "Fields") or parse_sub_fields(text, "Values")
     if fields:
         entry["fields"] = fields
 
@@ -215,6 +231,11 @@ FIELD_TYPE = re.compile(r'Type\s*=\s*"([^"]+)"')
 FIELD_INNER_TYPE = re.compile(r'InnerType\s*=\s*"([^"]+)"')
 FIELD_NILABLE = re.compile(r'Nilable\s*=\s*(true|false)')
 FIELD_ENUM_VALUE = re.compile(r'EnumValue\s*=\s*(-?\d+)')
+# A Constants member holds its value here. The lookbehind keeps EnumValue and
+# MaxValue out. Most are plain numbers, but ~35 are strings, booleans, hex, or
+# a reference to another constant, so the raw token is kept when it is not a
+# decimal number rather than dropping the member.
+FIELD_VALUE = re.compile(r'(?<![A-Za-z])Value\s*=\s*([^,}]+)')
 FIELD_MIXIN = re.compile(r'Mixin\s*=\s*"([^"]+)"')
 FIELD_DEFAULT = re.compile(r'Default\s*=\s*([^,}\s]+)')
 # Blizzard marks the fields a tainted addon may read in restricted combat. It is
@@ -256,6 +277,17 @@ def parse_sub_fields(text, field_name):
         em = FIELD_ENUM_VALUE.search(rest)
         if em:
             field["enum_value"] = int(em.group(1))
+        else:
+            vm = FIELD_VALUE.search(rest)
+            if vm:
+                raw = vm.group(1).strip()
+                try:
+                    field["value"] = int(raw, 0)
+                except ValueError:
+                    try:
+                        field["value"] = float(raw)
+                    except ValueError:
+                        field["value"] = raw.strip('"')
 
         mm = FIELD_MIXIN.search(rest)
         if mm:
@@ -285,13 +317,21 @@ def parse_doc_file(filepath):
 
     system = {}
 
-    # System name
-    m = re.search(r'Name\s*=\s*"([^"]+)"', text)
+    # System name and namespace. Both sit at one tab; an entry's own Name sits
+    # at three. 207 of the 592 export files (every *Constants and *Shared one)
+    # declare no system Name, so an unanchored search there fell through to the
+    # first table's name and stamped it on every entry in the file -- which is
+    # how SpellCooldownConsts came to report itself as ConfirmationPromptUIType.
+    # The variable handed to AddDocumentationTable is the reliable fallback.
+    m = re.search(r'^\tName\s*=\s*"([^"]+)"', text, re.M)
     if m:
         system["name"] = m.group(1)
+    else:
+        m = re.search(r'AddDocumentationTable\((\w+)\)', text)
+        if m:
+            system["name"] = m.group(1)
 
-    # Namespace
-    m = re.search(r'Namespace\s*=\s*"([^"]+)"', text)
+    m = re.search(r'^\tNamespace\s*=\s*"([^"]+)"', text, re.M)
     if m:
         system["namespace"] = m.group(1)
 
@@ -348,19 +388,27 @@ def build_index(docs_dir):
         # recognized as preconditions.
         file_predicates = {p["name"] for p in system["predicates"]}
         for pred in system["predicates"]:
-            add_entry(predicate_lookup, pred["name"], {
+            pred_entry = {
                 "system": sys_name,
                 "file": system["file"],
                 "failure_mode": pred.get("failure_mode", ""),
-            })
+            }
+            # A predicate's note says what the restriction actually is --
+            # which unit tokens may be compared, what "declassified" means.
+            # The failure mode alone says only that a call went wrong.
+            if pred.get("documentation"):
+                pred_entry["documentation"] = pred["documentation"]
+            add_entry(predicate_lookup, pred["name"], pred_entry)
 
         for func in system["functions"]:
             fname = func["name"]
-            # Build the qualified name (e.g., C_Map.GetMapInfo)
-            qualified = f"{ns}.{fname}" if ns else fname
+            # Build the qualified name (e.g., C_Map.GetMapInfo). A function
+            # that declares its own namespace overrides the file's.
+            fns = func.get("namespace", ns)
+            qualified = f"{fns}.{fname}" if fns else fname
             entry = {
                 "system": sys_name,
-                "namespace": ns,
+                "namespace": fns,
                 "qualified_name": qualified,
                 "file": system["file"],
                 "arguments": func.get("arguments", []),
@@ -401,6 +449,11 @@ def build_index(docs_dir):
                 "type": tbl.get("type", ""),
                 "fields": tbl.get("fields", []),
             }
+            # A CallbackType declares its signature under Arguments rather than
+            # Fields. Dropping it left 13 callback types indexed as empty, and
+            # the signature is the whole reason to look one up.
+            if tbl.get("arguments"):
+                entry["arguments"] = tbl["arguments"]
             if tbl.get("documentation"):
                 entry["documentation"] = tbl["documentation"]
             add_entry(table_lookup, tbl["name"], entry)
