@@ -166,3 +166,100 @@ def test_table_systems_are_not_a_sibling_table_name():
         if system in {n for n, _ in entries}
     ]
     assert not wrong, f"tables whose system names a sibling table: {wrong[:5]}"
+
+
+def _eui_builder():
+    """The EllesmereUI builder, loaded from its script path.
+
+    The index it produces is a gitignored build artifact, so these tests drive
+    the extractor over fabricated sources instead of a checkout.
+    """
+    import importlib.util
+
+    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "build_index.py"
+    spec = importlib.util.spec_from_file_location("eui_build_index", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _callers(files: dict[str, str], modules=("ModA", "ModB")):
+    """Run symbol extraction and caller resolution over in-memory sources."""
+    B = _eui_builder()
+    sources = [B.Source(rel, text) for rel, text in files.items()]
+    symbols = []
+    for src in sources:
+        symbols.extend(B.extract_symbols(src, B.module_of(src.rel, list(modules))))
+    B.collect_callers(sources, symbols, list(modules))
+    return {(r["file"], r["full"]): r for r in symbols}
+
+
+def test_callers_follow_the_receiver_not_the_bare_name():
+    """A call is credited only when the receiver matches the definition.
+
+    EllesmereUI defines names Blizzard's frame API also uses, so matching the
+    bare name reported 6836 callers of `SetPoint`, nearly every one of them a
+    Blizzard frame the addon merely positions.
+    """
+    rows = _callers({
+        "ModA/a.lua": (
+            "function Skin:SetPoint(x)\n"
+            "end\n"
+            "Skin:SetPoint(1)\n"
+            "someFrame:SetPoint('TOP')\n"
+            "local f = CreateFrame('Frame')\n"
+            "f:SetPoint('LEFT')\n"
+        ),
+    })
+    row = rows[("ModA/a.lua", "Skin:SetPoint")]
+    assert row["callers"] == ["ModA/a.lua:3"], row["callers"]
+    assert row["caller_count"] == 1
+
+
+def test_a_call_through_an_expression_is_not_a_local_call():
+    """`GetFFD(frame).refresh()` calls a table field, not a same-named local.
+
+    A receiver that is itself a call does not match the identifier pattern, so
+    the call arrives looking unqualified. Crediting it to the local produced a
+    confident, wrong edge -- the index validator is what caught it.
+    """
+    rows = _callers({
+        "ModA/a.lua": (
+            "local function refresh()\n"
+            "end\n"
+            "refresh()\n"
+            "if GetFFD(frame).refresh then GetFFD(frame).refresh() end\n"
+        ),
+    })
+    row = rows[("ModA/a.lua", "refresh")]
+    assert row["callers"] == ["ModA/a.lua:3"], row["callers"]
+
+
+def test_module_local_tables_do_not_share_one_namespace():
+    """Each addon folder declares its own `ns`, so `ns.Foo` is per module."""
+    rows = _callers({
+        "ModA/a.lua": "local _, ns = ...\nfunction ns.Refresh()\nend\nns.Refresh()\n",
+        "ModB/b.lua": "local _, ns = ...\nfunction ns.Refresh()\nend\nns.Refresh()\n",
+    })
+    a = rows[("ModA/a.lua", "ns.Refresh")]
+    b = rows[("ModB/b.lua", "ns.Refresh")]
+    assert "caller_ambiguity" not in a and "caller_ambiguity" not in b
+    assert a["callers"] == ["ModA/a.lua:4"]
+    assert b["callers"] == ["ModB/b.lua:4"]
+
+
+def test_indistinguishable_definitions_state_that_instead_of_guessing():
+    """Ambiguity is reported, never averaged into a list.
+
+    The options files declare 1402 callbacks named `getValue`. A list spread
+    over all of them reads like an answer while being noise, so those rows
+    carry the count of competing definitions and no sites. Every row states
+    exactly one of the two.
+    """
+    rows = _callers({
+        "ModA/a.lua": "getValue = function(info)\nend\n",
+        "ModA/b.lua": "getValue = function(info)\nend\ngetValue(1)\n",
+    })
+    for row in rows.values():
+        assert ("callers" in row) != ("caller_ambiguity" in row), row
+    assert rows[("ModA/a.lua", "getValue")]["caller_ambiguity"] == 2

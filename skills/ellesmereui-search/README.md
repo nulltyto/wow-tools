@@ -20,7 +20,7 @@ record:
 
 | File | Contents |
 |---|---|
-| `symbols.jsonl` | Every function definition — `ns.Foo`, `EllesmereUI.Foo`, `obj:Method`, locals, globals — with params, module, file, line |
+| `symbols.jsonl` | Every function definition — `ns.Foo`, `EllesmereUI.Foo`, `obj:Method`, locals, globals — with params, module, file, line, and the sites that call it |
 | `settings.jsonl` | Every key in every `defaults`/`DEFAULTS` table, with its literal default, dotted path, in-module read sites, and which `_Options.lua` line builds its UI control — plus the suite-wide keys written straight onto `EllesmereUIDB`, which have no defaults table at all |
 | `locale.jsonl` | Every `EllesmereUI.L()` / `.Lf()` key with all call sites |
 | `events.jsonl` | Every `RegisterEvent` / `RegisterUnitEvent` name with registration sites |
@@ -52,7 +52,7 @@ python3 scripts/build_index.py --ensure
 ```
 
 `--ensure` hashes the content of every indexed file and rebuilds only when something
-actually changed, so it is a no-op when current and ~3 seconds when not. It detects
+actually changed, so it is a no-op when current and ~12 seconds when not. It detects
 uncommitted working-tree edits, not just commits — which matters, since you are
 usually asking about code you just wrote.
 
@@ -73,21 +73,45 @@ Settings references are scoped to the declaring module, because short key names
 Each record carries a `refs_other_modules` count so a genuinely cross-module read is
 still visible.
 
+Call sites are matched on the whole call expression, not the bare name. A method
+counts only `owner:Name(`, a field only `owner.Name(`, and a local only calls in
+its own file, since one Lua file is one chunk. Bare-name matching would report
+6836 callers of `SetPoint` — almost every one of them a Blizzard frame, none of
+them the addon's own function. Fields on a module-local table (`ns.Foo`, the
+common case) are scoped per module, because every addon folder declares its own
+`ns` and two modules' `ns.Foo` are unrelated.
+
+Where a definition cannot be told apart from others called the same way, the
+record says so — `caller_ambiguity: N` — and gives no list. That covers 46% of
+definitions, nearly all of them AceConfig option callbacks: 1402 functions named
+`getValue`, invoked by the config library rather than by name. A caller list
+averaged over 1402 candidates would read like an answer while being noise.
+
 `scripts/validate_index.py` checks the built index against the source on three axes that
 fail differently: **precision** (every record lands on a line that actually contains
 what it claims — a wrong line number is worse than no index), **caps** (every truncated
 list carries its true length, so a sample can never be mistaken for a complete answer),
 and **recall** (every named function declaration has a record, which is how you notice
 an extractor regex silently losing coverage after the codebase adopts a new idiom). A
-clean run asserts 90,000+ record-to-source checks with zero named declarations missed.
+clean run asserts 120,000+ record-to-source checks with zero named declarations missed.
+
+Caller records are checked on both axes, and the checks are worth the trouble: they
+caught `GetFFD(frame).refreshVerticalScroll()` being credited to a same-named local,
+because a receiver that is itself a call does not look like a receiver. Precision
+rebuilds the expected call expression from each record's own fields and requires the
+cited line to contain it. Recall re-counts call sites for every file-local — the one
+class whose scope is exactly a file, so a second implementation must agree exactly
+rather than merely restate the resolution rules.
 
 ## Limitations
 
 The index covers definitions and identifier references. It does not model
-`hooksecurefunc` targets, dynamically constructed key names, or table-driven config,
-and it is not a call graph — it finds where a function is *defined*, not everywhere
-it is called. Free-text search (comments, user-facing strings) is still a grep job.
-The skill says as much, and falls back accordingly.
+`hooksecurefunc` targets, dynamically constructed key names, or table-driven config.
+Callers are recorded per definition, but this is not a call graph: a record names
+the lines that call a function, not the function that encloses each of those lines,
+so it answers "what breaks if I change this" and not "trace this path". Free-text
+search (comments, user-facing strings) is still a grep job. The skill says as much,
+and falls back accordingly.
 
 ## Attribution
 

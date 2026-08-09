@@ -21,7 +21,7 @@ python3 <skill>/scripts/build_index.py --ensure
 library and Python 3.9+.
 
 It rebuilds only when the source actually changed (content hash of every indexed
-file, so it catches uncommitted edits too) and takes ~3 seconds from cold. Running
+file, so it catches uncommitted edits too) and takes ~12 seconds from cold. Running
 it costs nothing when the index is current, and skipping it risks acting on stale
 line numbers — this codebase changes fast.
 
@@ -36,7 +36,7 @@ current counts, the git commit it was built from, and the addon root path.
 
 | File | Grep for | Record fields |
 |---|---|---|
-| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` |
+| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `callers` `caller_count` *or* `caller_ambiguity` |
 | `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by` |
 | `locale.jsonl` | `"key":"Enable Nameplates"` | `key` `count` `sites` |
 | `events.jsonl` | `"event":"UNIT_HEALTH"` | `event` `count` `sites` |
@@ -47,6 +47,34 @@ Look up symbols by their **unqualified** name — `ApplyCastBarTexture`, not
 `ns.ApplyCastBarTexture`. `kind` is `field` (`ns.Foo`, `EllesmereUI.Foo`), `method`
 (`obj:Foo`), `local`, or `global`; `owner` holds the qualifier. The same name is
 often defined in several modules — check `module` before opening a file.
+
+## Who calls this — `callers`
+
+Each symbol carries the sites that call it, so "what breaks if I change this
+signature" is one grep, not a tree-wide search. A record states **one of two
+things, never both**:
+
+- **`callers` + `caller_count`** — the call sites, as `file:line`. Capped at 40;
+  compare the count against the list, as everywhere else in this index.
+- **`caller_ambiguity: N`** — this definition could not be told apart from N−1
+  others called the same way, so no list is given. Grep instead.
+
+`caller_count: 0` with an empty `callers` is a real answer, not a gap: nothing in
+the addon calls it by name. Before calling it dead, remember what the index
+cannot see — a handler reached through `hooksecurefunc`, a name assembled at
+runtime, or a function stored in a table and invoked from there.
+
+About 46% of definitions are ambiguous, and that is mostly one idiom: the options
+files declare thousands of `get = function(info)` / `getValue = function(info)`
+callbacks, 1402 sharing a single name. AceConfig invokes those, never addon code,
+so the missing list costs nothing.
+
+Attribution follows the receiver, not the bare name. A `method` matches only
+`owner:Name(` (plus `self:Name(` inside its own file), a `field` only
+`owner.Name(`, and a `local` only its own file, since one file is one Lua chunk.
+Without that, `SetPoint` would report 6836 callers, nearly all of them Blizzard
+frames. A `field` on a module-local table — `ns.Foo`, the usual case — is scoped
+to its own module, because each addon folder has its own `ns`.
 
 ## Settings keys
 
@@ -87,6 +115,7 @@ answering "where is this used".** A list at its cap is a sample, not an answer.
 |---|---|---|
 | `settings.refs` | 60 | `ref_count` |
 | `settings.options_refs` | 10 | `options_ref_count` |
+| `symbols.callers` | 40 | `caller_count` |
 | `events.sites` | 40 | `count` |
 | `locale.sites` | 40 | `count` |
 
@@ -109,9 +138,10 @@ not a build failure — Grep it and read the fallback the caller supplies
 ## Falling back to Grep
 
 The index covers *definitions and identifier references*. Go straight to Grep for
-free text (comments, user-facing strings, error messages), for call sites of a
-function rather than its definition, and for anything the extractors don't model —
-`hooksecurefunc` targets, dynamically built key names, table-driven config.
+free text (comments, user-facing strings, error messages), for the call sites of
+any symbol carrying `caller_ambiguity`, and for anything the extractors don't
+model — `hooksecurefunc` targets, dynamically built key names, table-driven
+config, and any function invoked through a table rather than by name.
 
 Treat the index as the fast way to find the right file and line, then read the
 source. It is a navigation aid, not a substitute for reading the code.
@@ -137,7 +167,8 @@ when stale; `--force` always rebuilds. The index is a build artifact and is
 gitignored — it is derived entirely from the addon checkout.
 
 `scripts/validate_index.py` checks the built index against the source: that every
-record lands on the line it names, that every capped list carries its true length,
+record lands on the line it names, that every cited caller line really calls that
+definition through that receiver, that every capped list carries its true length,
 and that no named function declaration is missing. Run it after changing an
 extractor, or after a refactor big enough to want proof the index still sees
 everything.

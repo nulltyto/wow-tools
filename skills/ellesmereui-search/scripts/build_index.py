@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 2
+BUILDER_VERSION = 3
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -428,6 +428,153 @@ def collect_refs(
 
 
 # --------------------------------------------------------------------------
+#  Call sites
+# --------------------------------------------------------------------------
+
+# A call expression, with the receiver captured when there is one. Run against
+# the mask, so calls in comments and strings never count.
+CALL = re.compile(r"(?:([A-Za-z_][\w.]*)[ \t]*([.:])[ \t]*)?([A-Za-z_]\w*)[ \t]*\(")
+
+# `local A, B = ...` -- the declaration list stops at the `=`.
+LOCAL_DECL = re.compile(r"^[ \t]*local[ \t]+([A-Za-z_][\w, \t]*)", re.M)
+IDENT = re.compile(r"^[A-Za-z_]\w*$")
+
+CALLER_CAP = 40
+
+
+def file_local_names(src: Source) -> set[str]:
+    """Names this file declares with `local`, one chunk's worth of scope."""
+    names: set[str] = set()
+    for m in LOCAL_DECL.finditer(src.mask):
+        for part in m.group(1).split(","):
+            part = part.strip()
+            if IDENT.match(part):
+                names.add(part)
+    return names
+
+
+def owner_root(owner: str) -> str:
+    return owner.split(".")[0].split(":")[0]
+
+
+def call_key(row: dict, module_scoped: bool) -> tuple:
+    """The expression shape a definition is actually called through.
+
+    Matching on the bare name alone is worthless here: EllesmereUI defines a
+    handful of names that Blizzard's frame API also uses, so `SetPoint` reads
+    as 6836 callers when almost every one of them is `someFrame:SetPoint`.
+    Requiring the receiver to match cuts that to four.
+
+    `module_scoped` marks a receiver that is a file-local rather than a global
+    -- overwhelmingly `ns`, from the `local addonName, ns = ...` idiom every
+    addon folder uses. Those tables are per-addon, so two modules' `ns.Foo`
+    are unrelated functions and must not share one key.
+    """
+    if row["kind"] == "method":
+        base = (row["owner"], ":", row["name"])
+    elif row["kind"] == "field":
+        base = (row["owner"], ".", row["name"])
+    elif row["kind"] == "local":
+        # A Lua local is chunk-scoped, and one file is one chunk, so both the
+        # definition and every caller are in this file. That makes locals the
+        # most reliable class in the index.
+        return ("<local>", row["file"], row["name"])
+    else:
+        return ("<global>", row["name"])
+    return base + (row["module"],) if module_scoped else base
+
+
+def collect_callers(
+    sources: list[Source], symbols: list[dict], module_names: list[str]
+) -> None:
+    """Attach `callers`/`caller_count`, or `caller_ambiguity`, to each symbol.
+
+    A caller list is written only when the call key belongs to exactly one
+    definition. Roughly half of this codebase's definitions are option-table
+    callbacks -- `getValue = function(info)` and friends, 1402 of them sharing
+    one name -- and a list spread over 1402 identical keys says nothing while
+    reading like an answer. Those rows carry the count of competing
+    definitions instead, which is the signal to grep.
+    """
+    locals_by_file = {src.rel: file_local_names(src) for src in sources}
+    module_by_file = {
+        src.rel: module_of(src.rel, module_names) for src in sources
+    }
+
+    def scoped(row: dict) -> bool:
+        return row["kind"] in ("field", "method") and owner_root(
+            row["owner"]
+        ) in locals_by_file.get(row["file"], ())
+
+    by_key: dict[tuple, int] = {}
+    for row in symbols:
+        k = call_key(row, scoped(row))
+        by_key[k] = by_key.get(k, 0) + 1
+
+    # Files declaring a local of a name: a global of that name is shadowed
+    # there, so calls in those files belong to the local, not the global.
+    shadowed: dict[str, set[str]] = {}
+    for row in symbols:
+        if row["kind"] == "local":
+            shadowed.setdefault(row["name"], set()).add(row["file"])
+
+    qualified: dict[tuple, list[tuple[str, int]]] = {}
+    plain: dict[str, list[tuple[str, int]]] = {}
+    for src in sources:
+        for m in CALL.finditer(src.mask):
+            recv, sep, short = m.group(1), m.group(2), m.group(3)
+            if not recv and src.mask[m.start(3) - 1 : m.start(3)] in (".", ":"):
+                # A receiver that is itself an expression -- `GetFFD(f).method()`
+                # -- does not match the identifier pattern, so the call arrives
+                # here looking unqualified. It is not: this is a table field,
+                # and crediting it to a same-named local is a plain false edge.
+                continue
+            site = (src.rel, src.line(m.start(3)))
+            if recv:
+                qualified.setdefault((recv, sep, short), []).append(site)
+            else:
+                plain.setdefault(short, []).append(site)
+
+    for row in symbols:
+        in_module = scoped(row)
+        key = call_key(row, in_module)
+        if by_key[key] > 1:
+            row["caller_ambiguity"] = by_key[key]
+            continue
+        kind = row["kind"]
+        if kind == "method":
+            sites = list(qualified.get((row["owner"], ":", row["name"]), []))
+            # `self:Foo()` resolves to the owner only inside the file that
+            # defines the method; across files the receiver is unknowable.
+            sites += [
+                s
+                for s in qualified.get(("self", ":", row["name"]), [])
+                if s[0] == row["file"]
+            ]
+        elif kind == "field":
+            sites = list(qualified.get((row["owner"], ".", row["name"]), []))
+        elif kind == "local":
+            sites = [s for s in plain.get(row["name"], []) if s[0] == row["file"]]
+        else:
+            skip = shadowed.get(row["name"], ())
+            sites = [s for s in plain.get(row["name"], []) if s[0] not in skip]
+
+        if in_module:
+            # The receiver is this module's own table; a same-named table in
+            # another module is a different object.
+            sites = [s for s in sites if module_by_file.get(s[0]) == row["module"]]
+
+        # `local function Foo(` reads as a call to Foo; nothing else does, so
+        # only this row's own declaration line is excluded. Dropping every
+        # declaration line would lose a real call that shares a line with an
+        # unrelated definition.
+        own = (row["file"], row["line"])
+        hits = sorted({f"{f}:{n}" for f, n in sites if (f, n) != own})
+        row["callers"] = hits[:CALLER_CAP]
+        row["caller_count"] = len(hits)
+
+
+# --------------------------------------------------------------------------
 #  TOC parsing / module discovery
 # --------------------------------------------------------------------------
 
@@ -632,6 +779,8 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
                 }
             )
 
+    collect_callers(sources, symbols, module_names)
+
     # Cross-reference settings keys against every indexed file.
     keyset = {row["key"] for row in settings}
     refs = collect_refs(sources, keyset, module_names)
@@ -734,6 +883,13 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
             "lua_lines": sum(lines_by_file.values()),
             "lua_bytes": n_bytes,
             "symbols": len(symbols),
+            "call_edges": sum(r.get("caller_count", 0) for r in symbols),
+            "symbols_without_callers": sum(
+                1 for r in symbols if r.get("caller_count") == 0
+            ),
+            "symbols_ambiguous_callers": sum(
+                1 for r in symbols if "caller_ambiguity" in r
+            ),
             "settings": len(settings),
             "locale_keys": len(locale),
             "events": len(events),

@@ -33,6 +33,23 @@ from build_index import INDEX_DIR, iter_lua, mask_lua  # noqa: E402
 FUNCTION_KW = re.compile(r"\bfunction\b")
 ANON_FUNCTION = re.compile(r"\bfunction\s*\(")
 
+# Rebuilt from a symbol record, not shared with the builder, so a fault in the
+# builder's own pattern cannot validate itself.
+def caller_pattern(row: dict) -> re.Pattern:
+    name = re.escape(row["name"])
+    if row["kind"] == "method":
+        owner = re.escape(row["owner"])
+        return re.compile(rf"(?:{owner}|self)[ \t]*:[ \t]*{name}[ \t]*\(")
+    if row["kind"] == "field":
+        return re.compile(rf"{re.escape(row['owner'])}[ \t]*\.[ \t]*{name}[ \t]*\(")
+    return re.compile(rf"(?<![\w.:]){name}[ \t]*\(")
+
+
+# A bare `name(` call, with any receiver captured -- an independent
+# line-oriented scan, where the builder works from offsets into one masked
+# string for the whole file.
+CALL_ON_LINE = re.compile(r"([A-Za-z_][\w.]*[ \t]*[.:][ \t]*)?\b([A-Za-z_]\w*)[ \t]*\(")
+
 
 class Checker:
     def __init__(self, root: Path, verbose: bool):
@@ -118,6 +135,18 @@ def main() -> int:
     bad = [f"{s} does not contain {r['key']!r}" for r, s in pairs if r["key"] not in c.at(s)]
     c.report("settings refs", len(pairs), bad)
 
+    # A caller record claims more than a line number: it claims the line calls
+    # this definition through this receiver. Rebuild the expected expression
+    # from the record's own fields and require the cited line to contain it,
+    # which is what separates a real edge from a same-named function elsewhere.
+    symbols = load("symbols.jsonl")
+    pairs = [(r, s) for r in symbols for s in r.get("callers", [])]
+    bad = []
+    for r, s in pairs:
+        if not caller_pattern(r).search(c.at(s)):
+            bad.append(f"{s} does not call {r['full']!r}")
+    c.report("symbols callers", len(pairs), bad)
+
     modules = load("modules.jsonl")
     load_order = [(m["module"], f) for m in modules for f in m["load_order"]]
     bad = [f"{mod}: {f} listed in TOC but not on disk" for mod, f in load_order
@@ -148,8 +177,66 @@ def main() -> int:
                            f"< {len(r[field])} listed")
         c.report(f"{fname} {field}", len(rows), bad)
 
+    # Callers are capped the same way, and carry one extra invariant: a symbol
+    # states either a caller list or the number of definitions it could not be
+    # told apart from -- never both, and never neither. A row with no caller
+    # field at all would read as "nothing calls this", which is a different
+    # claim from "this name is ambiguous".
+    bad = []
+    for r in symbols:
+        has_list = "callers" in r
+        has_amb = "caller_ambiguity" in r
+        if has_list == has_amb:
+            bad.append(f"{r['file']}:{r['line']} {r['full']}: "
+                       f"callers={has_list} caller_ambiguity={has_amb}")
+        elif has_list:
+            if "caller_count" not in r:
+                bad.append(f"{r['file']}:{r['line']} {r['full']}: no caller_count")
+            elif len(r["callers"]) > 40:
+                bad.append(f"{r['file']}:{r['line']} {r['full']}: "
+                           f"{len(r['callers'])} callers exceeds its cap of 40")
+            elif r["caller_count"] < len(r["callers"]):
+                bad.append(f"{r['file']}:{r['line']} {r['full']}: caller_count="
+                           f"{r['caller_count']} < {len(r['callers'])} listed")
+        elif r["caller_ambiguity"] < 2:
+            bad.append(f"{r['file']}:{r['line']} {r['full']}: "
+                       f"caller_ambiguity={r['caller_ambiguity']} is not ambiguous")
+    c.report("symbols.jsonl callers", len(symbols), bad)
+
     print("\nRECALL -- every named declaration has a record")
-    indexed = {(r["file"], r["line"]) for r in load("symbols.jsonl")}
+
+    # Caller counts are checked on the one class whose scope is exactly known:
+    # a Lua local lives in one chunk, and one file is one chunk, so every call
+    # to it is in its own file and an independent per-file count must agree
+    # exactly. The other kinds depend on resolution rules a second
+    # implementation could only restate, so a disagreement there would prove
+    # nothing -- this class is where a scan regression actually shows up.
+    by_file: dict[str, list[dict]] = {}
+    for r in symbols:
+        if r["kind"] == "local" and "callers" in r:
+            by_file.setdefault(r["file"], []).append(r)
+    total = 0
+    bad = []
+    for rel, rows in by_file.items():
+        mask = mask_lua((root / rel).read_text(encoding="utf-8", errors="replace"))
+        # A record counts distinct call *lines*, so the scan must too -- two
+        # calls on one line are one citation.
+        seen: dict[str, set[int]] = {}
+        for lineno, line in enumerate(mask.splitlines(), 1):
+            for m in CALL_ON_LINE.finditer(line):
+                if m.group(1) or line[m.start(2) - 1 : m.start(2)] in (".", ":"):
+                    continue
+                seen.setdefault(m.group(2), set()).add(lineno)
+        for r in rows:
+            total += 1
+            # `local function Foo(` looks like a call to Foo on its own line.
+            expect = len(seen.get(r["name"], set()) - {r["line"]})
+            if expect != r["caller_count"]:
+                bad.append(f"{rel}:{r['line']} {r['name']}: index says "
+                           f"{r['caller_count']}, scan finds {expect}")
+    c.report("local caller counts", total, bad)
+
+    indexed = {(r["file"], r["line"]) for r in symbols}
     total = 0
     missed: list[str] = []
     for rel, path in iter_lua(root):
