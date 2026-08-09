@@ -1,0 +1,7478 @@
+{
+ "source": "CurseForge addon listing for WoW Retail, plus a supplement of major addons that do not publish there",
+ "own_addon": "EllesmereUI",
+ "counts": {
+  "addons": 514,
+  "tokens": 630,
+  "distinctive": 584,
+  "ambiguous": 32,
+  "library": 14
+ },
+ "addons": [
+  {
+   "name": "[IRF]Inven Raid Frame",
+   "title": "[IRF]Inven Raid Frame",
+   "author": "jws1624",
+   "tokens": [
+    "[IRF]Inven Raid Frame",
+    "IRFInvenRaidFrame"
+   ]
+  },
+  {
+   "name": "[OUTDATED] (Get new: MoveAny, ImproveAny)",
+   "title": "[OUTDATED]",
+   "author": "D4KiR",
+   "tokens": [
+    "[OUTDATED]",
+    "OUTDATED"
+   ]
+  },
+  {
+   "name": "Account Played",
+   "title": "Account Played",
+   "author": "shodo___",
+   "tokens": [
+    "Account Played",
+    "AccountPlayed"
+   ]
+  },
+  {
+   "name": "Ace3",
+   "title": "Ace3",
+   "author": "Kaelten",
+   "tokens": [
+    "Ace3"
+   ]
+  },
+  {
+   "name": "AceGUI-3.0: SFX Widgets",
+   "title": "AceGUI-3.0",
+   "author": "StormFX",
+   "tokens": [
+    "AceGUI-3.0",
+    "AceGUI30"
+   ]
+  },
+  {
+   "name": "AchievementsReminder",
+   "title": "AchievementsReminder",
+   "author": "wowguruaddons",
+   "tokens": [
+    "AchievementsReminder"
+   ]
+  },
+  {
+   "name": "Addon Control Panel",
+   "title": "Addon Control Panel",
+   "author": "lucifercatnip",
+   "tokens": [
+    "Addon Control Panel",
+    "AddonControlPanel"
+   ]
+  },
+  {
+   "name": "Adorable Raptor Hatchlings",
+   "title": "Adorable Raptor Hatchlings",
+   "author": "Taraezor",
+   "tokens": [
+    "Adorable Raptor Hatchlings",
+    "AdorableRaptorHatchlings"
+   ]
+  },
+  {
+   "name": "AdvancedInterfaceOptions",
+   "title": "AdvancedInterfaceOptions",
+   "author": "Stanzilla",
+   "tokens": [
+    "AdvancedInterfaceOptions"
+   ]
+  },
+  {
+   "name": "ALL THE THINGS",
+   "title": "ALL THE THINGS",
+   "author": "Crieve",
+   "tokens": [
+    "ALL THE THINGS",
+    "ALLTHETHINGS"
+   ]
+  },
+  {
+   "name": "Already Known?",
+   "title": "Already Known",
+   "author": "ahak",
+   "tokens": [
+    "Already Known",
+    "AlreadyKnown"
+   ]
+  },
+  {
+   "name": "AlterEgo",
+   "title": "AlterEgo",
+   "author": "Liquidor",
+   "tokens": [
+    "AlterEgo"
+   ]
+  },
+  {
+   "name": "Altoholic",
+   "title": "Altoholic",
+   "author": "Thaoky",
+   "tokens": [
+    "Altoholic"
+   ]
+  },
+  {
+   "name": "Angleur - Fishing Extraordinaire",
+   "title": "Angleur",
+   "author": "Legolando",
+   "tokens": [
+    "Angleur"
+   ]
+  },
+  {
+   "name": "Angry Assignments",
+   "title": "Angry Assignments",
+   "author": "Ermads",
+   "tokens": [
+    "Angry Assignments",
+    "AngryAssignments"
+   ]
+  },
+  {
+   "name": "Angry Keystones",
+   "title": "Angry Keystones",
+   "author": "Ermads",
+   "tokens": [
+    "Angry Keystones",
+    "AngryKeystones"
+   ]
+  },
+  {
+   "name": "Arcana",
+   "title": "Arcana",
+   "author": "kiatra_",
+   "tokens": [
+    "Arcana"
+   ]
+  },
+  {
+   "name": "ArcHUD3",
+   "title": "ArcHUD3",
+   "author": "nyyyr",
+   "tokens": [
+    "ArcHUD3"
+   ]
+  },
+  {
+   "name": "ArcUI",
+   "title": "ArcUI",
+   "author": "ArcForge",
+   "tokens": [
+    "ArcUI"
+   ]
+  },
+  {
+   "name": "ArkInventory",
+   "title": "ArkInventory",
+   "author": "Arkayenro",
+   "tokens": [
+    "ArkInventory"
+   ]
+  },
+  {
+   "name": "Armory",
+   "title": "Armory",
+   "author": "Warmexx_",
+   "tokens": [
+    "Armory"
+   ]
+  },
+  {
+   "name": "AskMrRobot",
+   "title": "AskMrRobot",
+   "author": "yellowfive",
+   "tokens": [
+    "AskMrRobot"
+   ]
+  },
+  {
+   "name": "Astral Keys",
+   "title": "Astral Keys",
+   "author": "TerraQT",
+   "tokens": [
+    "Astral Keys",
+    "AstralKeys"
+   ]
+  },
+  {
+   "name": "Atlas (fork)",
+   "title": "Atlas",
+   "author": "nanderson11",
+   "tokens": [
+    "Atlas"
+   ]
+  },
+  {
+   "name": "AtlasQuest - Fan Update",
+   "title": "AtlasQuest",
+   "author": "nanderson11",
+   "tokens": [
+    "AtlasQuest"
+   ]
+  },
+  {
+   "name": "Auctionator",
+   "title": "Auctionator",
+   "author": "plusmouse",
+   "tokens": [
+    "Auctionator"
+   ]
+  },
+  {
+   "name": "Auto Keystone",
+   "title": "Auto Keystone",
+   "author": "HydraMods",
+   "tokens": [
+    "Auto Keystone",
+    "AutoKeystone"
+   ]
+  },
+  {
+   "name": "Auto Potion",
+   "title": "Auto Potion",
+   "author": "ollidiemaus",
+   "tokens": [
+    "Auto Potion",
+    "AutoPotion"
+   ]
+  },
+  {
+   "name": "Auto Seller",
+   "title": "Auto Seller",
+   "author": "Terciob",
+   "tokens": [
+    "Auto Seller",
+    "AutoSeller"
+   ]
+  },
+  {
+   "name": "AutoBar",
+   "title": "AutoBar",
+   "author": "MuffinManKen",
+   "tokens": [
+    "AutoBar"
+   ]
+  },
+  {
+   "name": "AutoRepair",
+   "title": "AutoRepair",
+   "author": "markyxl",
+   "tokens": [
+    "AutoRepair"
+   ]
+  },
+  {
+   "name": "AutoTurnIn",
+   "title": "AutoTurnIn",
+   "author": "Dobroff",
+   "tokens": [
+    "AutoTurnIn"
+   ]
+  },
+  {
+   "name": "AutoVendor",
+   "title": "AutoVendor",
+   "author": "olafskiii",
+   "tokens": [
+    "AutoVendor"
+   ]
+  },
+  {
+   "name": "AzeriteTooltip",
+   "title": "AzeriteTooltip",
+   "author": "jokair9",
+   "tokens": [
+    "AzeriteTooltip"
+   ]
+  },
+  {
+   "name": "Azeroth Pilot Reloaded",
+   "title": "Azeroth Pilot Reloaded",
+   "author": "Neoldric",
+   "tokens": [
+    "Azeroth Pilot Reloaded",
+    "AzerothPilotReloaded"
+   ]
+  },
+  {
+   "name": "BadBoy: Spam Blocker & Reporter",
+   "title": "BadBoy",
+   "author": "Funkeh",
+   "tokens": [
+    "BadBoy"
+   ]
+  },
+  {
+   "name": "BadBoy_CCleaner: Filter Crap From Chat",
+   "title": "BadBoy_CCleaner",
+   "author": "Funkeh",
+   "tokens": [
+    "BadBoy_CCleaner"
+   ]
+  },
+  {
+   "name": "BadBoy_Guilded: Block Guild Advertising",
+   "title": "BadBoy_Guilded",
+   "author": "Funkeh",
+   "tokens": [
+    "BadBoy_Guilded"
+   ]
+  },
+  {
+   "name": "BadBoy_Levels: Filter Whispers By Level",
+   "title": "BadBoy_Levels",
+   "author": "Funkeh",
+   "tokens": [
+    "BadBoy_Levels"
+   ]
+  },
+  {
+   "name": "Baganator",
+   "title": "Baganator",
+   "author": "plusmouse",
+   "tokens": [
+    "Baganator"
+   ]
+  },
+  {
+   "name": "BagBrother",
+   "title": "BagBrother",
+   "author": "jaliborc",
+   "tokens": [
+    "BagBrother"
+   ]
+  },
+  {
+   "name": "Baggins",
+   "title": "Baggins",
+   "author": "Doadin",
+   "tokens": [
+    "Baggins"
+   ]
+  },
+  {
+   "name": "Bagnon",
+   "title": "Bagnon",
+   "author": "jaliborc",
+   "tokens": [
+    "Bagnon"
+   ]
+  },
+  {
+   "name": "Bagnon BoE",
+   "title": "Bagnon BoE",
+   "author": "GoldpawForever",
+   "tokens": [
+    "Bagnon BoE",
+    "BagnonBoE"
+   ]
+  },
+  {
+   "name": "Bagnon Garbage",
+   "title": "Bagnon Garbage",
+   "author": "GoldpawForever",
+   "tokens": [
+    "Bagnon Garbage",
+    "BagnonGarbage"
+   ]
+  },
+  {
+   "name": "Bagnon ItemLevel",
+   "title": "Bagnon ItemLevel",
+   "author": "GoldpawForever",
+   "tokens": [
+    "Bagnon ItemLevel",
+    "BagnonItemLevel"
+   ]
+  },
+  {
+   "name": "Bagnon ItemLevel Plus",
+   "title": "Bagnon ItemLevel Plus",
+   "author": "GoldpawForever",
+   "tokens": [
+    "Bagnon ItemLevel Plus",
+    "BagnonItemLevelPlus"
+   ]
+  },
+  {
+   "name": "Bagnon Scrap",
+   "title": "Bagnon Scrap",
+   "author": "jaliborc",
+   "tokens": [
+    "Bagnon Scrap",
+    "BagnonScrap"
+   ]
+  },
+  {
+   "name": "Bagnonium (formely Combuctor)",
+   "title": "Bagnonium",
+   "author": "jaliborc",
+   "tokens": [
+    "Bagnonium"
+   ]
+  },
+  {
+   "name": "BagSync",
+   "title": "BagSync",
+   "author": "Xruptor",
+   "tokens": [
+    "BagSync"
+   ]
+  },
+  {
+   "name": "BankStack",
+   "title": "BankStack",
+   "author": "Kemayo",
+   "tokens": [
+    "BankStack"
+   ]
+  },
+  {
+   "name": "Bartender4",
+   "title": "Bartender4",
+   "author": "nevcairiel",
+   "tokens": [
+    "Bartender4"
+   ]
+  },
+  {
+   "name": "BasicChatMods",
+   "title": "BasicChatMods",
+   "author": "Funkeh",
+   "tokens": [
+    "BasicChatMods"
+   ]
+  },
+  {
+   "name": "BasicMinimap",
+   "title": "BasicMinimap",
+   "author": "Funkeh",
+   "tokens": [
+    "BasicMinimap"
+   ]
+  },
+  {
+   "name": "Battle Pet BreedID",
+   "title": "Battle Pet BreedID",
+   "author": "Simca",
+   "tokens": [
+    "Battle Pet BreedID",
+    "BattlePetBreedID"
+   ]
+  },
+  {
+   "name": "Battle Pet Completionist",
+   "title": "Battle Pet Completionist",
+   "author": "GurliGebis",
+   "tokens": [
+    "Battle Pet Completionist",
+    "BattlePetCompletionist"
+   ]
+  },
+  {
+   "name": "BattleGroundEnemies",
+   "title": "BattleGroundEnemies",
+   "author": "Fadelight",
+   "tokens": [
+    "BattleGroundEnemies"
+   ]
+  },
+  {
+   "name": "BattleGroundEnemiesFixed",
+   "title": "BattleGroundEnemiesFixed",
+   "author": "RBGDEV",
+   "tokens": [
+    "BattleGroundEnemiesFixed"
+   ]
+  },
+  {
+   "name": "Bazooka",
+   "title": "Bazooka",
+   "author": "mitchnull",
+   "tokens": [
+    "Bazooka"
+   ]
+  },
+  {
+   "name": "BenikUI - The ElvUI Edit",
+   "title": "BenikUI",
+   "author": "benik30",
+   "tokens": [
+    "BenikUI"
+   ]
+  },
+  {
+   "name": "Better Fishing",
+   "title": "Better Fishing",
+   "author": "Yuyuli",
+   "tokens": [
+    "Better Fishing",
+    "BetterFishing"
+   ]
+  },
+  {
+   "name": "Better Wardrobe and Transmog",
+   "title": "Better Wardrobe and Transmog",
+   "author": "SLOKnightFall",
+   "tokens": [
+    "Better Wardrobe and Transmog",
+    "BetterWardrobeandTransmog"
+   ]
+  },
+  {
+   "name": "BetterBags",
+   "title": "BetterBags",
+   "author": "Cidanz",
+   "tokens": [
+    "BetterBags"
+   ]
+  },
+  {
+   "name": "BetterBlizzFrames",
+   "title": "BetterBlizzFrames",
+   "author": "Bodify",
+   "tokens": [
+    "BetterBlizzFrames"
+   ]
+  },
+  {
+   "name": "BetterBlizzPlates",
+   "title": "BetterBlizzPlates",
+   "author": "Bodify",
+   "tokens": [
+    "BetterBlizzPlates"
+   ]
+  },
+  {
+   "name": "BetterCharacterPanel",
+   "title": "BetterCharacterPanel",
+   "author": "Grimonja",
+   "tokens": [
+    "BetterCharacterPanel"
+   ]
+  },
+  {
+   "name": "BetterCooldownManager",
+   "title": "BetterCooldownManager",
+   "author": "UnhaltedGB",
+   "tokens": [
+    "BetterCooldownManager"
+   ]
+  },
+  {
+   "name": "BFAInvasionTimer",
+   "title": "BFAInvasionTimer",
+   "author": "Funkeh",
+   "tokens": [
+    "BFAInvasionTimer"
+   ]
+  },
+  {
+   "name": "BigDebuffs",
+   "title": "BigDebuffs",
+   "author": "Jordons",
+   "tokens": [
+    "BigDebuffs"
+   ]
+  },
+  {
+   "name": "BigWigs (Boss Timers & Tools)",
+   "title": "BigWigs",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs"
+   ]
+  },
+  {
+   "name": "Bigwigs Voice - Chinese voicepack (VV)BW语音包",
+   "title": "Bigwigs Voice",
+   "author": "silhouette_vv",
+   "tokens": [
+    "Bigwigs Voice",
+    "BigwigsVoice"
+   ]
+  },
+  {
+   "name": "BigWigs_BattleForAzeroth",
+   "title": "BigWigs_BattleForAzeroth",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_BattleForAzeroth"
+   ]
+  },
+  {
+   "name": "BigWigs_BurningCrusade - The Burning Crusade content pack for BigWigs",
+   "title": "BigWigs_BurningCrusade",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_BurningCrusade"
+   ]
+  },
+  {
+   "name": "BigWigs_Cataclysm - The Cataclysm content pack for BigWigs",
+   "title": "BigWigs_Cataclysm",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Cataclysm"
+   ]
+  },
+  {
+   "name": "BigWigs_Classic - The Classic Era and Season of Discovery (SoD) content pack for BigWigs",
+   "title": "BigWigs_Classic",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Classic"
+   ]
+  },
+  {
+   "name": "BigWigs_Countdown_HeroesOfTheStorm",
+   "title": "BigWigs_Countdown_HeroesOfTheStorm",
+   "author": "nebula169",
+   "tokens": [
+    "BigWigs_Countdown_HeroesOfTheStorm"
+   ]
+  },
+  {
+   "name": "BigWigs_Countdown_Overwatch",
+   "title": "BigWigs_Countdown_Overwatch",
+   "author": "nebula169",
+   "tokens": [
+    "BigWigs_Countdown_Overwatch"
+   ]
+  },
+  {
+   "name": "BigWigs_Dragonflight",
+   "title": "BigWigs_Dragonflight",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Dragonflight"
+   ]
+  },
+  {
+   "name": "BigWigs_Legion",
+   "title": "BigWigs_Legion",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Legion"
+   ]
+  },
+  {
+   "name": "BigWigs_MistsOfPandaria - The Mists of Pandaria content pack for BigWigs",
+   "title": "BigWigs_MistsOfPandaria",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_MistsOfPandaria"
+   ]
+  },
+  {
+   "name": "BigWigs_Shadowlands",
+   "title": "BigWigs_Shadowlands",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Shadowlands"
+   ]
+  },
+  {
+   "name": "BigWigs_Voice",
+   "title": "BigWigs_Voice",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_Voice"
+   ]
+  },
+  {
+   "name": "BigWigs_WarlordsOfDraenor",
+   "title": "BigWigs_WarlordsOfDraenor",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_WarlordsOfDraenor"
+   ]
+  },
+  {
+   "name": "BigWigs_WrathOfTheLichKing - The Wrath of the Lich King content pack for BigWigs",
+   "title": "BigWigs_WrathOfTheLichKing",
+   "author": "Funkeh",
+   "tokens": [
+    "BigWigs_WrathOfTheLichKing"
+   ]
+  },
+  {
+   "name": "BindPad",
+   "title": "BindPad",
+   "author": "krztalabs",
+   "tokens": [
+    "BindPad"
+   ]
+  },
+  {
+   "name": "BliZzi Party Tools – Interrupt Tracker & Party Cooldowns",
+   "title": "BliZzi Party Tools",
+   "author": "BliZzi1337",
+   "tokens": [
+    "BliZzi Party Tools",
+    "BliZziPartyTools"
+   ]
+  },
+  {
+   "name": "BlizzMove",
+   "title": "BlizzMove",
+   "author": "kiatra_",
+   "tokens": [
+    "BlizzMove"
+   ]
+  },
+  {
+   "name": "BonusRollPreview",
+   "title": "BonusRollPreview",
+   "author": "p3lim",
+   "tokens": [
+    "BonusRollPreview"
+   ]
+  },
+  {
+   "name": "Broker Everything",
+   "title": "Broker Everything",
+   "author": "hizuro_de",
+   "tokens": [
+    "Broker Everything",
+    "BrokerEverything"
+   ]
+  },
+  {
+   "name": "BtWLoadouts",
+   "title": "BtWLoadouts",
+   "author": "Breeni",
+   "tokens": [
+    "BtWLoadouts"
+   ]
+  },
+  {
+   "name": "BtWQuests",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Dragonflight",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Legion",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Shadowlands",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: The War Within",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Battle for Azeroth",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: The Burning Crusade",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Mists of Pandaria",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Cataclysm",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Warlords of Draenor",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Wrath of the Lich King",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Battle for Azeroth Prologue",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Shadowlands Prologue",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "BtWQuests: Dragonflight Prologue",
+   "title": "BtWQuests",
+   "author": "Breeni",
+   "tokens": [
+    "BtWQuests"
+   ]
+  },
+  {
+   "name": "Buff Timers",
+   "title": "Buff Timers",
+   "author": "MDHippie",
+   "tokens": [
+    "Buff Timers",
+    "BuffTimers"
+   ]
+  },
+  {
+   "name": "BugGrabber",
+   "title": "BugGrabber",
+   "author": "Funkeh",
+   "tokens": [
+    "BugGrabber"
+   ]
+  },
+  {
+   "name": "BugSack",
+   "title": "BugSack",
+   "author": "Funkeh",
+   "tokens": [
+    "BugSack"
+   ]
+  },
+  {
+   "name": "Button Forge",
+   "title": "Button Forge",
+   "author": "AlternativeTheory",
+   "tokens": [
+    "Button Forge",
+    "ButtonForge"
+   ]
+  },
+  {
+   "name": "BuyEmAll Vendor Addon",
+   "title": "BuyEmAll Vendor Addon",
+   "author": "kaelon",
+   "tokens": [
+    "BuyEmAll Vendor Addon",
+    "BuyEmAllVendorAddon"
+   ]
+  },
+  {
+   "name": "Camel Spotter",
+   "title": "Camel Spotter",
+   "author": "Yuyuli",
+   "tokens": [
+    "Camel Spotter",
+    "CamelSpotter"
+   ]
+  },
+  {
+   "name": "Can I Mog It?",
+   "title": "Can I Mog It",
+   "author": "AmiYuy",
+   "tokens": [
+    "Can I Mog It",
+    "CanIMogIt"
+   ]
+  },
+  {
+   "name": "Candy Buckets",
+   "title": "Candy Buckets",
+   "author": "Vladinator",
+   "tokens": [
+    "Candy Buckets",
+    "CandyBuckets"
+   ]
+  },
+  {
+   "name": "Capping Battleground Timers",
+   "title": "Capping Battleground Timers",
+   "author": "Funkeh",
+   "tokens": [
+    "Capping Battleground Timers",
+    "CappingBattlegroundTimers"
+   ]
+  },
+  {
+   "name": "Carbonite All in One (Retail & Classic)",
+   "title": "Carbonite All in One",
+   "author": "IrcDirker",
+   "tokens": [
+    "Carbonite All in One",
+    "CarboniteAllinOne"
+   ]
+  },
+  {
+   "name": "Cell",
+   "title": "Cell",
+   "author": "enderneko",
+   "tokens": [
+    "Cell"
+   ]
+  },
+  {
+   "name": "ChampionCommander",
+   "title": "ChampionCommander",
+   "author": "alarthedark",
+   "tokens": [
+    "ChampionCommander"
+   ]
+  },
+  {
+   "name": "Chat Copy Paste",
+   "title": "Chat Copy Paste",
+   "author": "Venomisto",
+   "tokens": [
+    "Chat Copy Paste",
+    "ChatCopyPaste"
+   ]
+  },
+  {
+   "name": "Chattynator",
+   "title": "Chattynator",
+   "author": "plusmouse",
+   "tokens": [
+    "Chattynator"
+   ]
+  },
+  {
+   "name": "Chonky Character Sheet",
+   "title": "Chonky Character Sheet",
+   "author": "draeginia",
+   "tokens": [
+    "Chonky Character Sheet",
+    "ChonkyCharacterSheet"
+   ]
+  },
+  {
+   "name": "Chore Tracker",
+   "title": "Chore Tracker",
+   "author": "Freddie",
+   "tokens": [
+    "Chore Tracker",
+    "ChoreTracker"
+   ]
+  },
+  {
+   "name": "Class Reminders",
+   "title": "Class Reminders",
+   "author": "Xynth",
+   "tokens": [
+    "Class Reminders",
+    "ClassReminders"
+   ]
+  },
+  {
+   "name": "Clique",
+   "title": "Clique",
+   "author": "jnwhiteh",
+   "tokens": [
+    "Clique"
+   ]
+  },
+  {
+   "name": "Collect Me",
+   "title": "Collect Me",
+   "author": "JimBim89",
+   "tokens": [
+    "Collect Me",
+    "CollectMe"
+   ]
+  },
+  {
+   "name": "Collector's Bounty Helper",
+   "title": "Collector's Bounty Helper",
+   "author": "Bettiold",
+   "tokens": [
+    "Collector's Bounty Helper",
+    "CollectorsBountyHelper"
+   ]
+  },
+  {
+   "name": "ConsolePort",
+   "title": "ConsolePort",
+   "author": "MunkDev",
+   "tokens": [
+    "ConsolePort"
+   ]
+  },
+  {
+   "name": "Cooldown Manager Centered - Better CDM CMC",
+   "title": "Cooldown Manager Centered",
+   "author": "WilduTools",
+   "tokens": [
+    "Cooldown Manager Centered",
+    "CooldownManagerCentered"
+   ]
+  },
+  {
+   "name": "CooldownCount",
+   "title": "CooldownCount",
+   "author": "dakikifr",
+   "tokens": [
+    "CooldownCount"
+   ]
+  },
+  {
+   "name": "Core Loot Manager DKP & EPGP & SK",
+   "title": "Core Loot Manager DKP & EPGP & SK",
+   "author": "LantisNT",
+   "tokens": [
+    "Core Loot Manager DKP & EPGP & SK",
+    "CoreLootManagerDKPEPGPSK"
+   ]
+  },
+  {
+   "name": "CraftSim",
+   "title": "CraftSim",
+   "author": "genjuwow",
+   "tokens": [
+    "CraftSim"
+   ]
+  },
+  {
+   "name": "Crap Away!",
+   "title": "Crap Away",
+   "author": "markyxl",
+   "tokens": [
+    "Crap Away",
+    "CrapAway"
+   ]
+  },
+  {
+   "name": "Cross Gambling",
+   "title": "Cross Gambling",
+   "author": "Azro",
+   "tokens": [
+    "Cross Gambling",
+    "CrossGambling"
+   ]
+  },
+  {
+   "name": "CursorTrail",
+   "title": "CursorTrail",
+   "author": "UppyDan",
+   "tokens": [
+    "CursorTrail"
+   ]
+  },
+  {
+   "name": "Danders Frames",
+   "title": "Danders Frames",
+   "author": "Danderz",
+   "tokens": [
+    "Danders Frames",
+    "DandersFrames"
+   ]
+  },
+  {
+   "name": "Dark Soil Tillers",
+   "title": "Dark Soil Tillers",
+   "author": "Taraezor",
+   "tokens": [
+    "Dark Soil Tillers",
+    "DarkSoilTillers"
+   ]
+  },
+  {
+   "name": "DarkMode / Dark Mode (Color HUD, Ui & Windows)",
+   "title": "DarkMode / Dark Mode",
+   "author": "D4KiR",
+   "tokens": [
+    "DarkMode / Dark Mode",
+    "DarkModeDarkMode"
+   ]
+  },
+  {
+   "name": "DataStore",
+   "title": "DataStore",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore"
+   ]
+  },
+  {
+   "name": "DataStore_Achievements",
+   "title": "DataStore_Achievements",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Achievements"
+   ]
+  },
+  {
+   "name": "DataStore_Agenda",
+   "title": "DataStore_Agenda",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Agenda"
+   ]
+  },
+  {
+   "name": "DataStore_Auctions",
+   "title": "DataStore_Auctions",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Auctions"
+   ]
+  },
+  {
+   "name": "DataStore_Characters",
+   "title": "DataStore_Characters",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Characters"
+   ]
+  },
+  {
+   "name": "DataStore_Containers",
+   "title": "DataStore_Containers",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Containers"
+   ]
+  },
+  {
+   "name": "DataStore_Crafts",
+   "title": "DataStore_Crafts",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Crafts"
+   ]
+  },
+  {
+   "name": "DataStore_Currencies",
+   "title": "DataStore_Currencies",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Currencies"
+   ]
+  },
+  {
+   "name": "DataStore_Garrisons",
+   "title": "DataStore_Garrisons",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Garrisons"
+   ]
+  },
+  {
+   "name": "DataStore_Inventory",
+   "title": "DataStore_Inventory",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Inventory"
+   ]
+  },
+  {
+   "name": "DataStore_Mails",
+   "title": "DataStore_Mails",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Mails"
+   ]
+  },
+  {
+   "name": "DataStore_Pets",
+   "title": "DataStore_Pets",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Pets"
+   ]
+  },
+  {
+   "name": "DataStore_Quests",
+   "title": "DataStore_Quests",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Quests"
+   ]
+  },
+  {
+   "name": "DataStore_Reputations",
+   "title": "DataStore_Reputations",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Reputations"
+   ]
+  },
+  {
+   "name": "DataStore_Spells",
+   "title": "DataStore_Spells",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Spells"
+   ]
+  },
+  {
+   "name": "DataStore_Stats",
+   "title": "DataStore_Stats",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Stats"
+   ]
+  },
+  {
+   "name": "DataStore_Talents",
+   "title": "DataStore_Talents",
+   "author": "Thaoky",
+   "tokens": [
+    "DataStore_Talents"
+   ]
+  },
+  {
+   "name": "DBM - Deadly Boss Mods (DBM-Core)",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Dungeons, Delves, Visions, & Events (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - SoD and Vanilla (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Cataclysm mods (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Wrath of the Lich King (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - PvP Mods (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Mists of Pandaria (MoP) (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Warlords of Draenor (WoD) (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Legion (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Battle for Azeroth (BfA) (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Deadly Boss Mods - Overwatch Countdown Pack - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - The Burning Crusade (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "Tandanu",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Deadly Boss Mods - Heroes of the Storm (HotS) Countdown Pack - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM - Shadowlands (Requires Deadly Boss Mods) - DBM",
+   "title": "DBM",
+   "author": "MysticalOS",
+   "tokens": [
+    "DBM"
+   ]
+  },
+  {
+   "name": "DBM Voicepack: Yike",
+   "title": "DBM Voicepack",
+   "author": "weisslove",
+   "tokens": [
+    "DBM Voicepack",
+    "DBMVoicepack"
+   ]
+  },
+  {
+   "name": "Deadly Boss Mods (DBM) - Event Pack",
+   "title": "Deadly Boss Mods",
+   "author": "MysticalOS",
+   "tokens": [
+    "Deadly Boss Mods",
+    "DeadlyBossMods"
+   ]
+  },
+  {
+   "name": "Deadly Boss Mods (DBM) - SmoothMcGroove Event Pack",
+   "title": "Deadly Boss Mods",
+   "author": "MysticalOS",
+   "tokens": [
+    "Deadly Boss Mods",
+    "DeadlyBossMods"
+   ]
+  },
+  {
+   "name": "Decor Vendor",
+   "title": "Decor Vendor",
+   "author": "Midnitedestiny",
+   "tokens": [
+    "Decor Vendor",
+    "DecorVendor"
+   ]
+  },
+  {
+   "name": "Decursive",
+   "title": "Decursive",
+   "author": "archarodim",
+   "tokens": [
+    "Decursive"
+   ]
+  },
+  {
+   "name": "DejaCharacterStats",
+   "title": "DejaCharacterStats",
+   "author": "Dejablue",
+   "tokens": [
+    "DejaCharacterStats"
+   ]
+  },
+  {
+   "name": "Dejunk (Sell & Destroy Junk)",
+   "title": "Dejunk",
+   "author": "moody",
+   "tokens": [
+    "Dejunk"
+   ]
+  },
+  {
+   "name": "Details!: Framework (library)",
+   "title": "Details",
+   "author": "Terciob",
+   "tokens": [
+    "Details"
+   ]
+  },
+  {
+   "name": "Details! Damage Meter",
+   "title": "Details! Damage Meter",
+   "author": "Terciob",
+   "tokens": [
+    "Details! Damage Meter",
+    "DetailsDamageMeter"
+   ]
+  },
+  {
+   "name": "Details! Damage Meter (burning crusade)",
+   "title": "Details! Damage Meter",
+   "author": "Terciob",
+   "tokens": [
+    "Details! Damage Meter",
+    "DetailsDamageMeter"
+   ]
+  },
+  {
+   "name": "Details! Mythic+ Scoreboard",
+   "title": "Details! Mythic+ Scoreboard",
+   "author": "Terciob",
+   "tokens": [
+    "Details! Mythic+ Scoreboard",
+    "DetailsMythicScoreboard"
+   ]
+  },
+  {
+   "name": "Dialogue UI",
+   "title": "Dialogue UI",
+   "author": "Peterodox",
+   "tokens": [
+    "Dialogue UI",
+    "DialogueUI"
+   ]
+  },
+  {
+   "name": "Dominos",
+   "title": "Dominos",
+   "author": "Tuller",
+   "tokens": [
+    "Dominos"
+   ]
+  },
+  {
+   "name": "Dragon Rider",
+   "title": "Dragon Rider",
+   "author": "keyboardturner",
+   "tokens": [
+    "Dragon Rider",
+    "DragonRider"
+   ]
+  },
+  {
+   "name": "Dugi Questing Essential",
+   "title": "Dugi Questing Essential",
+   "author": "DugiGuides",
+   "tokens": [
+    "Dugi Questing Essential",
+    "DugiQuestingEssential"
+   ]
+  },
+  {
+   "name": "DynamicCam",
+   "title": "DynamicCam",
+   "author": "LudiusMaximus",
+   "tokens": [
+    "DynamicCam"
+   ]
+  },
+  {
+   "name": "eAlign Updated",
+   "title": "eAlign Updated",
+   "author": "Lohkin",
+   "tokens": [
+    "eAlign Updated",
+    "eAlignUpdated"
+   ]
+  },
+  {
+   "name": "Easy Frames",
+   "title": "Easy Frames",
+   "author": "Mirmidonis",
+   "tokens": [
+    "Easy Frames",
+    "EasyFrames"
+   ]
+  },
+  {
+   "name": "Easy Scrap",
+   "title": "Easy Scrap",
+   "author": "Loelalol",
+   "tokens": [
+    "Easy Scrap",
+    "EasyScrap"
+   ]
+  },
+  {
+   "name": "EasyMail from Cosmos",
+   "title": "EasyMail from Cosmos",
+   "author": "RhydinGamer",
+   "tokens": [
+    "EasyMail from Cosmos",
+    "EasyMailfromCosmos"
+   ]
+  },
+  {
+   "name": "EavesDrop",
+   "title": "EavesDrop",
+   "author": "Picpok",
+   "tokens": [
+    "EavesDrop"
+   ]
+  },
+  {
+   "name": "Edit Mode Expanded",
+   "title": "Edit Mode Expanded",
+   "author": "Teelo",
+   "tokens": [
+    "Edit Mode Expanded",
+    "EditModeExpanded"
+   ]
+  },
+  {
+   "name": "Elephant",
+   "title": "Elephant",
+   "author": "AllInOneMighty",
+   "tokens": [
+    "Elephant"
+   ]
+  },
+  {
+   "name": "Elkano's BuffBars",
+   "title": "Elkano's BuffBars",
+   "author": "Elkano",
+   "tokens": [
+    "Elkano's BuffBars",
+    "ElkanosBuffBars"
+   ]
+  },
+  {
+   "name": "ElvUI",
+   "title": "ElvUI",
+   "author": "Elv",
+   "tokens": [
+    "ElvUI"
+   ]
+  },
+  {
+   "name": "ElvUI Bag Filters",
+   "title": "ElvUI Bag Filters",
+   "author": "Warmexx_",
+   "tokens": [
+    "ElvUI Bag Filters",
+    "ElvUIBagFilters"
+   ]
+  },
+  {
+   "name": "ElvUI Eltruism",
+   "title": "ElvUI Eltruism",
+   "author": "Eltreum",
+   "tokens": [
+    "ElvUI Eltruism",
+    "ElvUIEltruism"
+   ]
+  },
+  {
+   "name": "ElvUI Location Plus",
+   "title": "ElvUI Location Plus",
+   "author": "benik30",
+   "tokens": [
+    "ElvUI Location Plus",
+    "ElvUILocationPlus"
+   ]
+  },
+  {
+   "name": "ElvUI mMediaTag & Tools",
+   "title": "ElvUI mMediaTag & Tools",
+   "author": "Blinkii",
+   "tokens": [
+    "ElvUI mMediaTag & Tools",
+    "ElvUImMediaTagTools"
+   ]
+  },
+  {
+   "name": "ElvUI Nuts and Bolts",
+   "title": "ElvUI Nuts and Bolts",
+   "author": "benik30",
+   "tokens": [
+    "ElvUI Nuts and Bolts",
+    "ElvUINutsandBolts"
+   ]
+  },
+  {
+   "name": "ElvUI WindTools",
+   "title": "ElvUI WindTools",
+   "author": "fang2hou",
+   "tokens": [
+    "ElvUI WindTools",
+    "ElvUIWindTools"
+   ]
+  },
+  {
+   "name": "ElvUI_MerathilisUI",
+   "title": "ElvUI_MerathilisUI",
+   "author": "Merathilis",
+   "tokens": [
+    "ElvUI_MerathilisUI"
+   ]
+  },
+  {
+   "name": "Enhance QoL",
+   "title": "Enhance QoL",
+   "author": "R41Z0R",
+   "tokens": [
+    "Enhance QoL",
+    "EnhanceQoL"
+   ]
+  },
+  {
+   "name": "Error Filter",
+   "title": "Error Filter",
+   "author": "Fulger",
+   "tokens": [
+    "Error Filter",
+    "ErrorFilter"
+   ]
+  },
+  {
+   "name": "ErrorMonster",
+   "title": "ErrorMonster",
+   "author": "Funkeh",
+   "tokens": [
+    "ErrorMonster"
+   ]
+  },
+  {
+   "name": "EXBOSS",
+   "title": "EXBOSS",
+   "author": "EXWIND",
+   "tokens": [
+    "EXBOSS"
+   ]
+  },
+  {
+   "name": "ExwindTools",
+   "title": "ExwindTools",
+   "author": "EXWIND",
+   "tokens": [
+    "ExwindTools"
+   ]
+  },
+  {
+   "name": "Farmer",
+   "title": "Farmer",
+   "author": "syndenbock",
+   "tokens": [
+    "Farmer"
+   ]
+  },
+  {
+   "name": "FarmHud",
+   "title": "FarmHud",
+   "author": "hizuro_de",
+   "tokens": [
+    "FarmHud"
+   ]
+  },
+  {
+   "name": "Faster Loot",
+   "title": "Faster Loot",
+   "author": "Xarano",
+   "tokens": [
+    "Faster Loot",
+    "FasterLoot"
+   ]
+  },
+  {
+   "name": "Follow The Arrow",
+   "title": "Follow The Arrow",
+   "author": "Harldan",
+   "tokens": [
+    "Follow The Arrow",
+    "FollowTheArrow"
+   ]
+  },
+  {
+   "name": "FollowerLocationInfo",
+   "title": "FollowerLocationInfo",
+   "author": "hizuro_de",
+   "tokens": [
+    "FollowerLocationInfo"
+   ]
+  },
+  {
+   "name": "FrameColor - Dark Mode & Custom Color UI",
+   "title": "FrameColor",
+   "author": "slothpala",
+   "tokens": [
+    "FrameColor"
+   ]
+  },
+  {
+   "name": "FrameSort",
+   "title": "FrameSort",
+   "author": "Verz",
+   "tokens": [
+    "FrameSort"
+   ]
+  },
+  {
+   "name": "FriendGroups - Custom folders, known alt tracking, auto guild groups, smart search, mass invites, and rich realm/class info",
+   "title": "FriendGroups",
+   "author": "osirisnz",
+   "tokens": [
+    "FriendGroups"
+   ]
+  },
+  {
+   "name": "Gargul | Master Loot Tool for GDKP, TMB, SoftRes and Auto Loot",
+   "title": "Gargul | Master Loot Tool for GDKP",
+   "author": "Zhorax2730",
+   "tokens": [
+    "Gargul | Master Loot Tool for GDKP",
+    "GargulMasterLootToolforGDKP"
+   ]
+  },
+  {
+   "name": "Garrison Mission Manager",
+   "title": "Garrison Mission Manager",
+   "author": "rowaasr13",
+   "tokens": [
+    "Garrison Mission Manager",
+    "GarrisonMissionManager"
+   ]
+  },
+  {
+   "name": "GarrisonCommander",
+   "title": "GarrisonCommander",
+   "author": "alarthedark",
+   "tokens": [
+    "GarrisonCommander"
+   ]
+  },
+  {
+   "name": "Gathering",
+   "title": "Gathering",
+   "author": "HydraMods",
+   "tokens": [
+    "Gathering"
+   ]
+  },
+  {
+   "name": "GatherMate2",
+   "title": "GatherMate2",
+   "author": "moonfann",
+   "tokens": [
+    "GatherMate2"
+   ]
+  },
+  {
+   "name": "Gathermate2 Gas Clouds",
+   "title": "Gathermate2 Gas Clouds",
+   "author": "michaelsp",
+   "tokens": [
+    "Gathermate2 Gas Clouds",
+    "Gathermate2GasClouds"
+   ]
+  },
+  {
+   "name": "GatherMate2_Data",
+   "title": "GatherMate2_Data",
+   "author": "moonfann",
+   "tokens": [
+    "GatherMate2_Data"
+   ]
+  },
+  {
+   "name": "Gnosis (Castbars and Timers)",
+   "title": "Gnosis",
+   "author": "elchefe12345",
+   "tokens": [
+    "Gnosis"
+   ]
+  },
+  {
+   "name": "Grail",
+   "title": "Grail",
+   "author": "nimhfree",
+   "tokens": [
+    "Grail"
+   ]
+  },
+  {
+   "name": "GreenWall",
+   "title": "GreenWall",
+   "author": "stigg668",
+   "tokens": [
+    "GreenWall"
+   ]
+  },
+  {
+   "name": "Grid2",
+   "title": "Grid2",
+   "author": "michaelsp",
+   "tokens": [
+    "Grid2"
+   ]
+  },
+  {
+   "name": "GroupfinderFlags",
+   "title": "GroupfinderFlags",
+   "author": "Spielstein",
+   "tokens": [
+    "GroupfinderFlags"
+   ]
+  },
+  {
+   "name": "Gryphons Remover",
+   "title": "Gryphons Remover",
+   "author": "tehKD",
+   "tokens": [
+    "Gryphons Remover",
+    "GryphonsRemover"
+   ]
+  },
+  {
+   "name": "GSE: Sequences, Variables, Macros",
+   "title": "GSE",
+   "author": "TheTimothyLuke",
+   "tokens": [
+    "GSE"
+   ]
+  },
+  {
+   "name": "GTFO",
+   "title": "GTFO",
+   "author": "Zensunim",
+   "tokens": [
+    "GTFO"
+   ]
+  },
+  {
+   "name": "Guild Roster Manager (GRM)",
+   "title": "Guild Roster Manager",
+   "author": "codingasahobby",
+   "tokens": [
+    "Guild Roster Manager",
+    "GuildRosterManager"
+   ]
+  },
+  {
+   "name": "GW2 UI",
+   "title": "GW2 UI",
+   "author": "Mortalknight",
+   "tokens": [
+    "GW2 UI",
+    "GW2UI"
+   ]
+  },
+  {
+   "name": "H.H.T.D.",
+   "title": "H.H.T.D.",
+   "author": "archarodim",
+   "tokens": [
+    "H.H.T.D.",
+    "HHTD"
+   ]
+  },
+  {
+   "name": "HandyNotes",
+   "title": "HandyNotes",
+   "author": "Xinhuan",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Dragonflight",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Shadowlands",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: The War Within",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Dragonflight (Dragon Isles) Treasures and Rares",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Legion (Broken Isles) Treasures and Rares",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: The War Within Treasures and Rares",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Battle for Azeroth Treasures and Rares",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Shadowlands Treasures and Rares",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Battle for Azeroth",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Warlords of Draenor (Treasure Hunter + Rares)",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Mists of Pandaria (Treasures and Rares)",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Midnight (Treasures and Rares)",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: MapNotes",
+   "title": "HandyNotes",
+   "author": "BadBoyBarny",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Draenor",
+   "title": "HandyNotes",
+   "author": "Lorade",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Oribos",
+   "title": "HandyNotes",
+   "author": "Dathwada",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: TimelessIsleChests",
+   "title": "HandyNotes",
+   "author": "Caliaha",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Midnight",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: TravelGuide",
+   "title": "HandyNotes",
+   "author": "Dathwada",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: WorldMapButton",
+   "title": "HandyNotes",
+   "author": "fuba82",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - Hallow's End Candy Buckets",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Covenant Sanctum",
+   "title": "HandyNotes",
+   "author": "Dathwada",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - Lunar Festival",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Legion",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Valdrakken",
+   "title": "HandyNotes",
+   "author": "Dathwada",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Summer Festival",
+   "title": "HandyNotes",
+   "author": "Ravendwyr",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Lunar Festival",
+   "title": "HandyNotes",
+   "author": "Ravendwyr",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Wrath of the Lich King",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Cataclysm",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: The Burning Crusade",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Warlords of Draenor",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Kalimdor & Eastern Kingdoms",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Mists of Pandaria",
+   "title": "HandyNotes",
+   "author": "Zarillion",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Wrath of the Lich King (Northrend)",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - Midsummer Fire Festival",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - A Path Less Travelled",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - Noblegarden",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Mage Hall Portals",
+   "title": "HandyNotes",
+   "author": "tsaavik",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Directions",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes: Burning Crusade",
+   "title": "HandyNotes",
+   "author": "Kemayo",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes - Exploration Achievements - Pandaria",
+   "title": "HandyNotes",
+   "author": "Taraezor",
+   "tokens": [
+    "HandyNotes"
+   ]
+  },
+  {
+   "name": "HandyNotes Ferry Network",
+   "title": "HandyNotes Ferry Network",
+   "author": "Numy",
+   "tokens": [
+    "HandyNotes Ferry Network",
+    "HandyNotesFerryNetwork"
+   ]
+  },
+  {
+   "name": "HandyNotes Pandaria",
+   "title": "HandyNotes Pandaria",
+   "author": "syndenbock",
+   "tokens": [
+    "HandyNotes Pandaria",
+    "HandyNotesPandaria"
+   ]
+  },
+  {
+   "name": "HandyNotes Skyriding Glyphs & Dragon Glyphs",
+   "title": "HandyNotes Skyriding Glyphs & Dragon Glyphs",
+   "author": "keyboardturner",
+   "tokens": [
+    "HandyNotes Skyriding Glyphs & Dragon Glyphs",
+    "HandyNotesSkyridingGlyphsDragonGlyphs"
+   ]
+  },
+  {
+   "name": "HandyNotes_DungeonLocations",
+   "title": "HandyNotes_DungeonLocations",
+   "author": "Caliaha",
+   "tokens": [
+    "HandyNotes_DungeonLocations"
+   ]
+  },
+  {
+   "name": "HealBot Continued",
+   "title": "HealBot Continued",
+   "author": "StrifeCUK",
+   "tokens": [
+    "HealBot Continued",
+    "HealBotContinued"
+   ]
+  },
+  {
+   "name": "Healium",
+   "title": "Healium",
+   "author": "Engy99k",
+   "tokens": [
+    "Healium"
+   ]
+  },
+  {
+   "name": "HealthBarColor - Health Bar Color",
+   "title": "HealthBarColor",
+   "author": "slothpala",
+   "tokens": [
+    "HealthBarColor"
+   ]
+  },
+  {
+   "name": "Hekili",
+   "title": "Hekili",
+   "author": "Hekili",
+   "tokens": [
+    "Hekili"
+   ]
+  },
+  {
+   "name": "HidingBar",
+   "title": "HidingBar",
+   "author": "sfmict",
+   "tokens": [
+    "HidingBar"
+   ]
+  },
+  {
+   "name": "Higher Learning",
+   "title": "Higher Learning",
+   "author": "Taraezor",
+   "tokens": [
+    "Higher Learning",
+    "HigherLearning"
+   ]
+  },
+  {
+   "name": "HighLevelAlert (High Level Alert-Elite) [Hardcore]",
+   "title": "HighLevelAlert",
+   "author": "D4KiR",
+   "tokens": [
+    "HighLevelAlert"
+   ]
+  },
+  {
+   "name": "Home Bound [Player Housing completionism]",
+   "title": "Home Bound",
+   "author": "Bettiold",
+   "tokens": [
+    "Home Bound",
+    "HomeBound"
+   ]
+  },
+  {
+   "name": "Housing Decor Guide",
+   "title": "Housing Decor Guide",
+   "author": "Vamoose",
+   "tokens": [
+    "Housing Decor Guide",
+    "HousingDecorGuide"
+   ]
+  },
+  {
+   "name": "HydraUI",
+   "title": "HydraUI",
+   "author": "HydraMods",
+   "tokens": [
+    "HydraUI"
+   ]
+  },
+  {
+   "name": "IceHUD",
+   "title": "IceHUD",
+   "author": "Parnic",
+   "tokens": [
+    "IceHUD"
+   ]
+  },
+  {
+   "name": "idTip",
+   "title": "idTip",
+   "author": "silv3rwind",
+   "tokens": [
+    "idTip"
+   ]
+  },
+  {
+   "name": "Immersion",
+   "title": "Immersion",
+   "author": "MunkDev",
+   "tokens": [
+    "Immersion"
+   ]
+  },
+  {
+   "name": "Infinite Raid Tools",
+   "title": "Infinite Raid Tools",
+   "author": "Antr",
+   "tokens": [
+    "Infinite Raid Tools",
+    "InfiniteRaidTools"
+   ]
+  },
+  {
+   "name": "InFlight Taxi Timer",
+   "title": "InFlight Taxi Timer",
+   "author": "LudiusMaximus",
+   "tokens": [
+    "InFlight Taxi Timer",
+    "InFlightTaxiTimer"
+   ]
+  },
+  {
+   "name": "Instance Achievement Tracker",
+   "title": "Instance Achievement Tracker",
+   "author": "dragnog",
+   "tokens": [
+    "Instance Achievement Tracker",
+    "InstanceAchievementTracker"
+   ]
+  },
+  {
+   "name": "iP Mythic Timer",
+   "title": "iP Mythic Timer",
+   "author": "iPgnome",
+   "tokens": [
+    "iP Mythic Timer",
+    "iPMythicTimer"
+   ]
+  },
+  {
+   "name": "ItemRack",
+   "title": "ItemRack",
+   "author": "Kharthus",
+   "tokens": [
+    "ItemRack"
+   ]
+  },
+  {
+   "name": "Journalator",
+   "title": "Journalator",
+   "author": "plusmouse",
+   "tokens": [
+    "Journalator"
+   ]
+  },
+  {
+   "name": "Kaliel's Tracker (Midnight) ... Quest / World Quest / Achievement",
+   "title": "Kaliel's Tracker",
+   "author": "Kaliel",
+   "tokens": [
+    "Kaliel's Tracker",
+    "KalielsTracker"
+   ]
+  },
+  {
+   "name": "KeystoneLoot",
+   "title": "KeystoneLoot",
+   "author": "Shantalya",
+   "tokens": [
+    "KeystoneLoot"
+   ]
+  },
+  {
+   "name": "Keystones_Tracker",
+   "title": "Keystones_Tracker",
+   "author": "Teelo",
+   "tokens": [
+    "Keystones_Tracker"
+   ]
+  },
+  {
+   "name": "kgPanels",
+   "title": "kgPanels",
+   "author": "moonfann",
+   "tokens": [
+    "kgPanels"
+   ]
+  },
+  {
+   "name": "Kharthus's Hunter Timers",
+   "title": "Kharthus's Hunter Timers",
+   "author": "Kharthus",
+   "tokens": [
+    "Kharthus's Hunter Timers",
+    "KharthussHunterTimers"
+   ]
+  },
+  {
+   "name": "Kiwi Farm",
+   "title": "Kiwi Farm",
+   "author": "michaelsp",
+   "tokens": [
+    "Kiwi Farm",
+    "KiwiFarm"
+   ]
+  },
+  {
+   "name": "KkthnxUI",
+   "title": "KkthnxUI",
+   "author": "Kkthnx",
+   "tokens": [
+    "KkthnxUI"
+   ]
+  },
+  {
+   "name": "Krowi's Achievement Filter",
+   "title": "Krowi's Achievement Filter",
+   "author": "Krowi",
+   "tokens": [
+    "Krowi's Achievement Filter",
+    "KrowisAchievementFilter"
+   ]
+  },
+  {
+   "name": "Larias' Weekly Checklist",
+   "title": "Larias' Weekly Checklist",
+   "author": "Devbezos",
+   "tokens": [
+    "Larias' Weekly Checklist",
+    "LariasWeeklyChecklist"
+   ]
+  },
+  {
+   "name": "Leatrix Maps",
+   "title": "Leatrix Maps",
+   "author": "Leatrix",
+   "tokens": [
+    "Leatrix Maps",
+    "LeatrixMaps"
+   ]
+  },
+  {
+   "name": "Leatrix Plus",
+   "title": "Leatrix Plus",
+   "author": "Leatrix",
+   "tokens": [
+    "Leatrix Plus",
+    "LeatrixPlus"
+   ]
+  },
+  {
+   "name": "Leatrix Sounds",
+   "title": "Leatrix Sounds",
+   "author": "Leatrix",
+   "tokens": [
+    "Leatrix Sounds",
+    "LeatrixSounds"
+   ]
+  },
+  {
+   "name": "LegionInvasionTimer",
+   "title": "LegionInvasionTimer",
+   "author": "Funkeh",
+   "tokens": [
+    "LegionInvasionTimer"
+   ]
+  },
+  {
+   "name": "LibDBIcon-1.0",
+   "title": "LibDBIcon-1.0",
+   "author": "Funkeh",
+   "tokens": [
+    "LibDBIcon-1.0",
+    "LibDBIcon10"
+   ]
+  },
+  {
+   "name": "LibSharedMedia-3.0",
+   "title": "LibSharedMedia-3.0",
+   "author": "Elkano",
+   "tokens": [
+    "LibSharedMedia-3.0",
+    "LibSharedMedia30"
+   ]
+  },
+  {
+   "name": "LibSink-2.0",
+   "title": "LibSink-2.0",
+   "author": "Funkeh",
+   "tokens": [
+    "LibSink-2.0",
+    "LibSink20"
+   ]
+  },
+  {
+   "name": "LiteMount",
+   "title": "LiteMount",
+   "author": "xodiv",
+   "tokens": [
+    "LiteMount"
+   ]
+  },
+  {
+   "name": "LittleWigs",
+   "title": "LittleWigs",
+   "author": "Funkeh",
+   "tokens": [
+    "LittleWigs"
+   ]
+  },
+  {
+   "name": "LoggerHead",
+   "title": "LoggerHead",
+   "author": "dratrr",
+   "tokens": [
+    "LoggerHead"
+   ]
+  },
+  {
+   "name": "Loon Best In Slot (BIS)",
+   "title": "Loon Best In Slot",
+   "author": "loonnn_",
+   "tokens": [
+    "Loon Best In Slot",
+    "LoonBestInSlot"
+   ]
+  },
+  {
+   "name": "LootAppraiser Reloaded",
+   "title": "LootAppraiser Reloaded",
+   "author": "Berick",
+   "tokens": [
+    "LootAppraiser Reloaded",
+    "LootAppraiserReloaded"
+   ]
+  },
+  {
+   "name": "LuckyoneUI - ElvUI Layouts and Addon Profiles",
+   "title": "LuckyoneUI",
+   "author": "Luckyone1996",
+   "tokens": [
+    "LuckyoneUI"
+   ]
+  },
+  {
+   "name": "LUI Core",
+   "title": "LUI Core",
+   "author": "Siku_LUI",
+   "tokens": [
+    "LUI Core",
+    "LUICore"
+   ]
+  },
+  {
+   "name": "M+ Adventure Guide",
+   "title": "M+ Adventure Guide",
+   "author": "Teelo",
+   "tokens": [
+    "M+ Adventure Guide",
+    "MAdventureGuide"
+   ]
+  },
+  {
+   "name": "M+ Dungeon Teleports [Retail]",
+   "title": "M+ Dungeon Teleports",
+   "author": "pxxpoStudy",
+   "tokens": [
+    "M+ Dungeon Teleports",
+    "MDungeonTeleports"
+   ]
+  },
+  {
+   "name": "Macro Toolkit",
+   "title": "Macro Toolkit",
+   "author": "polyglotcoder",
+   "tokens": [
+    "Macro Toolkit",
+    "MacroToolkit"
+   ]
+  },
+  {
+   "name": "Mage Nuggets",
+   "title": "Mage Nuggets",
+   "author": "b_buck",
+   "tokens": [
+    "Mage Nuggets",
+    "MageNuggets"
+   ]
+  },
+  {
+   "name": "Magic Runes",
+   "title": "Magic Runes",
+   "author": "DHedbor",
+   "tokens": [
+    "Magic Runes",
+    "MagicRunes"
+   ]
+  },
+  {
+   "name": "Manuscripts Journal",
+   "title": "Manuscripts Journal",
+   "author": "Teelo",
+   "tokens": [
+    "Manuscripts Journal",
+    "ManuscriptsJournal"
+   ]
+  },
+  {
+   "name": "MapCoords",
+   "title": "MapCoords",
+   "author": "JimBim89",
+   "tokens": [
+    "MapCoords"
+   ]
+  },
+  {
+   "name": "Mapster",
+   "title": "Mapster",
+   "author": "nevcairiel",
+   "tokens": [
+    "Mapster"
+   ]
+  },
+  {
+   "name": "Masque",
+   "title": "Masque",
+   "author": "StormFX",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Masque: Caith",
+   "title": "Masque",
+   "author": "StormFX",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Masque: Serenity",
+   "title": "Masque",
+   "author": "StormFX",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Masque: CleanUI",
+   "title": "Masque",
+   "author": "Seharad",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Masque: Apathy",
+   "title": "Masque",
+   "author": "StormFX",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Masque: Entropy",
+   "title": "Masque",
+   "author": "StormFX",
+   "tokens": [
+    "Masque"
+   ]
+  },
+  {
+   "name": "Master Plan",
+   "title": "Master Plan",
+   "author": "foxlit",
+   "tokens": [
+    "Master Plan",
+    "MasterPlan"
+   ]
+  },
+  {
+   "name": "MaxCam",
+   "title": "MaxCam",
+   "author": "Ketho17",
+   "tokens": [
+    "MaxCam"
+   ]
+  },
+  {
+   "name": "MaxDps Death Knight",
+   "title": "MaxDps Death Knight",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Death Knight",
+    "MaxDpsDeathKnight"
+   ]
+  },
+  {
+   "name": "MaxDps Demon Hunter",
+   "title": "MaxDps Demon Hunter",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Demon Hunter",
+    "MaxDpsDemonHunter"
+   ]
+  },
+  {
+   "name": "MaxDps Druid",
+   "title": "MaxDps Druid",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Druid",
+    "MaxDpsDruid"
+   ]
+  },
+  {
+   "name": "MaxDps Evoker",
+   "title": "MaxDps Evoker",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Evoker",
+    "MaxDpsEvoker"
+   ]
+  },
+  {
+   "name": "MaxDps Hunter",
+   "title": "MaxDps Hunter",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Hunter",
+    "MaxDpsHunter"
+   ]
+  },
+  {
+   "name": "MaxDps Mage",
+   "title": "MaxDps Mage",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Mage",
+    "MaxDpsMage"
+   ]
+  },
+  {
+   "name": "MaxDps Monk",
+   "title": "MaxDps Monk",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Monk",
+    "MaxDpsMonk"
+   ]
+  },
+  {
+   "name": "MaxDps Paladin",
+   "title": "MaxDps Paladin",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Paladin",
+    "MaxDpsPaladin"
+   ]
+  },
+  {
+   "name": "MaxDps Priest",
+   "title": "MaxDps Priest",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Priest",
+    "MaxDpsPriest"
+   ]
+  },
+  {
+   "name": "MaxDps Rogue",
+   "title": "MaxDps Rogue",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Rogue",
+    "MaxDpsRogue"
+   ]
+  },
+  {
+   "name": "MaxDps Rotation Helper",
+   "title": "MaxDps Rotation Helper",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Rotation Helper",
+    "MaxDpsRotationHelper"
+   ]
+  },
+  {
+   "name": "MaxDps Shaman",
+   "title": "MaxDps Shaman",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Shaman",
+    "MaxDpsShaman"
+   ]
+  },
+  {
+   "name": "MaxDps Warlock",
+   "title": "MaxDps Warlock",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Warlock",
+    "MaxDpsWarlock"
+   ]
+  },
+  {
+   "name": "MaxDps Warrior",
+   "title": "MaxDps Warrior",
+   "author": "Kaminaris",
+   "tokens": [
+    "MaxDps Warrior",
+    "MaxDpsWarrior"
+   ]
+  },
+  {
+   "name": "Maze Helper (Mists of Tirna Scithe)",
+   "title": "Maze Helper",
+   "author": "Voopie",
+   "tokens": [
+    "Maze Helper",
+    "MazeHelper"
+   ]
+  },
+  {
+   "name": "MDT Guide",
+   "title": "MDT Guide",
+   "author": "Shrugal",
+   "tokens": [
+    "MDT Guide",
+    "MDTGuide"
+   ]
+  },
+  {
+   "name": "MerfinPlus",
+   "title": "MerfinPlus",
+   "author": "merfin",
+   "tokens": [
+    "MerfinPlus"
+   ]
+  },
+  {
+   "name": "Method Raid Tools",
+   "title": "Method Raid Tools",
+   "author": "ykiigor",
+   "tokens": [
+    "Method Raid Tools",
+    "MethodRaidTools"
+   ]
+  },
+  {
+   "name": "MiniCC",
+   "title": "MiniCC",
+   "author": "Verz",
+   "tokens": [
+    "MiniCC"
+   ]
+  },
+  {
+   "name": "Minimal Archaeology",
+   "title": "Minimal Archaeology",
+   "author": "MisterFox9",
+   "tokens": [
+    "Minimal Archaeology",
+    "MinimalArchaeology"
+   ]
+  },
+  {
+   "name": "MinimapButtonBag Reborn (MBB Reborn)",
+   "title": "MinimapButtonBag Reborn",
+   "author": "SkunFly",
+   "tokens": [
+    "MinimapButtonBag Reborn",
+    "MinimapButtonBagReborn"
+   ]
+  },
+  {
+   "name": "MinimapButtonButton",
+   "title": "MinimapButtonButton",
+   "author": "syndenbock",
+   "tokens": [
+    "MinimapButtonButton"
+   ]
+  },
+  {
+   "name": "MobInfo2",
+   "title": "MobInfo2",
+   "author": "ileclerk",
+   "tokens": [
+    "MobInfo2"
+   ]
+  },
+  {
+   "name": "MogIt",
+   "title": "MogIt",
+   "author": "Aelobin",
+   "tokens": [
+    "MogIt"
+   ]
+  },
+  {
+   "name": "Molinari",
+   "title": "Molinari",
+   "author": "p3lim",
+   "tokens": [
+    "Molinari"
+   ]
+  },
+  {
+   "name": "mOnArs WardrobeHelper",
+   "title": "mOnArs WardrobeHelper",
+   "author": "qmOnArq",
+   "tokens": [
+    "mOnArs WardrobeHelper",
+    "mOnArsWardrobeHelper"
+   ]
+  },
+  {
+   "name": "Mount Collection Log | MCL",
+   "title": "Mount Collection Log | MCL",
+   "author": "CamYam",
+   "tokens": [
+    "Mount Collection Log | MCL",
+    "MountCollectionLogMCL"
+   ]
+  },
+  {
+   "name": "Mount Collector",
+   "title": "Mount Collector",
+   "author": "InSpectreGadget",
+   "tokens": [
+    "Mount Collector",
+    "MountCollector"
+   ]
+  },
+  {
+   "name": "Mount Journal Enhanced",
+   "title": "Mount Journal Enhanced",
+   "author": "eXochron",
+   "tokens": [
+    "Mount Journal Enhanced",
+    "MountJournalEnhanced"
+   ]
+  },
+  {
+   "name": "MountsJournal",
+   "title": "MountsJournal",
+   "author": "sfmict",
+   "tokens": [
+    "MountsJournal"
+   ]
+  },
+  {
+   "name": "MoveAny (Edit Mode, Windows and Ui)",
+   "title": "MoveAny",
+   "author": "D4KiR",
+   "tokens": [
+    "MoveAny"
+   ]
+  },
+  {
+   "name": "MPlusTimer",
+   "title": "MPlusTimer",
+   "author": "Reloe",
+   "tokens": [
+    "MPlusTimer"
+   ]
+  },
+  {
+   "name": "MurlokExport",
+   "title": "MurlokExport",
+   "author": "Alexandrix",
+   "tokens": [
+    "MurlokExport"
+   ]
+  },
+  {
+   "name": "Musician",
+   "title": "Musician",
+   "author": "LenweSaralonde",
+   "tokens": [
+    "Musician"
+   ]
+  },
+  {
+   "name": "MyRolePlay",
+   "title": "MyRolePlay",
+   "author": "Katorie",
+   "tokens": [
+    "MyRolePlay"
+   ]
+  },
+  {
+   "name": "Myslot",
+   "title": "Myslot",
+   "author": "oishii1992",
+   "tokens": [
+    "Myslot"
+   ]
+  },
+  {
+   "name": "Mythic Dungeon Tools - MDT",
+   "title": "Mythic Dungeon Tools",
+   "author": "Nnoggie",
+   "tokens": [
+    "Mythic Dungeon Tools",
+    "MythicDungeonTools"
+   ]
+  },
+  {
+   "name": "MythicPlusTimer",
+   "title": "MythicPlusTimer",
+   "author": "Fabys",
+   "tokens": [
+    "MythicPlusTimer"
+   ]
+  },
+  {
+   "name": "Myu's Knowledge Points Tracker",
+   "title": "Myu's Knowledge Points Tracker",
+   "author": "myu_westfall",
+   "tokens": [
+    "Myu's Knowledge Points Tracker",
+    "MyusKnowledgePointsTracker"
+   ]
+  },
+  {
+   "name": "Nameplate Scrolling Combat Text",
+   "title": "Nameplate Scrolling Combat Text",
+   "author": "mpstark",
+   "tokens": [
+    "Nameplate Scrolling Combat Text",
+    "NameplateScrollingCombatText"
+   ]
+  },
+  {
+   "name": "NaowhQOL",
+   "title": "NaowhQOL",
+   "author": "xOkamiyasha",
+   "tokens": [
+    "NaowhQOL"
+   ]
+  },
+  {
+   "name": "Narcissus",
+   "title": "Narcissus",
+   "author": "Peterodox",
+   "tokens": [
+    "Narcissus"
+   ]
+  },
+  {
+   "name": "NDui",
+   "title": "NDui",
+   "author": "siweia",
+   "tokens": [
+    "NDui"
+   ]
+  },
+  {
+   "name": "Necrosis all version",
+   "title": "Necrosis all version",
+   "author": "lanscetre",
+   "tokens": [
+    "Necrosis all version",
+    "Necrosisallversion"
+   ]
+  },
+  {
+   "name": "Netherwing Eggs",
+   "title": "Netherwing Eggs",
+   "author": "Taraezor",
+   "tokens": [
+    "Netherwing Eggs",
+    "NetherwingEggs"
+   ]
+  },
+  {
+   "name": "No Mats; No Make",
+   "title": "No Mats; No Make",
+   "author": "Teelo",
+   "tokens": [
+    "No Mats; No Make",
+    "NoMatsNoMake"
+   ]
+  },
+  {
+   "name": "NoAutoClose",
+   "title": "NoAutoClose",
+   "author": "Numy",
+   "tokens": [
+    "NoAutoClose"
+   ]
+  },
+  {
+   "name": "Northern Sky Raid Tools",
+   "title": "Northern Sky Raid Tools",
+   "author": "Reloe",
+   "tokens": [
+    "Northern Sky Raid Tools",
+    "NorthernSkyRaidTools"
+   ]
+  },
+  {
+   "name": "Nova Instance Tracker",
+   "title": "Nova Instance Tracker",
+   "author": "Venomisto",
+   "tokens": [
+    "Nova Instance Tracker",
+    "NovaInstanceTracker"
+   ]
+  },
+  {
+   "name": "NPC Time",
+   "title": "NPC Time",
+   "author": "Yuyuli",
+   "tokens": [
+    "NPC Time",
+    "NPCTime"
+   ]
+  },
+  {
+   "name": "NPCScan",
+   "title": "NPCScan",
+   "author": "Torhal",
+   "tokens": [
+    "NPCScan"
+   ]
+  },
+  {
+   "name": "O Item Level (OiLvL)",
+   "title": "O Item Level",
+   "author": "olzenkhaw0192",
+   "tokens": [
+    "O Item Level",
+    "OItemLevel"
+   ]
+  },
+  {
+   "name": "OmniBar",
+   "title": "OmniBar",
+   "author": "Jordon",
+   "tokens": [
+    "OmniBar"
+   ]
+  },
+  {
+   "name": "OmniCD",
+   "title": "OmniCD",
+   "author": "causese",
+   "tokens": [
+    "OmniCD"
+   ]
+  },
+  {
+   "name": "OPie​",
+   "title": "OPie",
+   "author": "foxlit",
+   "tokens": [
+    "OPie"
+   ]
+  },
+  {
+   "name": "oRA3",
+   "title": "oRA3",
+   "author": "Funkeh",
+   "tokens": [
+    "oRA3"
+   ]
+  },
+  {
+   "name": "OrderHallCommander",
+   "title": "OrderHallCommander",
+   "author": "alarthedark",
+   "tokens": [
+    "OrderHallCommander"
+   ]
+  },
+  {
+   "name": "Oribos Exchange",
+   "title": "Oribos Exchange",
+   "author": "erorus_curseforge",
+   "tokens": [
+    "Oribos Exchange",
+    "OribosExchange"
+   ]
+  },
+  {
+   "name": "oUF",
+   "title": "oUF",
+   "author": "haste",
+   "tokens": [
+    "oUF"
+   ]
+  },
+  {
+   "name": "Outfitter (Retrofit)",
+   "title": "Outfitter",
+   "author": "GovtGeek",
+   "tokens": [
+    "Outfitter"
+   ]
+  },
+  {
+   "name": "Paragon Reputation",
+   "title": "Paragon Reputation",
+   "author": "matjtonnn",
+   "tokens": [
+    "Paragon Reputation",
+    "ParagonReputation"
+   ]
+  },
+  {
+   "name": "Paste",
+   "title": "Paste",
+   "author": "AzerPUG",
+   "tokens": [
+    "Paste"
+   ]
+  },
+  {
+   "name": "Paste NG",
+   "title": "Paste NG",
+   "author": "GurliGebis",
+   "tokens": [
+    "Paste NG",
+    "PasteNG"
+   ]
+  },
+  {
+   "name": "Pawn",
+   "title": "Pawn",
+   "author": "TravisSpomer",
+   "tokens": [
+    "Pawn"
+   ]
+  },
+  {
+   "name": "Peggle Classic",
+   "title": "Peggle Classic",
+   "author": "Ketho17",
+   "tokens": [
+    "Peggle Classic",
+    "PeggleClassic"
+   ]
+  },
+  {
+   "name": "Personal Loot Helper (PLH)",
+   "title": "Personal Loot Helper",
+   "author": "cardinalm1",
+   "tokens": [
+    "Personal Loot Helper",
+    "PersonalLootHelper"
+   ]
+  },
+  {
+   "name": "Pet Battle Scripts",
+   "title": "Pet Battle Scripts",
+   "author": "pkiller162",
+   "tokens": [
+    "Pet Battle Scripts",
+    "PetBattleScripts"
+   ]
+  },
+  {
+   "name": "PetBattleMaster",
+   "title": "PetBattleMaster",
+   "author": "udorn",
+   "tokens": [
+    "PetBattleMaster"
+   ]
+  },
+  {
+   "name": "PetTracker",
+   "title": "PetTracker",
+   "author": "jaliborc",
+   "tokens": [
+    "PetTracker"
+   ]
+  },
+  {
+   "name": "PhoenixStyle",
+   "title": "PhoenixStyle",
+   "author": "wowguruaddons",
+   "tokens": [
+    "PhoenixStyle"
+   ]
+  },
+  {
+   "name": "PitBull4",
+   "title": "PitBull4",
+   "author": "ckknight",
+   "tokens": [
+    "PitBull4"
+   ]
+  },
+  {
+   "name": "Plater",
+   "title": "Plater",
+   "author": "Terciob",
+   "tokens": [
+    "Plater"
+   ]
+  },
+  {
+   "name": "Plater Nameplates",
+   "title": "Plater Nameplates",
+   "author": "Terciob",
+   "tokens": [
+    "Plater Nameplates",
+    "PlaterNameplates"
+   ]
+  },
+  {
+   "name": "Platynator (Nameplates)",
+   "title": "Platynator",
+   "author": "plusmouse",
+   "tokens": [
+    "Platynator"
+   ]
+  },
+  {
+   "name": "PlexusStatusRaidDebuff",
+   "title": "PlexusStatusRaidDebuff",
+   "author": "bstassart",
+   "tokens": [
+    "PlexusStatusRaidDebuff"
+   ]
+  },
+  {
+   "name": "Plumber",
+   "title": "Plumber",
+   "author": "Peterodox",
+   "tokens": [
+    "Plumber"
+   ]
+  },
+  {
+   "name": "Poisoner",
+   "title": "Poisoner",
+   "author": "humfras",
+   "tokens": [
+    "Poisoner"
+   ]
+  },
+  {
+   "name": "Prat 3.0",
+   "title": "Prat 3.0",
+   "author": "QTartemis",
+   "tokens": [
+    "Prat 3.0",
+    "Prat30"
+   ]
+  },
+  {
+   "name": "Premade Groups Filter",
+   "title": "Premade Groups Filter",
+   "author": "baerenhard",
+   "tokens": [
+    "Premade Groups Filter",
+    "PremadeGroupsFilter"
+   ]
+  },
+  {
+   "name": "Preydator",
+   "title": "Preydator",
+   "author": "RagingAltoholic",
+   "tokens": [
+    "Preydator"
+   ]
+  },
+  {
+   "name": "Profession Shopping List",
+   "title": "Profession Shopping List",
+   "author": "Slackluster",
+   "tokens": [
+    "Profession Shopping List",
+    "ProfessionShoppingList"
+   ]
+  },
+  {
+   "name": "Quartz",
+   "title": "Quartz",
+   "author": "Nevcairiel",
+   "tokens": [
+    "Quartz"
+   ]
+  },
+  {
+   "name": "Quest Completist",
+   "title": "Quest Completist",
+   "author": "AlistairJM",
+   "tokens": [
+    "Quest Completist",
+    "QuestCompletist"
+   ]
+  },
+  {
+   "name": "QuickQuest",
+   "title": "QuickQuest",
+   "author": "p3lim",
+   "tokens": [
+    "QuickQuest"
+   ]
+  },
+  {
+   "name": "RaidAchievement",
+   "title": "RaidAchievement",
+   "author": "wowguruaddons",
+   "tokens": [
+    "RaidAchievement"
+   ]
+  },
+  {
+   "name": "RaidAchievement_OldModules",
+   "title": "RaidAchievement_OldModules",
+   "author": "wowguruaddons",
+   "tokens": [
+    "RaidAchievement_OldModules"
+   ]
+  },
+  {
+   "name": "RaidAchievement_Pandaria",
+   "title": "RaidAchievement_Pandaria",
+   "author": "wowguruaddons",
+   "tokens": [
+    "RaidAchievement_Pandaria"
+   ]
+  },
+  {
+   "name": "Raider.IO Mythic Plus, Raid Progress, and Recruitment",
+   "title": "Raider.IO Mythic Plus",
+   "author": "TheFakeJah",
+   "tokens": [
+    "Raider.IO Mythic Plus",
+    "RaiderIOMythicPlus"
+   ]
+  },
+  {
+   "name": "RaidSlackCheck",
+   "title": "RaidSlackCheck",
+   "author": "wowguruaddons",
+   "tokens": [
+    "RaidSlackCheck"
+   ]
+  },
+  {
+   "name": "RangeDisplay",
+   "title": "RangeDisplay",
+   "author": "mitchnull",
+   "tokens": [
+    "RangeDisplay"
+   ]
+  },
+  {
+   "name": "Rares_Tracker",
+   "title": "Rares_Tracker",
+   "author": "Teelo",
+   "tokens": [
+    "Rares_Tracker"
+   ]
+  },
+  {
+   "name": "RareScanner",
+   "title": "RareScanner",
+   "author": "maqjav",
+   "tokens": [
+    "RareScanner"
+   ]
+  },
+  {
+   "name": "RCLootCouncil",
+   "title": "RCLootCouncil",
+   "author": "evil_morfar",
+   "tokens": [
+    "RCLootCouncil"
+   ]
+  },
+  {
+   "name": "RCLootCouncil - GroupGear",
+   "title": "RCLootCouncil",
+   "author": "evil_morfar",
+   "tokens": [
+    "RCLootCouncil"
+   ]
+  },
+  {
+   "name": "RealUI",
+   "title": "RealUI",
+   "author": "Nibelheim",
+   "tokens": [
+    "RealUI"
+   ]
+  },
+  {
+   "name": "Rematch",
+   "title": "Rematch",
+   "author": "gello3",
+   "tokens": [
+    "Rematch"
+   ]
+  },
+  {
+   "name": "Rematch_TSMPetValues",
+   "title": "Rematch_TSMPetValues",
+   "author": "Expelliarm5s",
+   "tokens": [
+    "Rematch_TSMPetValues"
+   ]
+  },
+  {
+   "name": "RestedXP Guide",
+   "title": "RestedXP Guide",
+   "author": "RestedXP",
+   "tokens": [
+    "RestedXP Guide",
+    "RestedXPGuide"
+   ]
+  },
+  {
+   "name": "Routes",
+   "title": "Routes",
+   "author": "Xinhuan",
+   "tokens": [
+    "Routes"
+   ]
+  },
+  {
+   "name": "Routes Import/Export",
+   "title": "Routes Import/Export",
+   "author": "Nadiv",
+   "tokens": [
+    "Routes Import/Export",
+    "RoutesImportExport"
+   ]
+  },
+  {
+   "name": "Routine - Knowledge Points & Rares",
+   "title": "Routine",
+   "author": "Azro",
+   "tokens": [
+    "Routine"
+   ]
+  },
+  {
+   "name": "sArena Reloaded",
+   "title": "sArena Reloaded",
+   "author": "Bodify",
+   "tokens": [
+    "sArena Reloaded",
+    "sArenaReloaded"
+   ]
+  },
+  {
+   "name": "SavedInstances",
+   "title": "SavedInstances",
+   "author": "jokeyrhyme",
+   "tokens": [
+    "SavedInstances"
+   ]
+  },
+  {
+   "name": "Scrap (Junk Seller)",
+   "title": "Scrap",
+   "author": "jaliborc",
+   "tokens": [
+    "Scrap"
+   ]
+  },
+  {
+   "name": "SenseiClassResourceBar",
+   "title": "SenseiClassResourceBar",
+   "author": "Sensei987",
+   "tokens": [
+    "SenseiClassResourceBar"
+   ]
+  },
+  {
+   "name": "SexyMap",
+   "title": "SexyMap",
+   "author": "Funkeh",
+   "tokens": [
+    "SexyMap"
+   ]
+  },
+  {
+   "name": "Shadowed Unit Frames",
+   "title": "Shadowed Unit Frames",
+   "author": "Nevcairiel",
+   "tokens": [
+    "Shadowed Unit Frames",
+    "ShadowedUnitFrames"
+   ]
+  },
+  {
+   "name": "ShadowedUnitFrames",
+   "title": "ShadowedUnitFrames",
+   "author": "Nevcairiel",
+   "tokens": [
+    "ShadowedUnitFrames"
+   ]
+  },
+  {
+   "name": "SharedMedia",
+   "title": "SharedMedia",
+   "author": "Elkano",
+   "tokens": [
+    "SharedMedia"
+   ]
+  },
+  {
+   "name": "SharedMedia_Causese",
+   "title": "SharedMedia_Causese",
+   "author": "causese",
+   "tokens": [
+    "SharedMedia_Causese"
+   ]
+  },
+  {
+   "name": "SharedMediaAdditionalFonts",
+   "title": "SharedMediaAdditionalFonts",
+   "author": "AllInOneMighty",
+   "tokens": [
+    "SharedMediaAdditionalFonts"
+   ]
+  },
+  {
+   "name": "SilverDragon - Rare Scanner",
+   "title": "SilverDragon",
+   "author": "Kemayo",
+   "tokens": [
+    "SilverDragon"
+   ]
+  },
+  {
+   "name": "Simple Item Levels",
+   "title": "Simple Item Levels",
+   "author": "Kemayo",
+   "tokens": [
+    "Simple Item Levels",
+    "SimpleItemLevels"
+   ]
+  },
+  {
+   "name": "Simulationcraft",
+   "title": "Simulationcraft",
+   "author": "navv_",
+   "tokens": [
+    "Simulationcraft"
+   ]
+  },
+  {
+   "name": "SinStats Character Stats",
+   "title": "SinStats Character Stats",
+   "author": "Sinba",
+   "tokens": [
+    "SinStats Character Stats",
+    "SinStatsCharacterStats"
+   ]
+  },
+  {
+   "name": "Skada",
+   "title": "Skada",
+   "author": "Zarnivoop",
+   "tokens": [
+    "Skada"
+   ]
+  },
+  {
+   "name": "Skada Damage Meter",
+   "title": "Skada Damage Meter",
+   "author": "zarnivoop",
+   "tokens": [
+    "Skada Damage Meter",
+    "SkadaDamageMeter"
+   ]
+  },
+  {
+   "name": "Skill Capped UI",
+   "title": "Skill Capped UI",
+   "author": "Mystzr",
+   "tokens": [
+    "Skill Capped UI",
+    "SkillCappedUI"
+   ]
+  },
+  {
+   "name": "Skinner",
+   "title": "Skinner",
+   "author": "Jncl",
+   "tokens": [
+    "Skinner"
+   ]
+  },
+  {
+   "name": "SliceAdmiral",
+   "title": "SliceAdmiral",
+   "author": "cgiguy",
+   "tokens": [
+    "SliceAdmiral"
+   ]
+  },
+  {
+   "name": "Socialite (Titan Social)",
+   "title": "Socialite",
+   "author": "solocommand",
+   "tokens": [
+    "Socialite"
+   ]
+  },
+  {
+   "name": "SpartanUI",
+   "title": "SpartanUI",
+   "author": "wutname1",
+   "tokens": [
+    "SpartanUI"
+   ]
+  },
+  {
+   "name": "SpecBisTooltip Spec Bis List Tooltip",
+   "title": "SpecBisTooltip Spec Bis List Tooltip",
+   "author": "D4KiR",
+   "tokens": [
+    "SpecBisTooltip Spec Bis List Tooltip",
+    "SpecBisTooltipSpecBisListTooltip"
+   ]
+  },
+  {
+   "name": "Speedy AutoLoot",
+   "title": "Speedy AutoLoot",
+   "author": "Yuyuli",
+   "tokens": [
+    "Speedy AutoLoot",
+    "SpeedyAutoLoot"
+   ]
+  },
+  {
+   "name": "Springfur Alpaca",
+   "title": "Springfur Alpaca",
+   "author": "Taraezor",
+   "tokens": [
+    "Springfur Alpaca",
+    "SpringfurAlpaca"
+   ]
+  },
+  {
+   "name": "Spy",
+   "title": "Spy",
+   "author": "Slipjack",
+   "tokens": [
+    "Spy"
+   ]
+  },
+  {
+   "name": "Storyline",
+   "title": "Storyline",
+   "author": "Ellypse",
+   "tokens": [
+    "Storyline"
+   ]
+  },
+  {
+   "name": "Stuf Unit Frames",
+   "title": "Stuf Unit Frames",
+   "author": "totalpackage",
+   "tokens": [
+    "Stuf Unit Frames",
+    "StufUnitFrames"
+   ]
+  },
+  {
+   "name": "SUI - SyianaUI",
+   "title": "SUI",
+   "author": "Syiana",
+   "tokens": [
+    "SUI"
+   ]
+  },
+  {
+   "name": "SweepyBoop's PvP Helper",
+   "title": "SweepyBoop's PvP Helper",
+   "author": "SweepyBoop",
+   "tokens": [
+    "SweepyBoop's PvP Helper",
+    "SweepyBoopsPvPHelper"
+   ]
+  },
+  {
+   "name": "Syndicator",
+   "title": "Syndicator",
+   "author": "plusmouse",
+   "tokens": [
+    "Syndicator"
+   ]
+  },
+  {
+   "name": "Talent Loadout Ex",
+   "title": "Talent Loadout Ex",
+   "author": "Morizo",
+   "tokens": [
+    "Talent Loadout Ex",
+    "TalentLoadoutEx"
+   ]
+  },
+  {
+   "name": "Talent Tree Tweaks",
+   "title": "Talent Tree Tweaks",
+   "author": "Numy",
+   "tokens": [
+    "Talent Tree Tweaks",
+    "TalentTreeTweaks"
+   ]
+  },
+  {
+   "name": "TankHelper (RaidIcons, Automark, Pulltimer) Tank",
+   "title": "TankHelper",
+   "author": "D4KiR",
+   "tokens": [
+    "TankHelper"
+   ]
+  },
+  {
+   "name": "TargetedSpells",
+   "title": "TargetedSpells",
+   "author": "Xepheris",
+   "tokens": [
+    "TargetedSpells"
+   ]
+  },
+  {
+   "name": "Teleport Menu",
+   "title": "Teleport Menu",
+   "author": "justw8",
+   "tokens": [
+    "Teleport Menu",
+    "TeleportMenu"
+   ]
+  },
+  {
+   "name": "TellMeWhen",
+   "title": "TellMeWhen",
+   "author": "Cybeloras",
+   "tokens": [
+    "TellMeWhen"
+   ]
+  },
+  {
+   "name": "Threat Plates",
+   "title": "Threat Plates",
+   "author": "Suicidal_Katt",
+   "tokens": [
+    "Threat Plates",
+    "ThreatPlates"
+   ]
+  },
+  {
+   "name": "TipTac Reborn",
+   "title": "TipTac Reborn",
+   "author": "frozn45",
+   "tokens": [
+    "TipTac Reborn",
+    "TipTacReborn"
+   ]
+  },
+  {
+   "name": "Titan Panel",
+   "title": "Titan Panel",
+   "author": "HonorGoG",
+   "tokens": [
+    "Titan Panel",
+    "TitanPanel"
+   ]
+  },
+  {
+   "name": "Titan Panel [Currencies] Multi",
+   "title": "Titan Panel",
+   "author": "Canettieri",
+   "tokens": [
+    "Titan Panel",
+    "TitanPanel"
+   ]
+  },
+  {
+   "name": "Titan Panel [Professions] Multi",
+   "title": "Titan Panel",
+   "author": "Canettieri",
+   "tokens": [
+    "Titan Panel",
+    "TitanPanel"
+   ]
+  },
+  {
+   "name": "Titan Panel [Reputation]",
+   "title": "Titan Panel",
+   "author": "Eliote",
+   "tokens": [
+    "Titan Panel",
+    "TitanPanel"
+   ]
+  },
+  {
+   "name": "TLDR Missions",
+   "title": "TLDR Missions",
+   "author": "Teelo",
+   "tokens": [
+    "TLDR Missions",
+    "TLDRMissions"
+   ]
+  },
+  {
+   "name": "TomCat's Tours ( now includes the Midsummer Fire Festival and A Greedy Emissary )",
+   "title": "TomCat's Tours",
+   "author": "TomCat",
+   "tokens": [
+    "TomCat's Tours",
+    "TomCatsTours"
+   ]
+  },
+  {
+   "name": "Tome of Teleportation",
+   "title": "Tome of Teleportation",
+   "author": "Remeen",
+   "tokens": [
+    "Tome of Teleportation",
+    "TomeofTeleportation"
+   ]
+  },
+  {
+   "name": "TomPoints - Clickable waypoint links for TomTom or Map Pins",
+   "title": "TomPoints",
+   "author": "Protuhj",
+   "tokens": [
+    "TomPoints"
+   ]
+  },
+  {
+   "name": "TomTom",
+   "title": "TomTom",
+   "author": "jnwhiteh",
+   "tokens": [
+    "TomTom"
+   ]
+  },
+  {
+   "name": "Total RP 3",
+   "title": "Total RP 3",
+   "author": "SolanyaStormbreaker",
+   "tokens": [
+    "Total RP 3",
+    "TotalRP3"
+   ]
+  },
+  {
+   "name": "Total RP 3: Extended",
+   "title": "Total RP 3",
+   "author": "SolanyaStormbreaker",
+   "tokens": [
+    "Total RP 3",
+    "TotalRP3"
+   ]
+  },
+  {
+   "name": "ToxiUI - ElvUI edit",
+   "title": "ToxiUI",
+   "author": "theToxi_",
+   "tokens": [
+    "ToxiUI"
+   ]
+  },
+  {
+   "name": "TradeSkillMaster",
+   "title": "TradeSkillMaster",
+   "author": "Sapu94",
+   "tokens": [
+    "TradeSkillMaster"
+   ]
+  },
+  {
+   "name": "Transcriptor",
+   "title": "Transcriptor",
+   "author": "Funkeh",
+   "tokens": [
+    "Transcriptor"
+   ]
+  },
+  {
+   "name": "TrinketMenu",
+   "title": "TrinketMenu",
+   "author": "gello3",
+   "tokens": [
+    "TrinketMenu"
+   ]
+  },
+  {
+   "name": "Trove Tally [Remix: Legion Update]",
+   "title": "Trove Tally",
+   "author": "Bettiold",
+   "tokens": [
+    "Trove Tally",
+    "TroveTally"
+   ]
+  },
+  {
+   "name": "True Stat Values",
+   "title": "True Stat Values",
+   "author": "notarealwzrd",
+   "tokens": [
+    "True Stat Values",
+    "TrueStatValues"
+   ]
+  },
+  {
+   "name": "TrufiGCD",
+   "title": "TrufiGCD",
+   "author": "Trufi",
+   "tokens": [
+    "TrufiGCD"
+   ]
+  },
+  {
+   "name": "Tukui",
+   "title": "Tukui",
+   "author": "Tukz",
+   "tokens": [
+    "Tukui"
+   ]
+  },
+  {
+   "name": "tullaRange",
+   "title": "tullaRange",
+   "author": "Tuller",
+   "tokens": [
+    "tullaRange"
+   ]
+  },
+  {
+   "name": "Twintop's Resource Bar",
+   "title": "Twintop's Resource Bar",
+   "author": "Twintop",
+   "tokens": [
+    "Twintop's Resource Bar",
+    "TwintopsResourceBar"
+   ]
+  },
+  {
+   "name": "Twitch Emotes v2",
+   "title": "Twitch Emotes v2",
+   "author": "ren9790",
+   "tokens": [
+    "Twitch Emotes v2",
+    "TwitchEmotesv2"
+   ]
+  },
+  {
+   "name": "Unhalted Unit Frames",
+   "title": "Unhalted Unit Frames",
+   "author": "UnhaltedGB",
+   "tokens": [
+    "Unhalted Unit Frames",
+    "UnhaltedUnitFrames"
+   ]
+  },
+  {
+   "name": "Venture Plan",
+   "title": "Venture Plan",
+   "author": "foxlit",
+   "tokens": [
+    "Venture Plan",
+    "VenturePlan"
+   ]
+  },
+  {
+   "name": "Vocal Raid Assistant",
+   "title": "Vocal Raid Assistant",
+   "author": "Nitrak",
+   "tokens": [
+    "Vocal Raid Assistant",
+    "VocalRaidAssistant"
+   ]
+  },
+  {
+   "name": "VuhDo",
+   "title": "VuhDo",
+   "author": "humfras",
+   "tokens": [
+    "VuhDo"
+   ]
+  },
+  {
+   "name": "WarpDeplete Mythic+ Timer",
+   "title": "WarpDeplete Mythic+ Timer",
+   "author": "happens_",
+   "tokens": [
+    "WarpDeplete Mythic+ Timer",
+    "WarpDepleteMythicTimer"
+   ]
+  },
+  {
+   "name": "Waypoint UI",
+   "title": "Waypoint UI",
+   "author": "AdaptiveX",
+   "tokens": [
+    "Waypoint UI",
+    "WaypointUI"
+   ]
+  },
+  {
+   "name": "WeakAuras",
+   "title": "WeakAuras",
+   "author": "The WeakAuras Team",
+   "tokens": [
+    "WeakAuras"
+   ]
+  },
+  {
+   "name": "WeeklyKnowledge",
+   "title": "WeeklyKnowledge",
+   "author": "Liquidor",
+   "tokens": [
+    "WeeklyKnowledge"
+   ]
+  },
+  {
+   "name": "Wholly",
+   "title": "Wholly",
+   "author": "nimhfree",
+   "tokens": [
+    "Wholly"
+   ]
+  },
+  {
+   "name": "WilduTools",
+   "title": "WilduTools",
+   "author": "WilduTools",
+   "tokens": [
+    "WilduTools"
+   ]
+  },
+  {
+   "name": "WIM (WoW Instant Messenger) v3",
+   "title": "WIM",
+   "author": "RealPazza",
+   "tokens": [
+    "WIM"
+   ]
+  },
+  {
+   "name": "World Quest Tab",
+   "title": "World Quest Tab",
+   "author": "LanceDH",
+   "tokens": [
+    "World Quest Tab",
+    "WorldQuestTab"
+   ]
+  },
+  {
+   "name": "World Quest Tracker",
+   "title": "World Quest Tracker",
+   "author": "Terciob",
+   "tokens": [
+    "World Quest Tracker",
+    "WorldQuestTracker"
+   ]
+  },
+  {
+   "name": "World Quests List",
+   "title": "World Quests List",
+   "author": "ykiigor",
+   "tokens": [
+    "World Quests List",
+    "WorldQuestsList"
+   ]
+  },
+  {
+   "name": "WorldBossTimers",
+   "title": "WorldBossTimers",
+   "author": "fstenstrom",
+   "tokens": [
+    "WorldBossTimers"
+   ]
+  },
+  {
+   "name": "WorthIt",
+   "title": "WorthIt",
+   "author": "DalaGG",
+   "tokens": [
+    "WorthIt"
+   ]
+  },
+  {
+   "name": "WoW-Pro Guides",
+   "title": "WoW-Pro Guides",
+   "author": "Ludovicus_Maior",
+   "tokens": [
+    "WoW-Pro Guides",
+    "WoWProGuides"
+   ]
+  },
+  {
+   "name": "WoWDB Profiler",
+   "title": "WoWDB Profiler",
+   "author": "chaud",
+   "tokens": [
+    "WoWDB Profiler",
+    "WoWDBProfiler"
+   ]
+  },
+  {
+   "name": "WoWthing Collector",
+   "title": "WoWthing Collector",
+   "author": "Freddie",
+   "tokens": [
+    "WoWthing Collector",
+    "WoWthingCollector"
+   ]
+  },
+  {
+   "name": "XLoot",
+   "title": "XLoot",
+   "author": "Xuerian",
+   "tokens": [
+    "XLoot"
+   ]
+  },
+  {
+   "name": "Zereth Mortis Puzzle Helper",
+   "title": "Zereth Mortis Puzzle Helper",
+   "author": "httpsx",
+   "tokens": [
+    "Zereth Mortis Puzzle Helper",
+    "ZerethMortisPuzzleHelper"
+   ]
+  }
+ ],
+ "tokens": {
+  "ALL THE THINGS": {
+   "tier": "distinctive",
+   "addon": "ALL THE THINGS",
+   "author": "Crieve"
+  },
+  "ALLTHETHINGS": {
+   "tier": "distinctive",
+   "addon": "ALL THE THINGS",
+   "author": "Crieve"
+  },
+  "Account Played": {
+   "tier": "distinctive",
+   "addon": "Account Played",
+   "author": "shodo___"
+  },
+  "AccountPlayed": {
+   "tier": "distinctive",
+   "addon": "Account Played",
+   "author": "shodo___"
+  },
+  "Ace3": {
+   "tier": "library",
+   "addon": "Ace3",
+   "author": "Kaelten"
+  },
+  "AceGUI-3.0": {
+   "tier": "library",
+   "addon": "AceGUI-3.0",
+   "author": "StormFX"
+  },
+  "AceGUI30": {
+   "tier": "distinctive",
+   "addon": "AceGUI-3.0",
+   "author": "StormFX"
+  },
+  "AchievementsReminder": {
+   "tier": "distinctive",
+   "addon": "AchievementsReminder",
+   "author": "wowguruaddons"
+  },
+  "Addon Control Panel": {
+   "tier": "distinctive",
+   "addon": "Addon Control Panel",
+   "author": "lucifercatnip"
+  },
+  "AddonControlPanel": {
+   "tier": "distinctive",
+   "addon": "Addon Control Panel",
+   "author": "lucifercatnip"
+  },
+  "Adorable Raptor Hatchlings": {
+   "tier": "distinctive",
+   "addon": "Adorable Raptor Hatchlings",
+   "author": "Taraezor"
+  },
+  "AdorableRaptorHatchlings": {
+   "tier": "distinctive",
+   "addon": "Adorable Raptor Hatchlings",
+   "author": "Taraezor"
+  },
+  "AdvancedInterfaceOptions": {
+   "tier": "distinctive",
+   "addon": "AdvancedInterfaceOptions",
+   "author": "Stanzilla"
+  },
+  "Already Known": {
+   "tier": "distinctive",
+   "addon": "Already Known",
+   "author": "ahak"
+  },
+  "AlreadyKnown": {
+   "tier": "distinctive",
+   "addon": "Already Known",
+   "author": "ahak"
+  },
+  "AlterEgo": {
+   "tier": "distinctive",
+   "addon": "AlterEgo",
+   "author": "Liquidor"
+  },
+  "Altoholic": {
+   "tier": "distinctive",
+   "addon": "Altoholic",
+   "author": "Thaoky"
+  },
+  "Angleur": {
+   "tier": "ambiguous",
+   "addon": "Angleur",
+   "author": "Legolando"
+  },
+  "Angry Assignments": {
+   "tier": "distinctive",
+   "addon": "Angry Assignments",
+   "author": "Ermads"
+  },
+  "Angry Keystones": {
+   "tier": "distinctive",
+   "addon": "Angry Keystones",
+   "author": "Ermads"
+  },
+  "AngryAssignments": {
+   "tier": "distinctive",
+   "addon": "Angry Assignments",
+   "author": "Ermads"
+  },
+  "AngryKeystones": {
+   "tier": "distinctive",
+   "addon": "Angry Keystones",
+   "author": "Ermads"
+  },
+  "ArcHUD3": {
+   "tier": "distinctive",
+   "addon": "ArcHUD3",
+   "author": "nyyyr"
+  },
+  "ArcUI": {
+   "tier": "distinctive",
+   "addon": "ArcUI",
+   "author": "ArcForge"
+  },
+  "Arcana": {
+   "tier": "ambiguous",
+   "addon": "Arcana",
+   "author": "kiatra_"
+  },
+  "ArkInventory": {
+   "tier": "distinctive",
+   "addon": "ArkInventory",
+   "author": "Arkayenro"
+  },
+  "Armory": {
+   "tier": "ambiguous",
+   "addon": "Armory",
+   "author": "Warmexx_"
+  },
+  "AskMrRobot": {
+   "tier": "distinctive",
+   "addon": "AskMrRobot",
+   "author": "yellowfive"
+  },
+  "Astral Keys": {
+   "tier": "distinctive",
+   "addon": "Astral Keys",
+   "author": "TerraQT"
+  },
+  "AstralKeys": {
+   "tier": "distinctive",
+   "addon": "Astral Keys",
+   "author": "TerraQT"
+  },
+  "Atlas": {
+   "tier": "ambiguous",
+   "addon": "Atlas",
+   "author": "nanderson11"
+  },
+  "AtlasQuest": {
+   "tier": "distinctive",
+   "addon": "AtlasQuest",
+   "author": "nanderson11"
+  },
+  "Auctionator": {
+   "tier": "distinctive",
+   "addon": "Auctionator",
+   "author": "plusmouse"
+  },
+  "Auto Keystone": {
+   "tier": "distinctive",
+   "addon": "Auto Keystone",
+   "author": "HydraMods"
+  },
+  "Auto Potion": {
+   "tier": "distinctive",
+   "addon": "Auto Potion",
+   "author": "ollidiemaus"
+  },
+  "Auto Seller": {
+   "tier": "distinctive",
+   "addon": "Auto Seller",
+   "author": "Terciob"
+  },
+  "AutoBar": {
+   "tier": "distinctive",
+   "addon": "AutoBar",
+   "author": "MuffinManKen"
+  },
+  "AutoKeystone": {
+   "tier": "distinctive",
+   "addon": "Auto Keystone",
+   "author": "HydraMods"
+  },
+  "AutoPotion": {
+   "tier": "distinctive",
+   "addon": "Auto Potion",
+   "author": "ollidiemaus"
+  },
+  "AutoRepair": {
+   "tier": "distinctive",
+   "addon": "AutoRepair",
+   "author": "markyxl"
+  },
+  "AutoSeller": {
+   "tier": "distinctive",
+   "addon": "Auto Seller",
+   "author": "Terciob"
+  },
+  "AutoTurnIn": {
+   "tier": "distinctive",
+   "addon": "AutoTurnIn",
+   "author": "Dobroff"
+  },
+  "AutoVendor": {
+   "tier": "distinctive",
+   "addon": "AutoVendor",
+   "author": "olafskiii"
+  },
+  "AzeriteTooltip": {
+   "tier": "distinctive",
+   "addon": "AzeriteTooltip",
+   "author": "jokair9"
+  },
+  "Azeroth Pilot Reloaded": {
+   "tier": "distinctive",
+   "addon": "Azeroth Pilot Reloaded",
+   "author": "Neoldric"
+  },
+  "AzerothPilotReloaded": {
+   "tier": "distinctive",
+   "addon": "Azeroth Pilot Reloaded",
+   "author": "Neoldric"
+  },
+  "BFAInvasionTimer": {
+   "tier": "distinctive",
+   "addon": "BFAInvasionTimer",
+   "author": "Funkeh"
+  },
+  "BadBoy": {
+   "tier": "distinctive",
+   "addon": "BadBoy",
+   "author": "Funkeh"
+  },
+  "BadBoy_CCleaner": {
+   "tier": "distinctive",
+   "addon": "BadBoy_CCleaner",
+   "author": "Funkeh"
+  },
+  "BadBoy_Guilded": {
+   "tier": "distinctive",
+   "addon": "BadBoy_Guilded",
+   "author": "Funkeh"
+  },
+  "BadBoy_Levels": {
+   "tier": "distinctive",
+   "addon": "BadBoy_Levels",
+   "author": "Funkeh"
+  },
+  "BagBrother": {
+   "tier": "distinctive",
+   "addon": "BagBrother",
+   "author": "jaliborc"
+  },
+  "BagSync": {
+   "tier": "distinctive",
+   "addon": "BagSync",
+   "author": "Xruptor"
+  },
+  "Baganator": {
+   "tier": "distinctive",
+   "addon": "Baganator",
+   "author": "plusmouse"
+  },
+  "Baggins": {
+   "tier": "ambiguous",
+   "addon": "Baggins",
+   "author": "Doadin"
+  },
+  "Bagnon": {
+   "tier": "distinctive",
+   "addon": "Bagnon",
+   "author": "jaliborc"
+  },
+  "Bagnon BoE": {
+   "tier": "distinctive",
+   "addon": "Bagnon BoE",
+   "author": "GoldpawForever"
+  },
+  "Bagnon Garbage": {
+   "tier": "distinctive",
+   "addon": "Bagnon Garbage",
+   "author": "GoldpawForever"
+  },
+  "Bagnon ItemLevel": {
+   "tier": "distinctive",
+   "addon": "Bagnon ItemLevel",
+   "author": "GoldpawForever"
+  },
+  "Bagnon ItemLevel Plus": {
+   "tier": "distinctive",
+   "addon": "Bagnon ItemLevel Plus",
+   "author": "GoldpawForever"
+  },
+  "Bagnon Scrap": {
+   "tier": "distinctive",
+   "addon": "Bagnon Scrap",
+   "author": "jaliborc"
+  },
+  "BagnonBoE": {
+   "tier": "distinctive",
+   "addon": "Bagnon BoE",
+   "author": "GoldpawForever"
+  },
+  "BagnonGarbage": {
+   "tier": "distinctive",
+   "addon": "Bagnon Garbage",
+   "author": "GoldpawForever"
+  },
+  "BagnonItemLevel": {
+   "tier": "distinctive",
+   "addon": "Bagnon ItemLevel",
+   "author": "GoldpawForever"
+  },
+  "BagnonItemLevelPlus": {
+   "tier": "distinctive",
+   "addon": "Bagnon ItemLevel Plus",
+   "author": "GoldpawForever"
+  },
+  "BagnonScrap": {
+   "tier": "distinctive",
+   "addon": "Bagnon Scrap",
+   "author": "jaliborc"
+  },
+  "Bagnonium": {
+   "tier": "distinctive",
+   "addon": "Bagnonium",
+   "author": "jaliborc"
+  },
+  "BankStack": {
+   "tier": "distinctive",
+   "addon": "BankStack",
+   "author": "Kemayo"
+  },
+  "Bartender4": {
+   "tier": "distinctive",
+   "addon": "Bartender4",
+   "author": "nevcairiel"
+  },
+  "BasicChatMods": {
+   "tier": "distinctive",
+   "addon": "BasicChatMods",
+   "author": "Funkeh"
+  },
+  "BasicMinimap": {
+   "tier": "distinctive",
+   "addon": "BasicMinimap",
+   "author": "Funkeh"
+  },
+  "Battle Pet BreedID": {
+   "tier": "distinctive",
+   "addon": "Battle Pet BreedID",
+   "author": "Simca"
+  },
+  "Battle Pet Completionist": {
+   "tier": "distinctive",
+   "addon": "Battle Pet Completionist",
+   "author": "GurliGebis"
+  },
+  "BattleGroundEnemies": {
+   "tier": "distinctive",
+   "addon": "BattleGroundEnemies",
+   "author": "Fadelight"
+  },
+  "BattleGroundEnemiesFixed": {
+   "tier": "distinctive",
+   "addon": "BattleGroundEnemiesFixed",
+   "author": "RBGDEV"
+  },
+  "BattlePetBreedID": {
+   "tier": "distinctive",
+   "addon": "Battle Pet BreedID",
+   "author": "Simca"
+  },
+  "BattlePetCompletionist": {
+   "tier": "distinctive",
+   "addon": "Battle Pet Completionist",
+   "author": "GurliGebis"
+  },
+  "Bazooka": {
+   "tier": "distinctive",
+   "addon": "Bazooka",
+   "author": "mitchnull"
+  },
+  "BenikUI": {
+   "tier": "distinctive",
+   "addon": "BenikUI",
+   "author": "benik30"
+  },
+  "Better Fishing": {
+   "tier": "distinctive",
+   "addon": "Better Fishing",
+   "author": "Yuyuli"
+  },
+  "Better Wardrobe and Transmog": {
+   "tier": "distinctive",
+   "addon": "Better Wardrobe and Transmog",
+   "author": "SLOKnightFall"
+  },
+  "BetterBags": {
+   "tier": "distinctive",
+   "addon": "BetterBags",
+   "author": "Cidanz"
+  },
+  "BetterBlizzFrames": {
+   "tier": "distinctive",
+   "addon": "BetterBlizzFrames",
+   "author": "Bodify"
+  },
+  "BetterBlizzPlates": {
+   "tier": "distinctive",
+   "addon": "BetterBlizzPlates",
+   "author": "Bodify"
+  },
+  "BetterCharacterPanel": {
+   "tier": "distinctive",
+   "addon": "BetterCharacterPanel",
+   "author": "Grimonja"
+  },
+  "BetterCooldownManager": {
+   "tier": "distinctive",
+   "addon": "BetterCooldownManager",
+   "author": "UnhaltedGB"
+  },
+  "BetterFishing": {
+   "tier": "distinctive",
+   "addon": "Better Fishing",
+   "author": "Yuyuli"
+  },
+  "BetterWardrobeandTransmog": {
+   "tier": "distinctive",
+   "addon": "Better Wardrobe and Transmog",
+   "author": "SLOKnightFall"
+  },
+  "BigDebuffs": {
+   "tier": "distinctive",
+   "addon": "BigDebuffs",
+   "author": "Jordons"
+  },
+  "BigWigs": {
+   "tier": "distinctive",
+   "addon": "BigWigs",
+   "author": "Funkeh"
+  },
+  "BigWigs_BattleForAzeroth": {
+   "tier": "distinctive",
+   "addon": "BigWigs_BattleForAzeroth",
+   "author": "Funkeh"
+  },
+  "BigWigs_BurningCrusade": {
+   "tier": "distinctive",
+   "addon": "BigWigs_BurningCrusade",
+   "author": "Funkeh"
+  },
+  "BigWigs_Cataclysm": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Cataclysm",
+   "author": "Funkeh"
+  },
+  "BigWigs_Classic": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Classic",
+   "author": "Funkeh"
+  },
+  "BigWigs_Countdown_HeroesOfTheStorm": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Countdown_HeroesOfTheStorm",
+   "author": "nebula169"
+  },
+  "BigWigs_Countdown_Overwatch": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Countdown_Overwatch",
+   "author": "nebula169"
+  },
+  "BigWigs_Dragonflight": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Dragonflight",
+   "author": "Funkeh"
+  },
+  "BigWigs_Legion": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Legion",
+   "author": "Funkeh"
+  },
+  "BigWigs_MistsOfPandaria": {
+   "tier": "distinctive",
+   "addon": "BigWigs_MistsOfPandaria",
+   "author": "Funkeh"
+  },
+  "BigWigs_Shadowlands": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Shadowlands",
+   "author": "Funkeh"
+  },
+  "BigWigs_Voice": {
+   "tier": "distinctive",
+   "addon": "BigWigs_Voice",
+   "author": "Funkeh"
+  },
+  "BigWigs_WarlordsOfDraenor": {
+   "tier": "distinctive",
+   "addon": "BigWigs_WarlordsOfDraenor",
+   "author": "Funkeh"
+  },
+  "BigWigs_WrathOfTheLichKing": {
+   "tier": "distinctive",
+   "addon": "BigWigs_WrathOfTheLichKing",
+   "author": "Funkeh"
+  },
+  "Bigwigs Voice": {
+   "tier": "distinctive",
+   "addon": "Bigwigs Voice",
+   "author": "silhouette_vv"
+  },
+  "BigwigsVoice": {
+   "tier": "distinctive",
+   "addon": "Bigwigs Voice",
+   "author": "silhouette_vv"
+  },
+  "BindPad": {
+   "tier": "distinctive",
+   "addon": "BindPad",
+   "author": "krztalabs"
+  },
+  "BliZzi Party Tools": {
+   "tier": "distinctive",
+   "addon": "BliZzi Party Tools",
+   "author": "BliZzi1337"
+  },
+  "BliZziPartyTools": {
+   "tier": "distinctive",
+   "addon": "BliZzi Party Tools",
+   "author": "BliZzi1337"
+  },
+  "BlizzMove": {
+   "tier": "distinctive",
+   "addon": "BlizzMove",
+   "author": "kiatra_"
+  },
+  "BonusRollPreview": {
+   "tier": "distinctive",
+   "addon": "BonusRollPreview",
+   "author": "p3lim"
+  },
+  "Broker Everything": {
+   "tier": "distinctive",
+   "addon": "Broker Everything",
+   "author": "hizuro_de"
+  },
+  "BrokerEverything": {
+   "tier": "distinctive",
+   "addon": "Broker Everything",
+   "author": "hizuro_de"
+  },
+  "BtWLoadouts": {
+   "tier": "distinctive",
+   "addon": "BtWLoadouts",
+   "author": "Breeni"
+  },
+  "BtWQuests": {
+   "tier": "distinctive",
+   "addon": "BtWQuests",
+   "author": "Breeni"
+  },
+  "Buff Timers": {
+   "tier": "distinctive",
+   "addon": "Buff Timers",
+   "author": "MDHippie"
+  },
+  "BuffTimers": {
+   "tier": "distinctive",
+   "addon": "Buff Timers",
+   "author": "MDHippie"
+  },
+  "BugGrabber": {
+   "tier": "library",
+   "addon": "BugGrabber",
+   "author": "Funkeh"
+  },
+  "BugSack": {
+   "tier": "library",
+   "addon": "BugSack",
+   "author": "Funkeh"
+  },
+  "Button Forge": {
+   "tier": "distinctive",
+   "addon": "Button Forge",
+   "author": "AlternativeTheory"
+  },
+  "ButtonForge": {
+   "tier": "distinctive",
+   "addon": "Button Forge",
+   "author": "AlternativeTheory"
+  },
+  "BuyEmAll Vendor Addon": {
+   "tier": "distinctive",
+   "addon": "BuyEmAll Vendor Addon",
+   "author": "kaelon"
+  },
+  "BuyEmAllVendorAddon": {
+   "tier": "distinctive",
+   "addon": "BuyEmAll Vendor Addon",
+   "author": "kaelon"
+  },
+  "Camel Spotter": {
+   "tier": "distinctive",
+   "addon": "Camel Spotter",
+   "author": "Yuyuli"
+  },
+  "CamelSpotter": {
+   "tier": "distinctive",
+   "addon": "Camel Spotter",
+   "author": "Yuyuli"
+  },
+  "Can I Mog It": {
+   "tier": "distinctive",
+   "addon": "Can I Mog It",
+   "author": "AmiYuy"
+  },
+  "CanIMogIt": {
+   "tier": "distinctive",
+   "addon": "Can I Mog It",
+   "author": "AmiYuy"
+  },
+  "Candy Buckets": {
+   "tier": "distinctive",
+   "addon": "Candy Buckets",
+   "author": "Vladinator"
+  },
+  "CandyBuckets": {
+   "tier": "distinctive",
+   "addon": "Candy Buckets",
+   "author": "Vladinator"
+  },
+  "Capping Battleground Timers": {
+   "tier": "distinctive",
+   "addon": "Capping Battleground Timers",
+   "author": "Funkeh"
+  },
+  "CappingBattlegroundTimers": {
+   "tier": "distinctive",
+   "addon": "Capping Battleground Timers",
+   "author": "Funkeh"
+  },
+  "Carbonite All in One": {
+   "tier": "distinctive",
+   "addon": "Carbonite All in One",
+   "author": "IrcDirker"
+  },
+  "CarboniteAllinOne": {
+   "tier": "distinctive",
+   "addon": "Carbonite All in One",
+   "author": "IrcDirker"
+  },
+  "Cell": {
+   "tier": "ambiguous",
+   "addon": "Cell",
+   "author": "enderneko"
+  },
+  "ChampionCommander": {
+   "tier": "distinctive",
+   "addon": "ChampionCommander",
+   "author": "alarthedark"
+  },
+  "Chat Copy Paste": {
+   "tier": "distinctive",
+   "addon": "Chat Copy Paste",
+   "author": "Venomisto"
+  },
+  "ChatCopyPaste": {
+   "tier": "distinctive",
+   "addon": "Chat Copy Paste",
+   "author": "Venomisto"
+  },
+  "Chattynator": {
+   "tier": "distinctive",
+   "addon": "Chattynator",
+   "author": "plusmouse"
+  },
+  "Chonky Character Sheet": {
+   "tier": "distinctive",
+   "addon": "Chonky Character Sheet",
+   "author": "draeginia"
+  },
+  "ChonkyCharacterSheet": {
+   "tier": "distinctive",
+   "addon": "Chonky Character Sheet",
+   "author": "draeginia"
+  },
+  "Chore Tracker": {
+   "tier": "distinctive",
+   "addon": "Chore Tracker",
+   "author": "Freddie"
+  },
+  "ChoreTracker": {
+   "tier": "distinctive",
+   "addon": "Chore Tracker",
+   "author": "Freddie"
+  },
+  "Class Reminders": {
+   "tier": "distinctive",
+   "addon": "Class Reminders",
+   "author": "Xynth"
+  },
+  "ClassReminders": {
+   "tier": "distinctive",
+   "addon": "Class Reminders",
+   "author": "Xynth"
+  },
+  "Clique": {
+   "tier": "ambiguous",
+   "addon": "Clique",
+   "author": "jnwhiteh"
+  },
+  "Collect Me": {
+   "tier": "distinctive",
+   "addon": "Collect Me",
+   "author": "JimBim89"
+  },
+  "CollectMe": {
+   "tier": "distinctive",
+   "addon": "Collect Me",
+   "author": "JimBim89"
+  },
+  "Collector's Bounty Helper": {
+   "tier": "distinctive",
+   "addon": "Collector's Bounty Helper",
+   "author": "Bettiold"
+  },
+  "CollectorsBountyHelper": {
+   "tier": "distinctive",
+   "addon": "Collector's Bounty Helper",
+   "author": "Bettiold"
+  },
+  "ConsolePort": {
+   "tier": "distinctive",
+   "addon": "ConsolePort",
+   "author": "MunkDev"
+  },
+  "Cooldown Manager Centered": {
+   "tier": "distinctive",
+   "addon": "Cooldown Manager Centered",
+   "author": "WilduTools"
+  },
+  "CooldownCount": {
+   "tier": "distinctive",
+   "addon": "CooldownCount",
+   "author": "dakikifr"
+  },
+  "CooldownManagerCentered": {
+   "tier": "distinctive",
+   "addon": "Cooldown Manager Centered",
+   "author": "WilduTools"
+  },
+  "Core Loot Manager DKP & EPGP & SK": {
+   "tier": "distinctive",
+   "addon": "Core Loot Manager DKP & EPGP & SK",
+   "author": "LantisNT"
+  },
+  "CoreLootManagerDKPEPGPSK": {
+   "tier": "distinctive",
+   "addon": "Core Loot Manager DKP & EPGP & SK",
+   "author": "LantisNT"
+  },
+  "CraftSim": {
+   "tier": "distinctive",
+   "addon": "CraftSim",
+   "author": "genjuwow"
+  },
+  "Crap Away": {
+   "tier": "distinctive",
+   "addon": "Crap Away",
+   "author": "markyxl"
+  },
+  "CrapAway": {
+   "tier": "distinctive",
+   "addon": "Crap Away",
+   "author": "markyxl"
+  },
+  "Cross Gambling": {
+   "tier": "distinctive",
+   "addon": "Cross Gambling",
+   "author": "Azro"
+  },
+  "CrossGambling": {
+   "tier": "distinctive",
+   "addon": "Cross Gambling",
+   "author": "Azro"
+  },
+  "CursorTrail": {
+   "tier": "distinctive",
+   "addon": "CursorTrail",
+   "author": "UppyDan"
+  },
+  "DBM": {
+   "tier": "distinctive",
+   "addon": "DBM",
+   "author": "MysticalOS"
+  },
+  "DBM Voicepack": {
+   "tier": "distinctive",
+   "addon": "DBM Voicepack",
+   "author": "weisslove"
+  },
+  "DBMVoicepack": {
+   "tier": "distinctive",
+   "addon": "DBM Voicepack",
+   "author": "weisslove"
+  },
+  "Danders Frames": {
+   "tier": "distinctive",
+   "addon": "Danders Frames",
+   "author": "Danderz"
+  },
+  "DandersFrames": {
+   "tier": "distinctive",
+   "addon": "Danders Frames",
+   "author": "Danderz"
+  },
+  "Dark Soil Tillers": {
+   "tier": "distinctive",
+   "addon": "Dark Soil Tillers",
+   "author": "Taraezor"
+  },
+  "DarkMode / Dark Mode": {
+   "tier": "distinctive",
+   "addon": "DarkMode / Dark Mode",
+   "author": "D4KiR"
+  },
+  "DarkModeDarkMode": {
+   "tier": "distinctive",
+   "addon": "DarkMode / Dark Mode",
+   "author": "D4KiR"
+  },
+  "DarkSoilTillers": {
+   "tier": "distinctive",
+   "addon": "Dark Soil Tillers",
+   "author": "Taraezor"
+  },
+  "DataStore": {
+   "tier": "library",
+   "addon": "DataStore",
+   "author": "Thaoky"
+  },
+  "DataStore_Achievements": {
+   "tier": "distinctive",
+   "addon": "DataStore_Achievements",
+   "author": "Thaoky"
+  },
+  "DataStore_Agenda": {
+   "tier": "distinctive",
+   "addon": "DataStore_Agenda",
+   "author": "Thaoky"
+  },
+  "DataStore_Auctions": {
+   "tier": "distinctive",
+   "addon": "DataStore_Auctions",
+   "author": "Thaoky"
+  },
+  "DataStore_Characters": {
+   "tier": "distinctive",
+   "addon": "DataStore_Characters",
+   "author": "Thaoky"
+  },
+  "DataStore_Containers": {
+   "tier": "distinctive",
+   "addon": "DataStore_Containers",
+   "author": "Thaoky"
+  },
+  "DataStore_Crafts": {
+   "tier": "distinctive",
+   "addon": "DataStore_Crafts",
+   "author": "Thaoky"
+  },
+  "DataStore_Currencies": {
+   "tier": "distinctive",
+   "addon": "DataStore_Currencies",
+   "author": "Thaoky"
+  },
+  "DataStore_Garrisons": {
+   "tier": "distinctive",
+   "addon": "DataStore_Garrisons",
+   "author": "Thaoky"
+  },
+  "DataStore_Inventory": {
+   "tier": "distinctive",
+   "addon": "DataStore_Inventory",
+   "author": "Thaoky"
+  },
+  "DataStore_Mails": {
+   "tier": "distinctive",
+   "addon": "DataStore_Mails",
+   "author": "Thaoky"
+  },
+  "DataStore_Pets": {
+   "tier": "distinctive",
+   "addon": "DataStore_Pets",
+   "author": "Thaoky"
+  },
+  "DataStore_Quests": {
+   "tier": "distinctive",
+   "addon": "DataStore_Quests",
+   "author": "Thaoky"
+  },
+  "DataStore_Reputations": {
+   "tier": "distinctive",
+   "addon": "DataStore_Reputations",
+   "author": "Thaoky"
+  },
+  "DataStore_Spells": {
+   "tier": "distinctive",
+   "addon": "DataStore_Spells",
+   "author": "Thaoky"
+  },
+  "DataStore_Stats": {
+   "tier": "distinctive",
+   "addon": "DataStore_Stats",
+   "author": "Thaoky"
+  },
+  "DataStore_Talents": {
+   "tier": "distinctive",
+   "addon": "DataStore_Talents",
+   "author": "Thaoky"
+  },
+  "Deadly Boss Mods": {
+   "tier": "distinctive",
+   "addon": "Deadly Boss Mods",
+   "author": "MysticalOS"
+  },
+  "DeadlyBossMods": {
+   "tier": "distinctive",
+   "addon": "Deadly Boss Mods",
+   "author": "MysticalOS"
+  },
+  "Decor Vendor": {
+   "tier": "distinctive",
+   "addon": "Decor Vendor",
+   "author": "Midnitedestiny"
+  },
+  "DecorVendor": {
+   "tier": "distinctive",
+   "addon": "Decor Vendor",
+   "author": "Midnitedestiny"
+  },
+  "Decursive": {
+   "tier": "distinctive",
+   "addon": "Decursive",
+   "author": "archarodim"
+  },
+  "DejaCharacterStats": {
+   "tier": "distinctive",
+   "addon": "DejaCharacterStats",
+   "author": "Dejablue"
+  },
+  "Dejunk": {
+   "tier": "distinctive",
+   "addon": "Dejunk",
+   "author": "moody"
+  },
+  "Details": {
+   "tier": "ambiguous",
+   "addon": "Details",
+   "author": "Terciob"
+  },
+  "Details! Damage Meter": {
+   "tier": "distinctive",
+   "addon": "Details! Damage Meter",
+   "author": "Terciob"
+  },
+  "Details! Mythic+ Scoreboard": {
+   "tier": "distinctive",
+   "addon": "Details! Mythic+ Scoreboard",
+   "author": "Terciob"
+  },
+  "DetailsDamageMeter": {
+   "tier": "distinctive",
+   "addon": "Details! Damage Meter",
+   "author": "Terciob"
+  },
+  "DetailsMythicScoreboard": {
+   "tier": "distinctive",
+   "addon": "Details! Mythic+ Scoreboard",
+   "author": "Terciob"
+  },
+  "Dialogue UI": {
+   "tier": "distinctive",
+   "addon": "Dialogue UI",
+   "author": "Peterodox"
+  },
+  "DialogueUI": {
+   "tier": "distinctive",
+   "addon": "Dialogue UI",
+   "author": "Peterodox"
+  },
+  "Dominos": {
+   "tier": "distinctive",
+   "addon": "Dominos",
+   "author": "Tuller"
+  },
+  "Dragon Rider": {
+   "tier": "distinctive",
+   "addon": "Dragon Rider",
+   "author": "keyboardturner"
+  },
+  "DragonRider": {
+   "tier": "distinctive",
+   "addon": "Dragon Rider",
+   "author": "keyboardturner"
+  },
+  "Dugi Questing Essential": {
+   "tier": "distinctive",
+   "addon": "Dugi Questing Essential",
+   "author": "DugiGuides"
+  },
+  "DugiQuestingEssential": {
+   "tier": "distinctive",
+   "addon": "Dugi Questing Essential",
+   "author": "DugiGuides"
+  },
+  "DynamicCam": {
+   "tier": "distinctive",
+   "addon": "DynamicCam",
+   "author": "LudiusMaximus"
+  },
+  "EXBOSS": {
+   "tier": "distinctive",
+   "addon": "EXBOSS",
+   "author": "EXWIND"
+  },
+  "Easy Frames": {
+   "tier": "distinctive",
+   "addon": "Easy Frames",
+   "author": "Mirmidonis"
+  },
+  "Easy Scrap": {
+   "tier": "distinctive",
+   "addon": "Easy Scrap",
+   "author": "Loelalol"
+  },
+  "EasyFrames": {
+   "tier": "distinctive",
+   "addon": "Easy Frames",
+   "author": "Mirmidonis"
+  },
+  "EasyMail from Cosmos": {
+   "tier": "distinctive",
+   "addon": "EasyMail from Cosmos",
+   "author": "RhydinGamer"
+  },
+  "EasyMailfromCosmos": {
+   "tier": "distinctive",
+   "addon": "EasyMail from Cosmos",
+   "author": "RhydinGamer"
+  },
+  "EasyScrap": {
+   "tier": "distinctive",
+   "addon": "Easy Scrap",
+   "author": "Loelalol"
+  },
+  "EavesDrop": {
+   "tier": "ambiguous",
+   "addon": "EavesDrop",
+   "author": "Picpok"
+  },
+  "Edit Mode Expanded": {
+   "tier": "distinctive",
+   "addon": "Edit Mode Expanded",
+   "author": "Teelo"
+  },
+  "EditModeExpanded": {
+   "tier": "distinctive",
+   "addon": "Edit Mode Expanded",
+   "author": "Teelo"
+  },
+  "Elephant": {
+   "tier": "ambiguous",
+   "addon": "Elephant",
+   "author": "AllInOneMighty"
+  },
+  "Elkano's BuffBars": {
+   "tier": "distinctive",
+   "addon": "Elkano's BuffBars",
+   "author": "Elkano"
+  },
+  "ElkanosBuffBars": {
+   "tier": "distinctive",
+   "addon": "Elkano's BuffBars",
+   "author": "Elkano"
+  },
+  "ElvUI": {
+   "tier": "distinctive",
+   "addon": "ElvUI",
+   "author": "Elv"
+  },
+  "ElvUI Bag Filters": {
+   "tier": "distinctive",
+   "addon": "ElvUI Bag Filters",
+   "author": "Warmexx_"
+  },
+  "ElvUI Eltruism": {
+   "tier": "distinctive",
+   "addon": "ElvUI Eltruism",
+   "author": "Eltreum"
+  },
+  "ElvUI Location Plus": {
+   "tier": "distinctive",
+   "addon": "ElvUI Location Plus",
+   "author": "benik30"
+  },
+  "ElvUI Nuts and Bolts": {
+   "tier": "distinctive",
+   "addon": "ElvUI Nuts and Bolts",
+   "author": "benik30"
+  },
+  "ElvUI WindTools": {
+   "tier": "distinctive",
+   "addon": "ElvUI WindTools",
+   "author": "fang2hou"
+  },
+  "ElvUI mMediaTag & Tools": {
+   "tier": "distinctive",
+   "addon": "ElvUI mMediaTag & Tools",
+   "author": "Blinkii"
+  },
+  "ElvUIBagFilters": {
+   "tier": "distinctive",
+   "addon": "ElvUI Bag Filters",
+   "author": "Warmexx_"
+  },
+  "ElvUIEltruism": {
+   "tier": "distinctive",
+   "addon": "ElvUI Eltruism",
+   "author": "Eltreum"
+  },
+  "ElvUILocationPlus": {
+   "tier": "distinctive",
+   "addon": "ElvUI Location Plus",
+   "author": "benik30"
+  },
+  "ElvUINutsandBolts": {
+   "tier": "distinctive",
+   "addon": "ElvUI Nuts and Bolts",
+   "author": "benik30"
+  },
+  "ElvUIWindTools": {
+   "tier": "distinctive",
+   "addon": "ElvUI WindTools",
+   "author": "fang2hou"
+  },
+  "ElvUI_MerathilisUI": {
+   "tier": "distinctive",
+   "addon": "ElvUI_MerathilisUI",
+   "author": "Merathilis"
+  },
+  "ElvUImMediaTagTools": {
+   "tier": "distinctive",
+   "addon": "ElvUI mMediaTag & Tools",
+   "author": "Blinkii"
+  },
+  "Enhance QoL": {
+   "tier": "distinctive",
+   "addon": "Enhance QoL",
+   "author": "R41Z0R"
+  },
+  "EnhanceQoL": {
+   "tier": "distinctive",
+   "addon": "Enhance QoL",
+   "author": "R41Z0R"
+  },
+  "Error Filter": {
+   "tier": "distinctive",
+   "addon": "Error Filter",
+   "author": "Fulger"
+  },
+  "ErrorFilter": {
+   "tier": "distinctive",
+   "addon": "Error Filter",
+   "author": "Fulger"
+  },
+  "ErrorMonster": {
+   "tier": "distinctive",
+   "addon": "ErrorMonster",
+   "author": "Funkeh"
+  },
+  "ExwindTools": {
+   "tier": "distinctive",
+   "addon": "ExwindTools",
+   "author": "EXWIND"
+  },
+  "FarmHud": {
+   "tier": "distinctive",
+   "addon": "FarmHud",
+   "author": "hizuro_de"
+  },
+  "Farmer": {
+   "tier": "ambiguous",
+   "addon": "Farmer",
+   "author": "syndenbock"
+  },
+  "Faster Loot": {
+   "tier": "distinctive",
+   "addon": "Faster Loot",
+   "author": "Xarano"
+  },
+  "FasterLoot": {
+   "tier": "distinctive",
+   "addon": "Faster Loot",
+   "author": "Xarano"
+  },
+  "Follow The Arrow": {
+   "tier": "distinctive",
+   "addon": "Follow The Arrow",
+   "author": "Harldan"
+  },
+  "FollowTheArrow": {
+   "tier": "distinctive",
+   "addon": "Follow The Arrow",
+   "author": "Harldan"
+  },
+  "FollowerLocationInfo": {
+   "tier": "distinctive",
+   "addon": "FollowerLocationInfo",
+   "author": "hizuro_de"
+  },
+  "FrameColor": {
+   "tier": "distinctive",
+   "addon": "FrameColor",
+   "author": "slothpala"
+  },
+  "FrameSort": {
+   "tier": "distinctive",
+   "addon": "FrameSort",
+   "author": "Verz"
+  },
+  "FriendGroups": {
+   "tier": "distinctive",
+   "addon": "FriendGroups",
+   "author": "osirisnz"
+  },
+  "GSE": {
+   "tier": "distinctive",
+   "addon": "GSE",
+   "author": "TheTimothyLuke"
+  },
+  "GTFO": {
+   "tier": "distinctive",
+   "addon": "GTFO",
+   "author": "Zensunim"
+  },
+  "GW2 UI": {
+   "tier": "distinctive",
+   "addon": "GW2 UI",
+   "author": "Mortalknight"
+  },
+  "GW2UI": {
+   "tier": "distinctive",
+   "addon": "GW2 UI",
+   "author": "Mortalknight"
+  },
+  "Gargul | Master Loot Tool for GDKP": {
+   "tier": "distinctive",
+   "addon": "Gargul | Master Loot Tool for GDKP",
+   "author": "Zhorax2730"
+  },
+  "GargulMasterLootToolforGDKP": {
+   "tier": "distinctive",
+   "addon": "Gargul | Master Loot Tool for GDKP",
+   "author": "Zhorax2730"
+  },
+  "Garrison Mission Manager": {
+   "tier": "distinctive",
+   "addon": "Garrison Mission Manager",
+   "author": "rowaasr13"
+  },
+  "GarrisonCommander": {
+   "tier": "distinctive",
+   "addon": "GarrisonCommander",
+   "author": "alarthedark"
+  },
+  "GarrisonMissionManager": {
+   "tier": "distinctive",
+   "addon": "Garrison Mission Manager",
+   "author": "rowaasr13"
+  },
+  "GatherMate2": {
+   "tier": "distinctive",
+   "addon": "GatherMate2",
+   "author": "moonfann"
+  },
+  "GatherMate2_Data": {
+   "tier": "distinctive",
+   "addon": "GatherMate2_Data",
+   "author": "moonfann"
+  },
+  "Gathering": {
+   "tier": "ambiguous",
+   "addon": "Gathering",
+   "author": "HydraMods"
+  },
+  "Gathermate2 Gas Clouds": {
+   "tier": "distinctive",
+   "addon": "Gathermate2 Gas Clouds",
+   "author": "michaelsp"
+  },
+  "Gathermate2GasClouds": {
+   "tier": "distinctive",
+   "addon": "Gathermate2 Gas Clouds",
+   "author": "michaelsp"
+  },
+  "Gnosis": {
+   "tier": "ambiguous",
+   "addon": "Gnosis",
+   "author": "elchefe12345"
+  },
+  "Grail": {
+   "tier": "ambiguous",
+   "addon": "Grail",
+   "author": "nimhfree"
+  },
+  "GreenWall": {
+   "tier": "distinctive",
+   "addon": "GreenWall",
+   "author": "stigg668"
+  },
+  "Grid2": {
+   "tier": "distinctive",
+   "addon": "Grid2",
+   "author": "michaelsp"
+  },
+  "GroupfinderFlags": {
+   "tier": "distinctive",
+   "addon": "GroupfinderFlags",
+   "author": "Spielstein"
+  },
+  "Gryphons Remover": {
+   "tier": "distinctive",
+   "addon": "Gryphons Remover",
+   "author": "tehKD"
+  },
+  "GryphonsRemover": {
+   "tier": "distinctive",
+   "addon": "Gryphons Remover",
+   "author": "tehKD"
+  },
+  "Guild Roster Manager": {
+   "tier": "distinctive",
+   "addon": "Guild Roster Manager",
+   "author": "codingasahobby"
+  },
+  "GuildRosterManager": {
+   "tier": "distinctive",
+   "addon": "Guild Roster Manager",
+   "author": "codingasahobby"
+  },
+  "H.H.T.D.": {
+   "tier": "distinctive",
+   "addon": "H.H.T.D.",
+   "author": "archarodim"
+  },
+  "HHTD": {
+   "tier": "distinctive",
+   "addon": "H.H.T.D.",
+   "author": "archarodim"
+  },
+  "HandyNotes": {
+   "tier": "distinctive",
+   "addon": "HandyNotes",
+   "author": "Xinhuan"
+  },
+  "HandyNotes Ferry Network": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Ferry Network",
+   "author": "Numy"
+  },
+  "HandyNotes Pandaria": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Pandaria",
+   "author": "syndenbock"
+  },
+  "HandyNotes Skyriding Glyphs & Dragon Glyphs": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Skyriding Glyphs & Dragon Glyphs",
+   "author": "keyboardturner"
+  },
+  "HandyNotesFerryNetwork": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Ferry Network",
+   "author": "Numy"
+  },
+  "HandyNotesPandaria": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Pandaria",
+   "author": "syndenbock"
+  },
+  "HandyNotesSkyridingGlyphsDragonGlyphs": {
+   "tier": "distinctive",
+   "addon": "HandyNotes Skyriding Glyphs & Dragon Glyphs",
+   "author": "keyboardturner"
+  },
+  "HandyNotes_DungeonLocations": {
+   "tier": "distinctive",
+   "addon": "HandyNotes_DungeonLocations",
+   "author": "Caliaha"
+  },
+  "HealBot Continued": {
+   "tier": "distinctive",
+   "addon": "HealBot Continued",
+   "author": "StrifeCUK"
+  },
+  "HealBotContinued": {
+   "tier": "distinctive",
+   "addon": "HealBot Continued",
+   "author": "StrifeCUK"
+  },
+  "Healium": {
+   "tier": "distinctive",
+   "addon": "Healium",
+   "author": "Engy99k"
+  },
+  "HealthBarColor": {
+   "tier": "distinctive",
+   "addon": "HealthBarColor",
+   "author": "slothpala"
+  },
+  "Hekili": {
+   "tier": "distinctive",
+   "addon": "Hekili",
+   "author": "Hekili"
+  },
+  "HidingBar": {
+   "tier": "distinctive",
+   "addon": "HidingBar",
+   "author": "sfmict"
+  },
+  "HighLevelAlert": {
+   "tier": "distinctive",
+   "addon": "HighLevelAlert",
+   "author": "D4KiR"
+  },
+  "Higher Learning": {
+   "tier": "distinctive",
+   "addon": "Higher Learning",
+   "author": "Taraezor"
+  },
+  "HigherLearning": {
+   "tier": "distinctive",
+   "addon": "Higher Learning",
+   "author": "Taraezor"
+  },
+  "Home Bound": {
+   "tier": "distinctive",
+   "addon": "Home Bound",
+   "author": "Bettiold"
+  },
+  "HomeBound": {
+   "tier": "ambiguous",
+   "addon": "Home Bound",
+   "author": "Bettiold"
+  },
+  "Housing Decor Guide": {
+   "tier": "distinctive",
+   "addon": "Housing Decor Guide",
+   "author": "Vamoose"
+  },
+  "HousingDecorGuide": {
+   "tier": "distinctive",
+   "addon": "Housing Decor Guide",
+   "author": "Vamoose"
+  },
+  "HydraUI": {
+   "tier": "distinctive",
+   "addon": "HydraUI",
+   "author": "HydraMods"
+  },
+  "IRFInvenRaidFrame": {
+   "tier": "distinctive",
+   "addon": "[IRF]Inven Raid Frame",
+   "author": "jws1624"
+  },
+  "IceHUD": {
+   "tier": "distinctive",
+   "addon": "IceHUD",
+   "author": "Parnic"
+  },
+  "Immersion": {
+   "tier": "ambiguous",
+   "addon": "Immersion",
+   "author": "MunkDev"
+  },
+  "InFlight Taxi Timer": {
+   "tier": "distinctive",
+   "addon": "InFlight Taxi Timer",
+   "author": "LudiusMaximus"
+  },
+  "InFlightTaxiTimer": {
+   "tier": "distinctive",
+   "addon": "InFlight Taxi Timer",
+   "author": "LudiusMaximus"
+  },
+  "Infinite Raid Tools": {
+   "tier": "distinctive",
+   "addon": "Infinite Raid Tools",
+   "author": "Antr"
+  },
+  "InfiniteRaidTools": {
+   "tier": "distinctive",
+   "addon": "Infinite Raid Tools",
+   "author": "Antr"
+  },
+  "Instance Achievement Tracker": {
+   "tier": "distinctive",
+   "addon": "Instance Achievement Tracker",
+   "author": "dragnog"
+  },
+  "InstanceAchievementTracker": {
+   "tier": "distinctive",
+   "addon": "Instance Achievement Tracker",
+   "author": "dragnog"
+  },
+  "ItemRack": {
+   "tier": "distinctive",
+   "addon": "ItemRack",
+   "author": "Kharthus"
+  },
+  "Journalator": {
+   "tier": "distinctive",
+   "addon": "Journalator",
+   "author": "plusmouse"
+  },
+  "Kaliel's Tracker": {
+   "tier": "distinctive",
+   "addon": "Kaliel's Tracker",
+   "author": "Kaliel"
+  },
+  "KalielsTracker": {
+   "tier": "distinctive",
+   "addon": "Kaliel's Tracker",
+   "author": "Kaliel"
+  },
+  "KeystoneLoot": {
+   "tier": "distinctive",
+   "addon": "KeystoneLoot",
+   "author": "Shantalya"
+  },
+  "Keystones_Tracker": {
+   "tier": "distinctive",
+   "addon": "Keystones_Tracker",
+   "author": "Teelo"
+  },
+  "Kharthus's Hunter Timers": {
+   "tier": "distinctive",
+   "addon": "Kharthus's Hunter Timers",
+   "author": "Kharthus"
+  },
+  "KharthussHunterTimers": {
+   "tier": "distinctive",
+   "addon": "Kharthus's Hunter Timers",
+   "author": "Kharthus"
+  },
+  "Kiwi Farm": {
+   "tier": "distinctive",
+   "addon": "Kiwi Farm",
+   "author": "michaelsp"
+  },
+  "KiwiFarm": {
+   "tier": "distinctive",
+   "addon": "Kiwi Farm",
+   "author": "michaelsp"
+  },
+  "KkthnxUI": {
+   "tier": "distinctive",
+   "addon": "KkthnxUI",
+   "author": "Kkthnx"
+  },
+  "Krowi's Achievement Filter": {
+   "tier": "distinctive",
+   "addon": "Krowi's Achievement Filter",
+   "author": "Krowi"
+  },
+  "KrowisAchievementFilter": {
+   "tier": "distinctive",
+   "addon": "Krowi's Achievement Filter",
+   "author": "Krowi"
+  },
+  "LUI Core": {
+   "tier": "distinctive",
+   "addon": "LUI Core",
+   "author": "Siku_LUI"
+  },
+  "LUICore": {
+   "tier": "distinctive",
+   "addon": "LUI Core",
+   "author": "Siku_LUI"
+  },
+  "Larias' Weekly Checklist": {
+   "tier": "distinctive",
+   "addon": "Larias' Weekly Checklist",
+   "author": "Devbezos"
+  },
+  "LariasWeeklyChecklist": {
+   "tier": "distinctive",
+   "addon": "Larias' Weekly Checklist",
+   "author": "Devbezos"
+  },
+  "Leatrix Maps": {
+   "tier": "distinctive",
+   "addon": "Leatrix Maps",
+   "author": "Leatrix"
+  },
+  "Leatrix Plus": {
+   "tier": "distinctive",
+   "addon": "Leatrix Plus",
+   "author": "Leatrix"
+  },
+  "Leatrix Sounds": {
+   "tier": "distinctive",
+   "addon": "Leatrix Sounds",
+   "author": "Leatrix"
+  },
+  "LeatrixMaps": {
+   "tier": "distinctive",
+   "addon": "Leatrix Maps",
+   "author": "Leatrix"
+  },
+  "LeatrixPlus": {
+   "tier": "distinctive",
+   "addon": "Leatrix Plus",
+   "author": "Leatrix"
+  },
+  "LeatrixSounds": {
+   "tier": "distinctive",
+   "addon": "Leatrix Sounds",
+   "author": "Leatrix"
+  },
+  "LegionInvasionTimer": {
+   "tier": "distinctive",
+   "addon": "LegionInvasionTimer",
+   "author": "Funkeh"
+  },
+  "LibDBIcon-1.0": {
+   "tier": "library",
+   "addon": "LibDBIcon-1.0",
+   "author": "Funkeh"
+  },
+  "LibDBIcon10": {
+   "tier": "library",
+   "addon": "LibDBIcon-1.0",
+   "author": "Funkeh"
+  },
+  "LibSharedMedia-3.0": {
+   "tier": "library",
+   "addon": "LibSharedMedia-3.0",
+   "author": "Elkano"
+  },
+  "LibSharedMedia30": {
+   "tier": "library",
+   "addon": "LibSharedMedia-3.0",
+   "author": "Elkano"
+  },
+  "LibSink-2.0": {
+   "tier": "library",
+   "addon": "LibSink-2.0",
+   "author": "Funkeh"
+  },
+  "LibSink20": {
+   "tier": "library",
+   "addon": "LibSink-2.0",
+   "author": "Funkeh"
+  },
+  "LiteMount": {
+   "tier": "distinctive",
+   "addon": "LiteMount",
+   "author": "xodiv"
+  },
+  "LittleWigs": {
+   "tier": "distinctive",
+   "addon": "LittleWigs",
+   "author": "Funkeh"
+  },
+  "LoggerHead": {
+   "tier": "ambiguous",
+   "addon": "LoggerHead",
+   "author": "dratrr"
+  },
+  "Loon Best In Slot": {
+   "tier": "distinctive",
+   "addon": "Loon Best In Slot",
+   "author": "loonnn_"
+  },
+  "LoonBestInSlot": {
+   "tier": "distinctive",
+   "addon": "Loon Best In Slot",
+   "author": "loonnn_"
+  },
+  "LootAppraiser Reloaded": {
+   "tier": "distinctive",
+   "addon": "LootAppraiser Reloaded",
+   "author": "Berick"
+  },
+  "LootAppraiserReloaded": {
+   "tier": "distinctive",
+   "addon": "LootAppraiser Reloaded",
+   "author": "Berick"
+  },
+  "LuckyoneUI": {
+   "tier": "distinctive",
+   "addon": "LuckyoneUI",
+   "author": "Luckyone1996"
+  },
+  "M+ Adventure Guide": {
+   "tier": "distinctive",
+   "addon": "M+ Adventure Guide",
+   "author": "Teelo"
+  },
+  "M+ Dungeon Teleports": {
+   "tier": "distinctive",
+   "addon": "M+ Dungeon Teleports",
+   "author": "pxxpoStudy"
+  },
+  "MAdventureGuide": {
+   "tier": "distinctive",
+   "addon": "M+ Adventure Guide",
+   "author": "Teelo"
+  },
+  "MDT Guide": {
+   "tier": "distinctive",
+   "addon": "MDT Guide",
+   "author": "Shrugal"
+  },
+  "MDTGuide": {
+   "tier": "distinctive",
+   "addon": "MDT Guide",
+   "author": "Shrugal"
+  },
+  "MDungeonTeleports": {
+   "tier": "distinctive",
+   "addon": "M+ Dungeon Teleports",
+   "author": "pxxpoStudy"
+  },
+  "MPlusTimer": {
+   "tier": "distinctive",
+   "addon": "MPlusTimer",
+   "author": "Reloe"
+  },
+  "Macro Toolkit": {
+   "tier": "distinctive",
+   "addon": "Macro Toolkit",
+   "author": "polyglotcoder"
+  },
+  "MacroToolkit": {
+   "tier": "distinctive",
+   "addon": "Macro Toolkit",
+   "author": "polyglotcoder"
+  },
+  "Mage Nuggets": {
+   "tier": "distinctive",
+   "addon": "Mage Nuggets",
+   "author": "b_buck"
+  },
+  "MageNuggets": {
+   "tier": "distinctive",
+   "addon": "Mage Nuggets",
+   "author": "b_buck"
+  },
+  "Magic Runes": {
+   "tier": "distinctive",
+   "addon": "Magic Runes",
+   "author": "DHedbor"
+  },
+  "MagicRunes": {
+   "tier": "distinctive",
+   "addon": "Magic Runes",
+   "author": "DHedbor"
+  },
+  "Manuscripts Journal": {
+   "tier": "distinctive",
+   "addon": "Manuscripts Journal",
+   "author": "Teelo"
+  },
+  "ManuscriptsJournal": {
+   "tier": "distinctive",
+   "addon": "Manuscripts Journal",
+   "author": "Teelo"
+  },
+  "MapCoords": {
+   "tier": "distinctive",
+   "addon": "MapCoords",
+   "author": "JimBim89"
+  },
+  "Mapster": {
+   "tier": "distinctive",
+   "addon": "Mapster",
+   "author": "nevcairiel"
+  },
+  "Masque": {
+   "tier": "library",
+   "addon": "Masque",
+   "author": "StormFX"
+  },
+  "Master Plan": {
+   "tier": "distinctive",
+   "addon": "Master Plan",
+   "author": "foxlit"
+  },
+  "MasterPlan": {
+   "tier": "distinctive",
+   "addon": "Master Plan",
+   "author": "foxlit"
+  },
+  "MaxCam": {
+   "tier": "distinctive",
+   "addon": "MaxCam",
+   "author": "Ketho17"
+  },
+  "MaxDps Death Knight": {
+   "tier": "distinctive",
+   "addon": "MaxDps Death Knight",
+   "author": "Kaminaris"
+  },
+  "MaxDps Demon Hunter": {
+   "tier": "distinctive",
+   "addon": "MaxDps Demon Hunter",
+   "author": "Kaminaris"
+  },
+  "MaxDps Druid": {
+   "tier": "distinctive",
+   "addon": "MaxDps Druid",
+   "author": "Kaminaris"
+  },
+  "MaxDps Evoker": {
+   "tier": "distinctive",
+   "addon": "MaxDps Evoker",
+   "author": "Kaminaris"
+  },
+  "MaxDps Hunter": {
+   "tier": "distinctive",
+   "addon": "MaxDps Hunter",
+   "author": "Kaminaris"
+  },
+  "MaxDps Mage": {
+   "tier": "distinctive",
+   "addon": "MaxDps Mage",
+   "author": "Kaminaris"
+  },
+  "MaxDps Monk": {
+   "tier": "distinctive",
+   "addon": "MaxDps Monk",
+   "author": "Kaminaris"
+  },
+  "MaxDps Paladin": {
+   "tier": "distinctive",
+   "addon": "MaxDps Paladin",
+   "author": "Kaminaris"
+  },
+  "MaxDps Priest": {
+   "tier": "distinctive",
+   "addon": "MaxDps Priest",
+   "author": "Kaminaris"
+  },
+  "MaxDps Rogue": {
+   "tier": "distinctive",
+   "addon": "MaxDps Rogue",
+   "author": "Kaminaris"
+  },
+  "MaxDps Rotation Helper": {
+   "tier": "distinctive",
+   "addon": "MaxDps Rotation Helper",
+   "author": "Kaminaris"
+  },
+  "MaxDps Shaman": {
+   "tier": "distinctive",
+   "addon": "MaxDps Shaman",
+   "author": "Kaminaris"
+  },
+  "MaxDps Warlock": {
+   "tier": "distinctive",
+   "addon": "MaxDps Warlock",
+   "author": "Kaminaris"
+  },
+  "MaxDps Warrior": {
+   "tier": "distinctive",
+   "addon": "MaxDps Warrior",
+   "author": "Kaminaris"
+  },
+  "MaxDpsDeathKnight": {
+   "tier": "distinctive",
+   "addon": "MaxDps Death Knight",
+   "author": "Kaminaris"
+  },
+  "MaxDpsDemonHunter": {
+   "tier": "distinctive",
+   "addon": "MaxDps Demon Hunter",
+   "author": "Kaminaris"
+  },
+  "MaxDpsDruid": {
+   "tier": "distinctive",
+   "addon": "MaxDps Druid",
+   "author": "Kaminaris"
+  },
+  "MaxDpsEvoker": {
+   "tier": "distinctive",
+   "addon": "MaxDps Evoker",
+   "author": "Kaminaris"
+  },
+  "MaxDpsHunter": {
+   "tier": "distinctive",
+   "addon": "MaxDps Hunter",
+   "author": "Kaminaris"
+  },
+  "MaxDpsMage": {
+   "tier": "distinctive",
+   "addon": "MaxDps Mage",
+   "author": "Kaminaris"
+  },
+  "MaxDpsMonk": {
+   "tier": "distinctive",
+   "addon": "MaxDps Monk",
+   "author": "Kaminaris"
+  },
+  "MaxDpsPaladin": {
+   "tier": "distinctive",
+   "addon": "MaxDps Paladin",
+   "author": "Kaminaris"
+  },
+  "MaxDpsPriest": {
+   "tier": "distinctive",
+   "addon": "MaxDps Priest",
+   "author": "Kaminaris"
+  },
+  "MaxDpsRogue": {
+   "tier": "distinctive",
+   "addon": "MaxDps Rogue",
+   "author": "Kaminaris"
+  },
+  "MaxDpsRotationHelper": {
+   "tier": "distinctive",
+   "addon": "MaxDps Rotation Helper",
+   "author": "Kaminaris"
+  },
+  "MaxDpsShaman": {
+   "tier": "distinctive",
+   "addon": "MaxDps Shaman",
+   "author": "Kaminaris"
+  },
+  "MaxDpsWarlock": {
+   "tier": "distinctive",
+   "addon": "MaxDps Warlock",
+   "author": "Kaminaris"
+  },
+  "MaxDpsWarrior": {
+   "tier": "distinctive",
+   "addon": "MaxDps Warrior",
+   "author": "Kaminaris"
+  },
+  "Maze Helper": {
+   "tier": "distinctive",
+   "addon": "Maze Helper",
+   "author": "Voopie"
+  },
+  "MazeHelper": {
+   "tier": "distinctive",
+   "addon": "Maze Helper",
+   "author": "Voopie"
+  },
+  "MerfinPlus": {
+   "tier": "distinctive",
+   "addon": "MerfinPlus",
+   "author": "merfin"
+  },
+  "Method Raid Tools": {
+   "tier": "distinctive",
+   "addon": "Method Raid Tools",
+   "author": "ykiigor"
+  },
+  "MethodRaidTools": {
+   "tier": "distinctive",
+   "addon": "Method Raid Tools",
+   "author": "ykiigor"
+  },
+  "MiniCC": {
+   "tier": "distinctive",
+   "addon": "MiniCC",
+   "author": "Verz"
+  },
+  "Minimal Archaeology": {
+   "tier": "distinctive",
+   "addon": "Minimal Archaeology",
+   "author": "MisterFox9"
+  },
+  "MinimalArchaeology": {
+   "tier": "distinctive",
+   "addon": "Minimal Archaeology",
+   "author": "MisterFox9"
+  },
+  "MinimapButtonBag Reborn": {
+   "tier": "distinctive",
+   "addon": "MinimapButtonBag Reborn",
+   "author": "SkunFly"
+  },
+  "MinimapButtonBagReborn": {
+   "tier": "distinctive",
+   "addon": "MinimapButtonBag Reborn",
+   "author": "SkunFly"
+  },
+  "MinimapButtonButton": {
+   "tier": "distinctive",
+   "addon": "MinimapButtonButton",
+   "author": "syndenbock"
+  },
+  "MobInfo2": {
+   "tier": "distinctive",
+   "addon": "MobInfo2",
+   "author": "ileclerk"
+  },
+  "MogIt": {
+   "tier": "distinctive",
+   "addon": "MogIt",
+   "author": "Aelobin"
+  },
+  "Molinari": {
+   "tier": "distinctive",
+   "addon": "Molinari",
+   "author": "p3lim"
+  },
+  "Mount Collection Log | MCL": {
+   "tier": "distinctive",
+   "addon": "Mount Collection Log | MCL",
+   "author": "CamYam"
+  },
+  "Mount Collector": {
+   "tier": "distinctive",
+   "addon": "Mount Collector",
+   "author": "InSpectreGadget"
+  },
+  "Mount Journal Enhanced": {
+   "tier": "distinctive",
+   "addon": "Mount Journal Enhanced",
+   "author": "eXochron"
+  },
+  "MountCollectionLogMCL": {
+   "tier": "distinctive",
+   "addon": "Mount Collection Log | MCL",
+   "author": "CamYam"
+  },
+  "MountCollector": {
+   "tier": "distinctive",
+   "addon": "Mount Collector",
+   "author": "InSpectreGadget"
+  },
+  "MountJournalEnhanced": {
+   "tier": "distinctive",
+   "addon": "Mount Journal Enhanced",
+   "author": "eXochron"
+  },
+  "MountsJournal": {
+   "tier": "distinctive",
+   "addon": "MountsJournal",
+   "author": "sfmict"
+  },
+  "MoveAny": {
+   "tier": "distinctive",
+   "addon": "MoveAny",
+   "author": "D4KiR"
+  },
+  "MurlokExport": {
+   "tier": "distinctive",
+   "addon": "MurlokExport",
+   "author": "Alexandrix"
+  },
+  "Musician": {
+   "tier": "ambiguous",
+   "addon": "Musician",
+   "author": "LenweSaralonde"
+  },
+  "MyRolePlay": {
+   "tier": "distinctive",
+   "addon": "MyRolePlay",
+   "author": "Katorie"
+  },
+  "Myslot": {
+   "tier": "distinctive",
+   "addon": "Myslot",
+   "author": "oishii1992"
+  },
+  "Mythic Dungeon Tools": {
+   "tier": "distinctive",
+   "addon": "Mythic Dungeon Tools",
+   "author": "Nnoggie"
+  },
+  "MythicDungeonTools": {
+   "tier": "distinctive",
+   "addon": "Mythic Dungeon Tools",
+   "author": "Nnoggie"
+  },
+  "MythicPlusTimer": {
+   "tier": "distinctive",
+   "addon": "MythicPlusTimer",
+   "author": "Fabys"
+  },
+  "Myu's Knowledge Points Tracker": {
+   "tier": "distinctive",
+   "addon": "Myu's Knowledge Points Tracker",
+   "author": "myu_westfall"
+  },
+  "MyusKnowledgePointsTracker": {
+   "tier": "distinctive",
+   "addon": "Myu's Knowledge Points Tracker",
+   "author": "myu_westfall"
+  },
+  "NDui": {
+   "tier": "distinctive",
+   "addon": "NDui",
+   "author": "siweia"
+  },
+  "NPC Time": {
+   "tier": "distinctive",
+   "addon": "NPC Time",
+   "author": "Yuyuli"
+  },
+  "NPCScan": {
+   "tier": "distinctive",
+   "addon": "NPCScan",
+   "author": "Torhal"
+  },
+  "NPCTime": {
+   "tier": "distinctive",
+   "addon": "NPC Time",
+   "author": "Yuyuli"
+  },
+  "Nameplate Scrolling Combat Text": {
+   "tier": "distinctive",
+   "addon": "Nameplate Scrolling Combat Text",
+   "author": "mpstark"
+  },
+  "NameplateScrollingCombatText": {
+   "tier": "distinctive",
+   "addon": "Nameplate Scrolling Combat Text",
+   "author": "mpstark"
+  },
+  "NaowhQOL": {
+   "tier": "distinctive",
+   "addon": "NaowhQOL",
+   "author": "xOkamiyasha"
+  },
+  "Narcissus": {
+   "tier": "ambiguous",
+   "addon": "Narcissus",
+   "author": "Peterodox"
+  },
+  "Necrosis all version": {
+   "tier": "distinctive",
+   "addon": "Necrosis all version",
+   "author": "lanscetre"
+  },
+  "Necrosisallversion": {
+   "tier": "distinctive",
+   "addon": "Necrosis all version",
+   "author": "lanscetre"
+  },
+  "Netherwing Eggs": {
+   "tier": "distinctive",
+   "addon": "Netherwing Eggs",
+   "author": "Taraezor"
+  },
+  "NetherwingEggs": {
+   "tier": "distinctive",
+   "addon": "Netherwing Eggs",
+   "author": "Taraezor"
+  },
+  "No Mats; No Make": {
+   "tier": "distinctive",
+   "addon": "No Mats; No Make",
+   "author": "Teelo"
+  },
+  "NoAutoClose": {
+   "tier": "distinctive",
+   "addon": "NoAutoClose",
+   "author": "Numy"
+  },
+  "NoMatsNoMake": {
+   "tier": "distinctive",
+   "addon": "No Mats; No Make",
+   "author": "Teelo"
+  },
+  "Northern Sky Raid Tools": {
+   "tier": "distinctive",
+   "addon": "Northern Sky Raid Tools",
+   "author": "Reloe"
+  },
+  "NorthernSkyRaidTools": {
+   "tier": "distinctive",
+   "addon": "Northern Sky Raid Tools",
+   "author": "Reloe"
+  },
+  "Nova Instance Tracker": {
+   "tier": "distinctive",
+   "addon": "Nova Instance Tracker",
+   "author": "Venomisto"
+  },
+  "NovaInstanceTracker": {
+   "tier": "distinctive",
+   "addon": "Nova Instance Tracker",
+   "author": "Venomisto"
+  },
+  "O Item Level": {
+   "tier": "distinctive",
+   "addon": "O Item Level",
+   "author": "olzenkhaw0192"
+  },
+  "OItemLevel": {
+   "tier": "distinctive",
+   "addon": "O Item Level",
+   "author": "olzenkhaw0192"
+  },
+  "OPie": {
+   "tier": "distinctive",
+   "addon": "OPie",
+   "author": "foxlit"
+  },
+  "OUTDATED": {
+   "tier": "distinctive",
+   "addon": "[OUTDATED]",
+   "author": "D4KiR"
+  },
+  "OmniBar": {
+   "tier": "distinctive",
+   "addon": "OmniBar",
+   "author": "Jordon"
+  },
+  "OmniCD": {
+   "tier": "distinctive",
+   "addon": "OmniCD",
+   "author": "causese"
+  },
+  "OrderHallCommander": {
+   "tier": "distinctive",
+   "addon": "OrderHallCommander",
+   "author": "alarthedark"
+  },
+  "Oribos Exchange": {
+   "tier": "distinctive",
+   "addon": "Oribos Exchange",
+   "author": "erorus_curseforge"
+  },
+  "OribosExchange": {
+   "tier": "distinctive",
+   "addon": "Oribos Exchange",
+   "author": "erorus_curseforge"
+  },
+  "Outfitter": {
+   "tier": "distinctive",
+   "addon": "Outfitter",
+   "author": "GovtGeek"
+  },
+  "Paragon Reputation": {
+   "tier": "distinctive",
+   "addon": "Paragon Reputation",
+   "author": "matjtonnn"
+  },
+  "ParagonReputation": {
+   "tier": "distinctive",
+   "addon": "Paragon Reputation",
+   "author": "matjtonnn"
+  },
+  "Paste": {
+   "tier": "ambiguous",
+   "addon": "Paste",
+   "author": "AzerPUG"
+  },
+  "Paste NG": {
+   "tier": "distinctive",
+   "addon": "Paste NG",
+   "author": "GurliGebis"
+  },
+  "PasteNG": {
+   "tier": "distinctive",
+   "addon": "Paste NG",
+   "author": "GurliGebis"
+  },
+  "Pawn": {
+   "tier": "ambiguous",
+   "addon": "Pawn",
+   "author": "TravisSpomer"
+  },
+  "Peggle Classic": {
+   "tier": "distinctive",
+   "addon": "Peggle Classic",
+   "author": "Ketho17"
+  },
+  "PeggleClassic": {
+   "tier": "distinctive",
+   "addon": "Peggle Classic",
+   "author": "Ketho17"
+  },
+  "Personal Loot Helper": {
+   "tier": "distinctive",
+   "addon": "Personal Loot Helper",
+   "author": "cardinalm1"
+  },
+  "PersonalLootHelper": {
+   "tier": "distinctive",
+   "addon": "Personal Loot Helper",
+   "author": "cardinalm1"
+  },
+  "Pet Battle Scripts": {
+   "tier": "distinctive",
+   "addon": "Pet Battle Scripts",
+   "author": "pkiller162"
+  },
+  "PetBattleMaster": {
+   "tier": "distinctive",
+   "addon": "PetBattleMaster",
+   "author": "udorn"
+  },
+  "PetBattleScripts": {
+   "tier": "distinctive",
+   "addon": "Pet Battle Scripts",
+   "author": "pkiller162"
+  },
+  "PetTracker": {
+   "tier": "distinctive",
+   "addon": "PetTracker",
+   "author": "jaliborc"
+  },
+  "PhoenixStyle": {
+   "tier": "distinctive",
+   "addon": "PhoenixStyle",
+   "author": "wowguruaddons"
+  },
+  "PitBull4": {
+   "tier": "distinctive",
+   "addon": "PitBull4",
+   "author": "ckknight"
+  },
+  "Plater": {
+   "tier": "distinctive",
+   "addon": "Plater",
+   "author": "Terciob"
+  },
+  "Plater Nameplates": {
+   "tier": "distinctive",
+   "addon": "Plater Nameplates",
+   "author": "Terciob"
+  },
+  "PlaterNameplates": {
+   "tier": "distinctive",
+   "addon": "Plater Nameplates",
+   "author": "Terciob"
+  },
+  "Platynator": {
+   "tier": "distinctive",
+   "addon": "Platynator",
+   "author": "plusmouse"
+  },
+  "PlexusStatusRaidDebuff": {
+   "tier": "distinctive",
+   "addon": "PlexusStatusRaidDebuff",
+   "author": "bstassart"
+  },
+  "Plumber": {
+   "tier": "ambiguous",
+   "addon": "Plumber",
+   "author": "Peterodox"
+  },
+  "Poisoner": {
+   "tier": "ambiguous",
+   "addon": "Poisoner",
+   "author": "humfras"
+  },
+  "Prat 3.0": {
+   "tier": "distinctive",
+   "addon": "Prat 3.0",
+   "author": "QTartemis"
+  },
+  "Prat30": {
+   "tier": "distinctive",
+   "addon": "Prat 3.0",
+   "author": "QTartemis"
+  },
+  "Premade Groups Filter": {
+   "tier": "distinctive",
+   "addon": "Premade Groups Filter",
+   "author": "baerenhard"
+  },
+  "PremadeGroupsFilter": {
+   "tier": "distinctive",
+   "addon": "Premade Groups Filter",
+   "author": "baerenhard"
+  },
+  "Preydator": {
+   "tier": "ambiguous",
+   "addon": "Preydator",
+   "author": "RagingAltoholic"
+  },
+  "Profession Shopping List": {
+   "tier": "distinctive",
+   "addon": "Profession Shopping List",
+   "author": "Slackluster"
+  },
+  "ProfessionShoppingList": {
+   "tier": "distinctive",
+   "addon": "Profession Shopping List",
+   "author": "Slackluster"
+  },
+  "Quartz": {
+   "tier": "ambiguous",
+   "addon": "Quartz",
+   "author": "Nevcairiel"
+  },
+  "Quest Completist": {
+   "tier": "distinctive",
+   "addon": "Quest Completist",
+   "author": "AlistairJM"
+  },
+  "QuestCompletist": {
+   "tier": "distinctive",
+   "addon": "Quest Completist",
+   "author": "AlistairJM"
+  },
+  "QuickQuest": {
+   "tier": "distinctive",
+   "addon": "QuickQuest",
+   "author": "p3lim"
+  },
+  "RCLootCouncil": {
+   "tier": "distinctive",
+   "addon": "RCLootCouncil",
+   "author": "evil_morfar"
+  },
+  "RaidAchievement": {
+   "tier": "distinctive",
+   "addon": "RaidAchievement",
+   "author": "wowguruaddons"
+  },
+  "RaidAchievement_OldModules": {
+   "tier": "distinctive",
+   "addon": "RaidAchievement_OldModules",
+   "author": "wowguruaddons"
+  },
+  "RaidAchievement_Pandaria": {
+   "tier": "distinctive",
+   "addon": "RaidAchievement_Pandaria",
+   "author": "wowguruaddons"
+  },
+  "RaidSlackCheck": {
+   "tier": "distinctive",
+   "addon": "RaidSlackCheck",
+   "author": "wowguruaddons"
+  },
+  "Raider.IO Mythic Plus": {
+   "tier": "distinctive",
+   "addon": "Raider.IO Mythic Plus",
+   "author": "TheFakeJah"
+  },
+  "RaiderIOMythicPlus": {
+   "tier": "distinctive",
+   "addon": "Raider.IO Mythic Plus",
+   "author": "TheFakeJah"
+  },
+  "RangeDisplay": {
+   "tier": "distinctive",
+   "addon": "RangeDisplay",
+   "author": "mitchnull"
+  },
+  "RareScanner": {
+   "tier": "distinctive",
+   "addon": "RareScanner",
+   "author": "maqjav"
+  },
+  "Rares_Tracker": {
+   "tier": "distinctive",
+   "addon": "Rares_Tracker",
+   "author": "Teelo"
+  },
+  "RealUI": {
+   "tier": "distinctive",
+   "addon": "RealUI",
+   "author": "Nibelheim"
+  },
+  "Rematch": {
+   "tier": "ambiguous",
+   "addon": "Rematch",
+   "author": "gello3"
+  },
+  "Rematch_TSMPetValues": {
+   "tier": "distinctive",
+   "addon": "Rematch_TSMPetValues",
+   "author": "Expelliarm5s"
+  },
+  "RestedXP Guide": {
+   "tier": "distinctive",
+   "addon": "RestedXP Guide",
+   "author": "RestedXP"
+  },
+  "RestedXPGuide": {
+   "tier": "distinctive",
+   "addon": "RestedXP Guide",
+   "author": "RestedXP"
+  },
+  "Routes": {
+   "tier": "ambiguous",
+   "addon": "Routes",
+   "author": "Xinhuan"
+  },
+  "Routes Import/Export": {
+   "tier": "distinctive",
+   "addon": "Routes Import/Export",
+   "author": "Nadiv"
+  },
+  "RoutesImportExport": {
+   "tier": "distinctive",
+   "addon": "Routes Import/Export",
+   "author": "Nadiv"
+  },
+  "Routine": {
+   "tier": "ambiguous",
+   "addon": "Routine",
+   "author": "Azro"
+  },
+  "SUI": {
+   "tier": "distinctive",
+   "addon": "SUI",
+   "author": "Syiana"
+  },
+  "SavedInstances": {
+   "tier": "distinctive",
+   "addon": "SavedInstances",
+   "author": "jokeyrhyme"
+  },
+  "Scrap": {
+   "tier": "ambiguous",
+   "addon": "Scrap",
+   "author": "jaliborc"
+  },
+  "SenseiClassResourceBar": {
+   "tier": "distinctive",
+   "addon": "SenseiClassResourceBar",
+   "author": "Sensei987"
+  },
+  "SexyMap": {
+   "tier": "distinctive",
+   "addon": "SexyMap",
+   "author": "Funkeh"
+  },
+  "Shadowed Unit Frames": {
+   "tier": "distinctive",
+   "addon": "Shadowed Unit Frames",
+   "author": "Nevcairiel"
+  },
+  "ShadowedUnitFrames": {
+   "tier": "distinctive",
+   "addon": "ShadowedUnitFrames",
+   "author": "Nevcairiel"
+  },
+  "SharedMedia": {
+   "tier": "library",
+   "addon": "SharedMedia",
+   "author": "Elkano"
+  },
+  "SharedMediaAdditionalFonts": {
+   "tier": "library",
+   "addon": "SharedMediaAdditionalFonts",
+   "author": "AllInOneMighty"
+  },
+  "SharedMedia_Causese": {
+   "tier": "distinctive",
+   "addon": "SharedMedia_Causese",
+   "author": "causese"
+  },
+  "SilverDragon": {
+   "tier": "distinctive",
+   "addon": "SilverDragon",
+   "author": "Kemayo"
+  },
+  "Simple Item Levels": {
+   "tier": "distinctive",
+   "addon": "Simple Item Levels",
+   "author": "Kemayo"
+  },
+  "SimpleItemLevels": {
+   "tier": "distinctive",
+   "addon": "Simple Item Levels",
+   "author": "Kemayo"
+  },
+  "Simulationcraft": {
+   "tier": "distinctive",
+   "addon": "Simulationcraft",
+   "author": "navv_"
+  },
+  "SinStats Character Stats": {
+   "tier": "distinctive",
+   "addon": "SinStats Character Stats",
+   "author": "Sinba"
+  },
+  "SinStatsCharacterStats": {
+   "tier": "distinctive",
+   "addon": "SinStats Character Stats",
+   "author": "Sinba"
+  },
+  "Skada": {
+   "tier": "distinctive",
+   "addon": "Skada",
+   "author": "Zarnivoop"
+  },
+  "Skada Damage Meter": {
+   "tier": "distinctive",
+   "addon": "Skada Damage Meter",
+   "author": "zarnivoop"
+  },
+  "SkadaDamageMeter": {
+   "tier": "distinctive",
+   "addon": "Skada Damage Meter",
+   "author": "zarnivoop"
+  },
+  "Skill Capped UI": {
+   "tier": "distinctive",
+   "addon": "Skill Capped UI",
+   "author": "Mystzr"
+  },
+  "SkillCappedUI": {
+   "tier": "distinctive",
+   "addon": "Skill Capped UI",
+   "author": "Mystzr"
+  },
+  "Skinner": {
+   "tier": "ambiguous",
+   "addon": "Skinner",
+   "author": "Jncl"
+  },
+  "SliceAdmiral": {
+   "tier": "distinctive",
+   "addon": "SliceAdmiral",
+   "author": "cgiguy"
+  },
+  "Socialite": {
+   "tier": "distinctive",
+   "addon": "Socialite",
+   "author": "solocommand"
+  },
+  "SpartanUI": {
+   "tier": "distinctive",
+   "addon": "SpartanUI",
+   "author": "wutname1"
+  },
+  "SpecBisTooltip Spec Bis List Tooltip": {
+   "tier": "distinctive",
+   "addon": "SpecBisTooltip Spec Bis List Tooltip",
+   "author": "D4KiR"
+  },
+  "SpecBisTooltipSpecBisListTooltip": {
+   "tier": "distinctive",
+   "addon": "SpecBisTooltip Spec Bis List Tooltip",
+   "author": "D4KiR"
+  },
+  "Speedy AutoLoot": {
+   "tier": "distinctive",
+   "addon": "Speedy AutoLoot",
+   "author": "Yuyuli"
+  },
+  "SpeedyAutoLoot": {
+   "tier": "distinctive",
+   "addon": "Speedy AutoLoot",
+   "author": "Yuyuli"
+  },
+  "Springfur Alpaca": {
+   "tier": "distinctive",
+   "addon": "Springfur Alpaca",
+   "author": "Taraezor"
+  },
+  "SpringfurAlpaca": {
+   "tier": "distinctive",
+   "addon": "Springfur Alpaca",
+   "author": "Taraezor"
+  },
+  "Spy": {
+   "tier": "ambiguous",
+   "addon": "Spy",
+   "author": "Slipjack"
+  },
+  "Storyline": {
+   "tier": "distinctive",
+   "addon": "Storyline",
+   "author": "Ellypse"
+  },
+  "Stuf Unit Frames": {
+   "tier": "distinctive",
+   "addon": "Stuf Unit Frames",
+   "author": "totalpackage"
+  },
+  "StufUnitFrames": {
+   "tier": "distinctive",
+   "addon": "Stuf Unit Frames",
+   "author": "totalpackage"
+  },
+  "SweepyBoop's PvP Helper": {
+   "tier": "distinctive",
+   "addon": "SweepyBoop's PvP Helper",
+   "author": "SweepyBoop"
+  },
+  "SweepyBoopsPvPHelper": {
+   "tier": "distinctive",
+   "addon": "SweepyBoop's PvP Helper",
+   "author": "SweepyBoop"
+  },
+  "Syndicator": {
+   "tier": "distinctive",
+   "addon": "Syndicator",
+   "author": "plusmouse"
+  },
+  "TLDR Missions": {
+   "tier": "distinctive",
+   "addon": "TLDR Missions",
+   "author": "Teelo"
+  },
+  "TLDRMissions": {
+   "tier": "distinctive",
+   "addon": "TLDR Missions",
+   "author": "Teelo"
+  },
+  "Talent Loadout Ex": {
+   "tier": "distinctive",
+   "addon": "Talent Loadout Ex",
+   "author": "Morizo"
+  },
+  "Talent Tree Tweaks": {
+   "tier": "distinctive",
+   "addon": "Talent Tree Tweaks",
+   "author": "Numy"
+  },
+  "TalentLoadoutEx": {
+   "tier": "distinctive",
+   "addon": "Talent Loadout Ex",
+   "author": "Morizo"
+  },
+  "TalentTreeTweaks": {
+   "tier": "distinctive",
+   "addon": "Talent Tree Tweaks",
+   "author": "Numy"
+  },
+  "TankHelper": {
+   "tier": "distinctive",
+   "addon": "TankHelper",
+   "author": "D4KiR"
+  },
+  "TargetedSpells": {
+   "tier": "distinctive",
+   "addon": "TargetedSpells",
+   "author": "Xepheris"
+  },
+  "Teleport Menu": {
+   "tier": "distinctive",
+   "addon": "Teleport Menu",
+   "author": "justw8"
+  },
+  "TeleportMenu": {
+   "tier": "distinctive",
+   "addon": "Teleport Menu",
+   "author": "justw8"
+  },
+  "TellMeWhen": {
+   "tier": "distinctive",
+   "addon": "TellMeWhen",
+   "author": "Cybeloras"
+  },
+  "Threat Plates": {
+   "tier": "distinctive",
+   "addon": "Threat Plates",
+   "author": "Suicidal_Katt"
+  },
+  "ThreatPlates": {
+   "tier": "distinctive",
+   "addon": "Threat Plates",
+   "author": "Suicidal_Katt"
+  },
+  "TipTac Reborn": {
+   "tier": "distinctive",
+   "addon": "TipTac Reborn",
+   "author": "frozn45"
+  },
+  "TipTacReborn": {
+   "tier": "distinctive",
+   "addon": "TipTac Reborn",
+   "author": "frozn45"
+  },
+  "Titan Panel": {
+   "tier": "distinctive",
+   "addon": "Titan Panel",
+   "author": "HonorGoG"
+  },
+  "TitanPanel": {
+   "tier": "distinctive",
+   "addon": "Titan Panel",
+   "author": "HonorGoG"
+  },
+  "TomCat's Tours": {
+   "tier": "distinctive",
+   "addon": "TomCat's Tours",
+   "author": "TomCat"
+  },
+  "TomCatsTours": {
+   "tier": "distinctive",
+   "addon": "TomCat's Tours",
+   "author": "TomCat"
+  },
+  "TomPoints": {
+   "tier": "distinctive",
+   "addon": "TomPoints",
+   "author": "Protuhj"
+  },
+  "TomTom": {
+   "tier": "distinctive",
+   "addon": "TomTom",
+   "author": "jnwhiteh"
+  },
+  "Tome of Teleportation": {
+   "tier": "distinctive",
+   "addon": "Tome of Teleportation",
+   "author": "Remeen"
+  },
+  "TomeofTeleportation": {
+   "tier": "distinctive",
+   "addon": "Tome of Teleportation",
+   "author": "Remeen"
+  },
+  "Total RP 3": {
+   "tier": "distinctive",
+   "addon": "Total RP 3",
+   "author": "SolanyaStormbreaker"
+  },
+  "TotalRP3": {
+   "tier": "distinctive",
+   "addon": "Total RP 3",
+   "author": "SolanyaStormbreaker"
+  },
+  "ToxiUI": {
+   "tier": "distinctive",
+   "addon": "ToxiUI",
+   "author": "theToxi_"
+  },
+  "TradeSkillMaster": {
+   "tier": "distinctive",
+   "addon": "TradeSkillMaster",
+   "author": "Sapu94"
+  },
+  "Transcriptor": {
+   "tier": "distinctive",
+   "addon": "Transcriptor",
+   "author": "Funkeh"
+  },
+  "TrinketMenu": {
+   "tier": "distinctive",
+   "addon": "TrinketMenu",
+   "author": "gello3"
+  },
+  "Trove Tally": {
+   "tier": "distinctive",
+   "addon": "Trove Tally",
+   "author": "Bettiold"
+  },
+  "TroveTally": {
+   "tier": "distinctive",
+   "addon": "Trove Tally",
+   "author": "Bettiold"
+  },
+  "True Stat Values": {
+   "tier": "distinctive",
+   "addon": "True Stat Values",
+   "author": "notarealwzrd"
+  },
+  "TrueStatValues": {
+   "tier": "distinctive",
+   "addon": "True Stat Values",
+   "author": "notarealwzrd"
+  },
+  "TrufiGCD": {
+   "tier": "distinctive",
+   "addon": "TrufiGCD",
+   "author": "Trufi"
+  },
+  "Tukui": {
+   "tier": "distinctive",
+   "addon": "Tukui",
+   "author": "Tukz"
+  },
+  "Twintop's Resource Bar": {
+   "tier": "distinctive",
+   "addon": "Twintop's Resource Bar",
+   "author": "Twintop"
+  },
+  "TwintopsResourceBar": {
+   "tier": "distinctive",
+   "addon": "Twintop's Resource Bar",
+   "author": "Twintop"
+  },
+  "Twitch Emotes v2": {
+   "tier": "distinctive",
+   "addon": "Twitch Emotes v2",
+   "author": "ren9790"
+  },
+  "TwitchEmotesv2": {
+   "tier": "distinctive",
+   "addon": "Twitch Emotes v2",
+   "author": "ren9790"
+  },
+  "Unhalted Unit Frames": {
+   "tier": "distinctive",
+   "addon": "Unhalted Unit Frames",
+   "author": "UnhaltedGB"
+  },
+  "UnhaltedUnitFrames": {
+   "tier": "distinctive",
+   "addon": "Unhalted Unit Frames",
+   "author": "UnhaltedGB"
+  },
+  "Venture Plan": {
+   "tier": "distinctive",
+   "addon": "Venture Plan",
+   "author": "foxlit"
+  },
+  "VenturePlan": {
+   "tier": "distinctive",
+   "addon": "Venture Plan",
+   "author": "foxlit"
+  },
+  "Vocal Raid Assistant": {
+   "tier": "distinctive",
+   "addon": "Vocal Raid Assistant",
+   "author": "Nitrak"
+  },
+  "VocalRaidAssistant": {
+   "tier": "distinctive",
+   "addon": "Vocal Raid Assistant",
+   "author": "Nitrak"
+  },
+  "VuhDo": {
+   "tier": "distinctive",
+   "addon": "VuhDo",
+   "author": "humfras"
+  },
+  "WIM": {
+   "tier": "distinctive",
+   "addon": "WIM",
+   "author": "RealPazza"
+  },
+  "WarpDeplete Mythic+ Timer": {
+   "tier": "distinctive",
+   "addon": "WarpDeplete Mythic+ Timer",
+   "author": "happens_"
+  },
+  "WarpDepleteMythicTimer": {
+   "tier": "distinctive",
+   "addon": "WarpDeplete Mythic+ Timer",
+   "author": "happens_"
+  },
+  "Waypoint UI": {
+   "tier": "distinctive",
+   "addon": "Waypoint UI",
+   "author": "AdaptiveX"
+  },
+  "WaypointUI": {
+   "tier": "distinctive",
+   "addon": "Waypoint UI",
+   "author": "AdaptiveX"
+  },
+  "WeakAuras": {
+   "tier": "distinctive",
+   "addon": "WeakAuras",
+   "author": "The WeakAuras Team"
+  },
+  "WeeklyKnowledge": {
+   "tier": "distinctive",
+   "addon": "WeeklyKnowledge",
+   "author": "Liquidor"
+  },
+  "Wholly": {
+   "tier": "ambiguous",
+   "addon": "Wholly",
+   "author": "nimhfree"
+  },
+  "WilduTools": {
+   "tier": "distinctive",
+   "addon": "WilduTools",
+   "author": "WilduTools"
+  },
+  "WoW-Pro Guides": {
+   "tier": "distinctive",
+   "addon": "WoW-Pro Guides",
+   "author": "Ludovicus_Maior"
+  },
+  "WoWDB Profiler": {
+   "tier": "distinctive",
+   "addon": "WoWDB Profiler",
+   "author": "chaud"
+  },
+  "WoWDBProfiler": {
+   "tier": "distinctive",
+   "addon": "WoWDB Profiler",
+   "author": "chaud"
+  },
+  "WoWProGuides": {
+   "tier": "distinctive",
+   "addon": "WoW-Pro Guides",
+   "author": "Ludovicus_Maior"
+  },
+  "WoWthing Collector": {
+   "tier": "distinctive",
+   "addon": "WoWthing Collector",
+   "author": "Freddie"
+  },
+  "WoWthingCollector": {
+   "tier": "distinctive",
+   "addon": "WoWthing Collector",
+   "author": "Freddie"
+  },
+  "World Quest Tab": {
+   "tier": "distinctive",
+   "addon": "World Quest Tab",
+   "author": "LanceDH"
+  },
+  "World Quest Tracker": {
+   "tier": "distinctive",
+   "addon": "World Quest Tracker",
+   "author": "Terciob"
+  },
+  "World Quests List": {
+   "tier": "distinctive",
+   "addon": "World Quests List",
+   "author": "ykiigor"
+  },
+  "WorldBossTimers": {
+   "tier": "distinctive",
+   "addon": "WorldBossTimers",
+   "author": "fstenstrom"
+  },
+  "WorldQuestTab": {
+   "tier": "distinctive",
+   "addon": "World Quest Tab",
+   "author": "LanceDH"
+  },
+  "WorldQuestTracker": {
+   "tier": "distinctive",
+   "addon": "World Quest Tracker",
+   "author": "Terciob"
+  },
+  "WorldQuestsList": {
+   "tier": "distinctive",
+   "addon": "World Quests List",
+   "author": "ykiigor"
+  },
+  "WorthIt": {
+   "tier": "distinctive",
+   "addon": "WorthIt",
+   "author": "DalaGG"
+  },
+  "XLoot": {
+   "tier": "distinctive",
+   "addon": "XLoot",
+   "author": "Xuerian"
+  },
+  "Zereth Mortis Puzzle Helper": {
+   "tier": "distinctive",
+   "addon": "Zereth Mortis Puzzle Helper",
+   "author": "httpsx"
+  },
+  "ZerethMortisPuzzleHelper": {
+   "tier": "distinctive",
+   "addon": "Zereth Mortis Puzzle Helper",
+   "author": "httpsx"
+  },
+  "[IRF]Inven Raid Frame": {
+   "tier": "distinctive",
+   "addon": "[IRF]Inven Raid Frame",
+   "author": "jws1624"
+  },
+  "[OUTDATED]": {
+   "tier": "distinctive",
+   "addon": "[OUTDATED]",
+   "author": "D4KiR"
+  },
+  "eAlign Updated": {
+   "tier": "distinctive",
+   "addon": "eAlign Updated",
+   "author": "Lohkin"
+  },
+  "eAlignUpdated": {
+   "tier": "distinctive",
+   "addon": "eAlign Updated",
+   "author": "Lohkin"
+  },
+  "iP Mythic Timer": {
+   "tier": "distinctive",
+   "addon": "iP Mythic Timer",
+   "author": "iPgnome"
+  },
+  "iPMythicTimer": {
+   "tier": "distinctive",
+   "addon": "iP Mythic Timer",
+   "author": "iPgnome"
+  },
+  "idTip": {
+   "tier": "distinctive",
+   "addon": "idTip",
+   "author": "silv3rwind"
+  },
+  "kgPanels": {
+   "tier": "distinctive",
+   "addon": "kgPanels",
+   "author": "moonfann"
+  },
+  "mOnArs WardrobeHelper": {
+   "tier": "distinctive",
+   "addon": "mOnArs WardrobeHelper",
+   "author": "qmOnArq"
+  },
+  "mOnArsWardrobeHelper": {
+   "tier": "distinctive",
+   "addon": "mOnArs WardrobeHelper",
+   "author": "qmOnArq"
+  },
+  "oRA3": {
+   "tier": "distinctive",
+   "addon": "oRA3",
+   "author": "Funkeh"
+  },
+  "oUF": {
+   "tier": "distinctive",
+   "addon": "oUF",
+   "author": "haste"
+  },
+  "sArena Reloaded": {
+   "tier": "distinctive",
+   "addon": "sArena Reloaded",
+   "author": "Bodify"
+  },
+  "sArenaReloaded": {
+   "tier": "distinctive",
+   "addon": "sArena Reloaded",
+   "author": "Bodify"
+  },
+  "tullaRange": {
+   "tier": "distinctive",
+   "addon": "tullaRange",
+   "author": "Tuller"
+  }
+ }
+}

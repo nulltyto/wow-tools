@@ -9,7 +9,7 @@ Skills, tools, and scripts for World of Warcraft addon development with
 |---|---|
 | [`wow-api-search`](skills/wow-api-search/) | Searches Blizzard's API: functions, events, enums, structures, and the exported interface code. Bundled index, committed here. |
 | [`ellesmereui-search`](skills/ellesmereui-search/) | Searches the EllesmereUI addon suite's own source: symbols, settings keys, locale strings, events, slash commands. Index built locally from your checkout. |
-| [`ellesmereui-pr-check`](skills/ellesmereui-pr-check/) | Checks EllesmereUI changes against the code style rules in the addon's `CONTRIBUTING.md` before a PR goes up. Diff-scoped. |
+| [`ellesmereui-pr-check`](skills/ellesmereui-pr-check/) | Checks EllesmereUI changes against the code style rules in the addon's `CONTRIBUTING.md`, and flags code that names another addon so its provenance gets checked. Diff-scoped; installs as a pre-commit hook. |
 
 `wow-api-search` answers "what does this Blizzard API do" and "how does
 Blizzard implement this". `ellesmereui-search` answers "where does EllesmereUI

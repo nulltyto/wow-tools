@@ -16,11 +16,29 @@ merge-base with `main`, including uncommitted edits.
 
 That is not a shortcut. The tree carries legacy violations that predate the
 rules: 377 non-ASCII lines, 3 `StaticPopup_Show` calls, 3 `W:DualRow` calls
-with no right slot, 2 with a placeholder in the left slot. A whole-tree run
-reports all of them and teaches you to ignore the output. A diff-scoped run
-reports only what you are responsible for, so a finding means something.
+with no right slot, 2 with a placeholder in the left slot, and 293 lines that
+name another addon for legitimate interop. A whole-tree run reports all of them
+and teaches you to ignore the output. A diff-scoped run reports only what you
+are responsible for, so a finding means something.
 
 `--all` is still there for auditing.
+
+## At commit time
+
+```bash
+check_style.py --install-hook
+```
+
+installs a `pre-commit` hook that runs `--staged`, so a violation never reaches
+a commit in the first place. It reads the indexed blob, not the file on disk —
+those differ whenever a file was edited after `git add`, and the commit records
+the index. Errors block the commit; warnings and notes print and let it
+through. `git commit --no-verify` skips it. An existing foreign hook is never
+overwritten.
+
+The hook's scope is one commit, so it does not replace the pre-PR run over the
+whole branch: that one still catches whatever was committed before the hook
+existed, bypassed with `--no-verify`, or carried in by a rebase.
 
 ## Rules
 
@@ -31,8 +49,11 @@ reports only what you are responsible for, so a finding means something.
 | `popup` | error | `StaticPopup_Show`; confirmations use `EllesmereUI:ShowConfirmPopup`. |
 | `dualrow-nil` | error | Missing or `nil` right slot in `W:DualRow`. |
 | `dualrow-left-gap` | error | `{ type = "label", text = "" }` in the left slot — a gap that should be filled left to right. |
+| `thirdparty-credit` | error | A third-party addon named within 2 lines of unambiguous derivation language — `adapted from`, `taken from`, `copied from`, `ported from`, `credit to`, `courtesy of`. Softer wording (`based on`, `derived from`, `inspired by`) is the same rule at warning severity. |
+| `thirdparty` | warning | One of ~500 CurseForge addons named in code or a comment. |
 | `tooltip` | warning | A `GameTooltip` session (`SetOwner` → `Show`) that only ever receives `SetText`/`AddLine`, with no data setter such as `SetHyperlink` or `SetSpellByID`. Heuristic. |
 | `dualrow-empty` | note | Every empty right slot, asking you to confirm it is the last row of its section. Never fails the run. |
+| `thirdparty-maybe` | note | An addon name that is also an ordinary word: Atlas, Cell, Details, Paste, Clique, Pawn. Never fails the run. |
 
 Errors fail the run (exit 1). Warnings and notes do not, unless `--strict`.
 
@@ -40,7 +61,35 @@ Deliberate violations are suppressed per line:
 
 ```lua
 local names = { "windrunner spire", "шпиль ветрокрылых" }  -- eui-style: allow ascii
+{ addon = "Clique", label = "Clique" },  -- eui-style: allow thirdparty (conflict registry)
 ```
+
+## Third-party provenance
+
+No linter can prove code was copied — it has no copy to compare against. This
+one finds every place another addon is named, on the observation that lifted
+code nearly always arrives with the donor's name still attached: a credit
+comment, a `based on` note, a copied identifier, a link to the source. The
+finding is a question, and answering it is human work; `SKILL.md` carries the
+procedure.
+
+Names come from `references/addons.json`, built by `build_addon_list.py` from a
+pasted CurseForge listing plus a supplement for the majors that publish
+elsewhere (ElvUI, WeakAuras, Tukui, oUF). Each name is sorted into one of three
+tiers, because a flat list of 500 names is unusable against real source:
+
+- **distinctive** — an invented name, or any multi-word phrase. Warning.
+  Multi-word phrases are safe: measured over the tree, no generic-sounding
+  title (`Edit Mode Expanded`, `Method Raid Tools`) ever matched by accident.
+- **ambiguous** — a single ordinary English word, decided against the system
+  dictionary. Note only, because `Atlas`, `Cell`, `Routes`, and `Paste` collide
+  constantly with normal prose and identifiers.
+- **library** — `Ace3`, the `Lib*-x.y` family, `SharedMedia`, `Masque`. Never
+  matched; every addon is entitled to use them.
+
+Matching is case-sensitive and word-bounded. Case-insensitive matching on this
+list is unusable: it fires on every `local cell` and `atlas` in the tree, and
+on the French word *masque* throughout the locale files.
 
 ## The rule that is not enforced
 

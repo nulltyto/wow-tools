@@ -1,6 +1,6 @@
 ---
 name: ellesmereui-pr-check
-description: Check EllesmereUI changes against the code style in .github/CONTRIBUTING.md before opening a pull request — Lua 5.1 only, ASCII only, house tooltip and confirmation helpers instead of Blizzard defaults, and two-slot W:DualRow options rows. Use this skill whenever finishing a change to the EllesmereUI/EUI addon suite, before committing or opening a PR, when the user says "check this before I PR it", "does this follow the style rules", "am I ready to push", or after writing any options-page widget, tooltip, or confirmation dialog in this codebase. Also use when reviewing someone else's EllesmereUI diff. For finding where code lives in this addon use ellesmereui-search; for Blizzard's own API use wow-api-search.
+description: Check EllesmereUI changes against the code style in .github/CONTRIBUTING.md before committing or opening a pull request — Lua 5.1 only, ASCII only, house tooltip and confirmation helpers instead of Blizzard defaults, two-slot W:DualRow options rows, and no code lifted from other addons (ElvUI, Plater, WeakAuras, Bartender4, and ~500 more from the CurseForge top list). Use this skill whenever finishing a change to the EllesmereUI/EUI addon suite, before committing or opening a PR, when the user says "check this before I PR it", "does this follow the style rules", "am I ready to push", when a change names or borrows from another addon, or after writing any options-page widget, tooltip, or confirmation dialog in this codebase. Also use when reviewing someone else's EllesmereUI diff. For finding where code lives in this addon use ellesmereui-search; for Blizzard's own API use wow-api-search.
 ---
 
 # EllesmereUI PR Check
@@ -24,6 +24,7 @@ Exit status is 1 on any error-severity finding. Fix every error before opening
 the PR.
 
 ```bash
+check_style.py --staged             # staged lines only -- what the commit records
 check_style.py --base origin/main   # explicit base ref
 check_style.py --files a.lua b.lua  # these files, in full
 check_style.py --all                # whole tree; expect legacy findings
@@ -34,6 +35,29 @@ check_style.py --json               # machine-readable
 Run it from inside the addon checkout, or pass `--root` / set
 `$ELLESMEREUI_ROOT`.
 
+## Catch it at commit time, not at PR time
+
+Nothing here needs to wait for a PR, and a violation is far cheaper to fix
+before it is committed than after. Offer to install the pre-commit hook the
+first time this skill runs in a checkout that has none:
+
+```bash
+python3 <skill>/scripts/check_style.py --install-hook
+```
+
+The hook runs `--staged`, so it reads the **indexed blob** rather than the file
+on disk — the commit records the index, and the two differ whenever a file was
+edited after `git add`. Errors block the commit; warnings and notes print and
+let it through. `git commit --no-verify` skips it.
+
+The hook does not replace the pre-PR run. Its scope is one commit; the default
+run's scope is the whole branch, so it still catches anything committed before
+the hook existed, anything committed with `--no-verify`, and anything a
+rebase carried in. Run both.
+
+If a pre-commit hook already exists and is not this one, the installer refuses
+to touch it and prints the line to add by hand.
+
 ## What it enforces, and how far to trust each rule
 
 | Rule | Severity | Trust |
@@ -43,20 +67,80 @@ Run it from inside the addon checkout, or pass `--root` / set
 | `popup` | error | Exact. `StaticPopup_Show`. |
 | `dualrow-nil` | error | Exact. Missing or `nil` right slot. |
 | `dualrow-left-gap` | error | Exact. Placeholder label in the left slot. |
+| `thirdparty-credit` | error | Exact on the words. A third-party addon named within 2 lines of unambiguous derivation language (`adapted from`, `taken from`, `credit to`, `ported from`). Zero such pairs exist in the tree, so a hit is new. Softer phrasing (`based on`, `derived from`, `inspired by`) is the same rule at warning severity — the tree has three, all about values rather than provenance. |
+| `thirdparty` | warning | Exact on the name. One of ~500 CurseForge addons named in code or a comment. A name is not an accusation: see below. |
 | `tooltip` | warning | Heuristic. A `GameTooltip` session (`SetOwner` → `Show`) that only ever gets `SetText`/`AddLine` with no data setter. A rich multi-line tooltip on a Blizzard frame looks identical, so read it before acting. |
 | `dualrow-empty` | note | Never fails. See below. |
+| `thirdparty-maybe` | note | Never fails. An addon name that is also an ordinary word — Atlas, Cell, Details, Paste, Clique, Pawn. |
 
 Suppress a single line when a violation is deliberate:
 
 ```lua
 local names = { "windrunner spire", "шпиль ветрокрылых" }  -- eui-style: allow ascii
+{ addon = "Clique", label = "Clique" },  -- eui-style: allow thirdparty (conflict registry)
 ```
 
 Rules take the ids above (`ascii`, `tooltip`, `lua51`, `popup`, `dualrow-nil`,
-`dualrow-left-gap`, `dualrow-empty`). The comment goes on the offending line or
-the one above it. Suppressing `ascii` is legitimate for locale-matching data;
-suppressing it for punctuation is not — that is the corruption the rule exists
-to prevent.
+`dualrow-left-gap`, `dualrow-empty`, `thirdparty`, `thirdparty-credit`,
+`thirdparty-maybe`). The comment goes on the offending line or the one above
+it. Suppressing `ascii` is legitimate for locale-matching data; suppressing it
+for punctuation is not — that is the corruption the rule exists to prevent.
+
+## When another addon is named
+
+EllesmereUI must ship no code taken from another addon. A linter cannot see
+that a block was copied — it has no copy to compare against. What it can do is
+find every place another addon is named and make you account for it, because
+lifted code nearly always arrives with the donor's name still attached: a
+credit comment, a "based on" note, a copied identifier, a link to the source.
+
+The tree names plenty of addons legitimately — a conflict registry, compat
+shims for FarmHud and Myslot, unit-frame globals it must not fight with — so
+293 of these exist already and the diff-scoped default is what keeps the rule
+usable. **Resolve every `thirdparty*` finding in your diff before the PR.**
+
+For each one, read the surrounding block and put it in one of three boxes:
+
+**Interop.** `C_AddOns.IsAddOnLoaded("Plater")`, a conflict-registry entry, a
+`_G.ElvUF_Player` probe, a frame-name prefix to skip, a user-facing message
+naming the conflicting addon. The feature does not work without the name.
+Suppress with the reason: `-- eui-style: allow thirdparty (conflict registry)`.
+
+**Coincidence.** Almost always a `thirdparty-maybe` — "Cell reference table",
+"Atlas-based styles", "Paste your profile string". Suppress with the reason.
+
+**Provenance.** The name is there because it says where the code came from.
+Verify it before anything else happens to this branch:
+
+1. Get the addon's source. `references/addons.json` carries the author, which
+   is what makes a GitHub search land — search the author and addon name, or
+   open `curseforge.com/wow/addons/<slug>`. Ask the user to fetch it if the
+   source is not reachable; do not guess.
+2. Compare against the block in the diff. Copied code shows itself in things
+   nobody reinvents identically: the same local names in the same order, the
+   same magic constants, the same table layout, the same comment wording,
+   the same sequence of early returns.
+3. If it matches, it does not go in the PR. Rewrite the behaviour from the
+   Blizzard API — use `wow-api-search` for the real functions and events — or
+   drop the change.
+4. If it does not match, say what you compared and suppress with that as the
+   reason.
+
+**Never resolve one of these by deleting the comment.** Removing a credit line
+does not change where the code came from; it only removes the evidence and
+makes the next reviewer's job impossible. If the code is fine, keep the credit
+and suppress the rule.
+
+Vendored libraries are a different matter and are already out of scope: `Libs/`
+is excluded, and pulling oUF or Ace3 in under their own license is normal
+practice. Copying a function *out* of one into EllesmereUI source is not the
+same thing, and that is what the rule catches.
+
+The addon list is regenerated from a CurseForge listing pasted to a file:
+
+```bash
+python3 <skill>/scripts/build_addon_list.py ~/Documents/curseforge_addons.txt
+```
 
 ## What the linter cannot decide
 

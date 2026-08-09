@@ -6,10 +6,12 @@ carries legacy violations that predate the rules -- a whole-tree run is noise,
 a diff-scoped run is a gate.
 
     check_style.py                     changed lines vs the merge-base with main
+    check_style.py --staged            staged lines only (what a commit records)
     check_style.py --base origin/main  pick the base ref explicitly
     check_style.py --all               every file (expect legacy findings)
     check_style.py --files a.lua b.lua just these files, whole file
     check_style.py --json              machine-readable output
+    check_style.py --install-hook      install --staged as a git pre-commit hook
 
 Exit status is 1 when an error-severity finding is reported, 0 otherwise.
 Warnings and notes never fail the run unless --strict is passed.
@@ -33,6 +35,16 @@ Rules, and how far each can be trusted:
                            row of its section is not statically decidable
                            (if/else branches and local helpers break any
                            boundary rule), so this only asks you to look.
+  thirdparty-credit
+                   error   a named third-party addon next to derivation
+                           language ("adapted from", "credit to"). Exact on
+                           the words; what it means is for you to establish.
+  thirdparty       warning a named third-party addon in code or comments.
+                           EllesmereUI names plenty of them legitimately, so
+                           this asks a question rather than making a claim:
+                           confirm nothing was copied from that addon.
+  thirdparty-maybe note    the same, for names that are also ordinary words
+                           (Atlas, Cell, Details, Paste). Never fails.
 """
 
 from __future__ import annotations
@@ -129,10 +141,13 @@ def mask_lua(text: str) -> str:
 class Source:
     """One Lua file: original text, masked text, line lookup, suppressions."""
 
-    def __init__(self, path: Path, rel: str):
+    def __init__(self, path: Path, rel: str, text: str | None = None):
         self.path = path
         self.rel = rel
-        self.text = path.read_text(encoding="utf-8", errors="replace")
+        # `text` is passed when checking staged content, which is not what is
+        # on disk if the file was edited after `git add`.
+        self.text = (text if text is not None
+                     else path.read_text(encoding="utf-8", errors="replace"))
         self.mask = mask_lua(self.text)
         self.lines = self.text.splitlines()
         self._nl = [m.start() for m in re.finditer("\n", self.text)]
@@ -372,6 +387,150 @@ def check_dualrow(src: Source):
 
 
 # --------------------------------------------------------------------------
+#  Rule: third-party addon provenance
+# --------------------------------------------------------------------------
+# EllesmereUI must not carry code lifted from another addon. A linter cannot
+# see that a block was copied -- it has no copy to compare against. What it can
+# do is find every place a third-party addon is named and make someone account
+# for it, because a lifted block almost always arrives with the donor's name
+# still attached: in a credit comment, a "based on" note, a copied identifier,
+# or a link to the source.
+#
+# The tree already names many addons legitimately -- a conflict registry, compat
+# shims for FarmHud and Myslot, unit-frame globals it must not fight with. So a
+# mention is a question, not a verdict, and only derivation language turns it
+# into an error.
+
+ADDON_DATA = Path(__file__).resolve().parent.parent / "references" / "addons.json"
+
+# Wording that claims the code came from somewhere else. Blizzard's own source
+# is fair game, so these only fire when a third-party name is nearby.
+#
+# Split by how much the phrase can mean. STRONG phrases take a source as their
+# object and nothing else -- "adapted from", "credit to". Measured against the
+# tree they never appear near a third-party name, so a hit is always real, and
+# they are errors.
+#
+# WEAK phrases are ordinary technical English that happens to describe
+# derivation: the tree has "initialAnchor is ALWAYS derived from the anchor
+# position" and "ownership based on whether UnitFrames is rendering", neither
+# about code provenance. Flagging those as errors would have made this rule
+# wrong half the time at its highest severity, so they are warnings.
+DERIVATION_STRONG = re.compile(
+    r"\b(?:"
+    r"adapted from|adapted by|taken from|copied from|copy-?paste[d]? from"
+    r"|borrowed from|lifted from|ported from|stolen from|cribbed from"
+    r"|straight (?:out )?of|straight from|ripped from|snippet from"
+    r"|credits?\s*(?::|to\b)|thanks to|courtesy of|kudos to|hat tip"
+    r"|originally (?:from|by)|source\s*:|reimplement(?:ed|ation) of"
+    r")", re.I)
+
+DERIVATION_WEAK = re.compile(
+    r"\b(?:"
+    r"based (?:on|upon)|derived from|inspired by|copy of|clone of"
+    r"|same (?:approach|trick|technique|idea|logic|way) as|the way \w+ does"
+    r"|modelled on|modeled on|after \w+'s"
+    r")\b", re.I)
+
+# How far a credit comment may sit from the addon name it credits. A block
+# comment usually names the source a line or two above the code.
+DERIVATION_RADIUS = 2
+
+
+def _load_addon_tokens():
+    if not ADDON_DATA.is_file():
+        return None, None
+    data = json.loads(ADDON_DATA.read_text(encoding="utf-8"))
+    tokens = {k: v for k, v in data["tokens"].items() if v["tier"] != "library"}
+    if not tokens:
+        return None, None
+    # Longest first, so "Plater Nameplates" wins over "Plater".
+    alternation = "|".join(re.escape(t) for t in
+                           sorted(tokens, key=len, reverse=True))
+    # Case-sensitive on purpose. Case-insensitive matching on this list is
+    # unusable: it turns every `local cell`, `atlas`, and `routes` in the tree
+    # into a finding, and matches the French word "masque" in the locale files.
+    rx = re.compile(r"(?<![A-Za-z0-9_])(" + alternation + r")(?![A-Za-z0-9_])")
+    return rx, tokens
+
+
+ADDON_RX, ADDON_TOKENS = _load_addon_tokens()
+
+
+def _describe(entries) -> str:
+    addons = sorted({e["addon"] for e in entries})
+    return ", ".join(addons[:3]) + (" ..." if len(addons) > 3 else "")
+
+
+def check_thirdparty(src: Source):
+    """Yield (finding, span) -- a credit block is in scope if the diff touched
+    any line of it, not only the line carrying the addon name."""
+    if ADDON_RX is None:
+        return
+
+    # Scan the raw text, not the mask: a credit comment and a copied string
+    # literal are both exactly what this rule is looking for.
+    names_at: dict[int, set[str]] = {}
+    for m in ADDON_RX.finditer(src.text):
+        names_at.setdefault(src.line_of(m.start()), set()).add(m.group(1))
+    if not names_at:
+        return
+
+    credits_at: dict[int, tuple[str, bool]] = {}
+    for rx, is_strong in ((DERIVATION_WEAK, False), (DERIVATION_STRONG, True)):
+        for m in rx.finditer(src.text):
+            line = src.line_of(m.start())
+            # A strong phrase on the same line as a weak one wins.
+            if is_strong or line not in credits_at:
+                credits_at[line] = (m.group(0).strip(), is_strong)
+
+    # A credit line claims every addon named within its radius, and reports
+    # once, at the claim. Reporting per name instead produced two errors for
+    # one comment and pointed at the code rather than the sentence about it.
+    claimed: set[int] = set()
+    for cline, (phrase, is_strong) in sorted(credits_at.items()):
+        lo, hi = cline - DERIVATION_RADIUS, cline + DERIVATION_RADIUS
+        near = sorted(n for n in names_at if lo <= n <= hi)
+        if not near:
+            continue
+        claimed.update(near)
+        if any(suppressed(src, n, "thirdparty-credit") or
+               suppressed(src, n, "thirdparty") for n in [cline] + near):
+            continue
+        entries = [ADDON_TOKENS[t] for n in near for t in sorted(names_at[n])]
+        authors = sorted({e["author"] for e in entries if e["author"]})
+        yield Finding(
+            src.rel, cline, ERROR if is_strong else WARNING, "thirdparty-credit",
+            f"{_describe(entries)} named next to {phrase!r}",
+            "This reads as code taken from another addon. Establish where it "
+            "came from before this goes near a PR: open that addon's source, "
+            "compare, and either write the logic from scratch or drop it. If "
+            "the phrase is not about provenance, add: "
+            "-- eui-style: allow thirdparty-credit (reason)"
+            + (f" Addon author: {', '.join(authors)}." if authors else ""),
+        ), (lo, hi)
+
+    for line, tokens in sorted(names_at.items()):
+        if line in claimed:
+            continue
+        entries = [ADDON_TOKENS[t] for t in sorted(tokens)]
+        ambiguous = all(e["tier"] == "ambiguous" for e in entries)
+        rule = "thirdparty-maybe" if ambiguous else "thirdparty"
+        if suppressed(src, line, rule) or suppressed(src, line, "thirdparty"):
+            continue
+        yield Finding(
+            src.rel, line, NOTE if ambiguous else WARNING, rule,
+            f"third-party addon named: {_describe(entries)}"
+            + (" (also an ordinary word -- may be a coincidence)"
+               if ambiguous else ""),
+            "Naming an addon is fine for interop -- conflict entries, "
+            "IsAddOnLoaded checks, compat shims. Copying its code is not. "
+            "Confirm this line carries no logic from that addon, then add: "
+            f"-- eui-style: allow {rule} (reason)",
+        ), (line, line)
+
+
+# --------------------------------------------------------------------------
 #  Scope: which lines count
 # --------------------------------------------------------------------------
 
@@ -393,20 +552,20 @@ def resolve_base(root: Path, explicit: str | None) -> str | None:
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-def changed_lines(root: Path, base: str) -> dict[str, set[int]]:
-    """Map relative path -> set of line numbers added or modified vs base.
+def changed_lines(root: Path, base: str | None, staged: bool = False) -> dict[str, set[int]]:
+    """Map relative path -> set of line numbers added or modified.
 
-    Compares base to the working tree, so uncommitted edits are included --
-    this runs before you push, not after.
+    Against `base` this compares to the working tree, so uncommitted edits are
+    included -- it runs before you push, not after. With `staged` it compares
+    the index to HEAD, which is exactly what the next commit will record.
     """
     # Force the a/ b/ prefixes: diff.mnemonicPrefix in the user's git config
     # emits c/ and w/ instead, which would silently match no files and turn
     # this gate into a no-op.
-    diff = subprocess.run(
-        ["git", "-C", str(root), "diff", "--unified=0", "--no-color",
-         "--src-prefix=a/", "--dst-prefix=b/", base, "--", "*.lua"],
-        capture_output=True, text=True,
-    ).stdout
+    cmd = ["git", "-C", str(root), "diff", "--unified=0", "--no-color",
+           "--src-prefix=a/", "--dst-prefix=b/"]
+    cmd += ["--cached"] if staged else [base]
+    diff = subprocess.run(cmd + ["--", "*.lua"], capture_output=True, text=True).stdout
     result: dict[str, set[int]] = {}
     current: set[int] | None = None
     for line in diff.splitlines():
@@ -427,12 +586,57 @@ def excluded(rel: str) -> bool:
     return any(part in EXCLUDE_DIRS for part in Path(rel).parts[:-1])
 
 
+def staged_text(root: Path, rel: str) -> str | None:
+    """The content git would commit for `rel`, or None if it is being deleted."""
+    proc = subprocess.run(
+        ["git", "-C", str(root), "show", f":{rel}"],
+        capture_output=True, text=True, errors="replace")
+    return proc.stdout if proc.returncode == 0 else None
+
+
+HOOK_MARKER = "ellesmereui-pr-check"
+
+HOOK_TEMPLATE = """#!/bin/sh
+# {marker}: block a commit that records a style violation.
+# Skip once with `git commit --no-verify`.
+exec {python} {script} --root "$(git rev-parse --show-toplevel)" --staged
+"""
+
+
+def install_hook(root: Path) -> int:
+    hooks = Path(git(root, "rev-parse", "--git-path", "hooks") or ".git/hooks")
+    if not hooks.is_absolute():
+        hooks = root / hooks
+    hooks.mkdir(parents=True, exist_ok=True)
+    hook = hooks / "pre-commit"
+
+    if hook.exists() and HOOK_MARKER not in hook.read_text(
+            encoding="utf-8", errors="replace"):
+        print(f"{hook} already exists and is not ours -- leaving it alone.\n"
+              "Add this line to it instead:\n\n"
+              f'  {sys.executable} {Path(__file__).resolve()} '
+              '--root "$(git rev-parse --show-toplevel)" --staged\n')
+        return 1
+
+    hook.write_text(HOOK_TEMPLATE.format(
+        marker=HOOK_MARKER,
+        python=sys.executable,
+        script=Path(__file__).resolve(),
+    ), encoding="utf-8")
+    hook.chmod(0o755)
+    print(f"Installed {hook}\n"
+          "It checks staged lines on every commit. Errors block the commit; "
+          "warnings and notes print and let it through.\n"
+          "Bypass once with: git commit --no-verify")
+    return 0
+
+
 # --------------------------------------------------------------------------
 #  Driver
 # --------------------------------------------------------------------------
 
 SIMPLE_RULES = (check_lua51, check_ascii, check_popup)
-SPAN_RULES = (check_tooltip, check_dualrow)
+SPAN_RULES = (check_tooltip, check_dualrow, check_thirdparty)
 
 
 def check_file(src: Source, scope: set[int] | None) -> list[Finding]:
@@ -480,27 +684,47 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="path to the EllesmereUI checkout")
     ap.add_argument("--base", help="git ref to diff against (default: origin/main, then main)")
+    ap.add_argument("--staged", action="store_true",
+                    help="check staged lines only -- what the next commit records")
     ap.add_argument("--all", action="store_true", help="check every file, not just the diff")
     ap.add_argument("--files", nargs="+", help="check these files in full")
     ap.add_argument("--strict", action="store_true", help="warnings fail too")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--install-hook", action="store_true",
+                    help="install --staged as this repo's git pre-commit hook")
     args = ap.parse_args()
 
     root = resolve_root(args.root)
 
-    targets: list[tuple[Path, str, set[int] | None]] = []
+    if args.install_hook:
+        return install_hook(root)
+
+    targets: list[tuple[Path, str, set[int] | None, str | None]] = []
     if args.files:
         for f in args.files:
             p = Path(f).expanduser().resolve()
             rel = str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
-            targets.append((p, rel, None))
+            targets.append((p, rel, None, None))
         scope_desc = f"{len(targets)} file(s), in full"
     elif args.all:
         for p in sorted(root.rglob("*.lua")):
             rel = str(p.relative_to(root))
             if not excluded(rel):
-                targets.append((p, rel, None))
+                targets.append((p, rel, None, None))
         scope_desc = f"whole tree ({len(targets)} files)"
+    elif args.staged:
+        changed = changed_lines(root, None, staged=True)
+        for rel, lines in sorted(changed.items()):
+            if excluded(rel):
+                continue
+            # Read the indexed blob, not the file on disk: they differ whenever
+            # the file was edited after `git add`, and the commit records the
+            # blob.
+            text = staged_text(root, rel)
+            if text is not None:
+                targets.append((root / rel, rel, lines, text))
+        scope_desc = (f"staged lines: {len(targets)} file(s), "
+                      f"{sum(len(v) for v in changed.values())} line(s)")
     else:
         base = resolve_base(root, args.base)
         if base is None:
@@ -509,15 +733,15 @@ def main() -> int:
         for rel, lines in sorted(changed.items()):
             p = root / rel
             if p.is_file() and not excluded(rel):
-                targets.append((p, rel, lines))
+                targets.append((p, rel, lines, None))
         short = git(root, "rev-parse", "--short", base) or base
         scope_desc = (f"changed lines vs {args.base or 'main'} ({short}): "
                       f"{len(targets)} file(s), "
                       f"{sum(len(v) for v in changed.values())} line(s)")
 
     findings: list[Finding] = []
-    for path, rel, scope in targets:
-        findings.extend(check_file(Source(path, rel), scope))
+    for path, rel, scope, text in targets:
+        findings.extend(check_file(Source(path, rel, text), scope))
 
     if args.json:
         print(json.dumps({
