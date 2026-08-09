@@ -1,0 +1,51 @@
+harness.lua — load EllesmereUISecretsDiag outside the game and drive it
+
+    cd tools/diag && lua5.1 harness.lua
+
+Stubs enough of the WoW API to load all five files in .toc order, fire
+ADDON_LOADED, and dispatch every command. It catches what a syntax check
+cannot: load-order faults, a helper that moved between files, nil calls during
+registration, and dispatch bugs. It also drives the live CPU monitor against a
+profiler stub whose readings change over time, and asserts that:
+
+  * the table repaints at all
+  * Average mode reports a different number from live, and relabels its column
+    (an average that silently echoes the live value looks perfectly fine)
+  * the graph draws line segments, grows the window, and shows its panel
+  * All pins every listed module and None returns to auto without emptying
+    the plot
+  * the recorder does NOT walk every addon's memory once per sample -- that
+    call is the expensive part of sampling at a dungeon-rate interval, so it
+    runs on its own slower cycle (proven by counting the stubbed calls)
+
+Two pieces of stub fidelity that took a bug each to learn, and that anything
+added here has to preserve:
+
+  Show and Hide fire OnShow/OnHide, as they do in the client. Without that,
+  anything a frame does on show is never exercised and the window appears to
+  work while doing nothing.
+
+  The catch-all __index fabricates methods for missing keys, but returns nil
+  for underscore-prefixed ones. Those are the stub's own data fields, and
+  handing back a function makes every unset field read as truthy — which shows
+  up as assertions passing on garbage rather than as an error.
+
+It writes harness-sv.lua, a SavedVariables file in the client's own format,
+which is what feeds ../perf/euidiag-perf.py in the round trip below.
+
+    lua5.1 harness.lua && ../perf/euidiag-perf.py harness-sv.lua
+
+Exit status is 0 only if every dispatch ran. Command errors are caught and
+reported by the tool itself rather than raised, so also check the output for
+unexpected [ERR] lines:
+
+    lua5.1 harness.lua | grep 'ERR\]'
+
+Three of those are deliberate (a bad `eval` expression, and export/drop with no
+recording present); anything else is a regression.
+
+This is a smoke test, not a substitute for playing. It proves the plumbing
+holds together; it says nothing about whether a probe reports the truth, since
+every API it calls is a stub returning a constant. Anything that depends on
+real secret values, real taint, or real CPU attribution has to be confirmed in
+game.

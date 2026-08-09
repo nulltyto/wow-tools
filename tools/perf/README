@@ -1,0 +1,128 @@
+euidiag-perf.py — offline analysis of /euidiag rec recordings
+
+In game:
+
+    /euidiag rec start          one sample a second
+    /euidiag rec start 0.1      ten a second (floor 0.05; a frame is the real
+                                floor, since the timer runs on OnUpdate)
+    /euidiag rec start 1 20000  and a bigger sample cap
+    ... play ...
+    /euidiag rec stop
+    /reload                     the client only writes SavedVariables on
+                                /reload or logout — the file does not exist
+                                until then
+
+Choosing an interval. The default cap is derived from the interval to hold
+about 45 minutes — a key plus the walk in — so `rec start 0.1` covers a long
+dungeon without a second argument. Measured against a real 10000-sample run:
+
+    INTERVAL   DEFAULT CAP   COVERS    ON DISK   LUA HEAP
+    1s               10000   166 min     2.2 MB     7 MB
+    0.2s             13500    45 min     2.7 MB    10 MB
+    0.1s             27000    45 min     5.2 MB    19 MB
+    0.05s            54000    45 min    10.4 MB    38 MB
+
+Heap is the cost that bites, not disk: Lua grows a table's array part by
+doubling, so a 25-value sample sits in 32 slots. It is also paid twice — once
+while recording, and again at every login after, when the client reads the file
+back. A second argument overrides the cap: `rec start 0.1 40000`.
+
+A sample used to carry a memory and a PeakTime column per module as well, which
+made it 67 values instead of 25 and pushed it into a 128-slot table. Measured
+over a real 10000-sample run those 42 columns were 63% of the file and 1.2% of
+the information: memory refreshes every few seconds however fast the sampler
+runs, and PeakTime is a high-water mark that changed 5 times in 210,000 stored
+values. Both now have their own table on their own cadence, so nothing is lost
+and the same recording costs a quarter of what it did.
+
+What finer sampling can and cannot buy is worth knowing first. The CPU columns
+come from the client's RecentAverageTime, which is the average over the last 60
+frames — about 0.6s at 90 fps. Two samples 0.1s apart therefore share most of
+their frames, and no sample rate makes those columns resolve a single frame.
+What does sharpen: frame rate, memory, and WHEN a spike arrives relative to a
+pull. For single-frame cost, the Spikes section is the instrument — it reads
+PeakTime, which is per-frame and does not average.
+
+Then:
+
+    ./euidiag-perf.py                      newest recording, summarised
+    ./euidiag-perf.py --list               what is in the file
+    ./euidiag-perf.py -r 2 --csv out.csv   export recording 2 (plus out-marks.csv)
+    ./euidiag-perf.py --out report.txt     save the summary as printed
+    ./euidiag-perf.py --share run.json     small JSON to hand to somebody else
+    ./euidiag-perf.py --plot trace.png     needs matplotlib; skipped without it
+
+With no path argument it finds the SavedVariables file itself: it locates the
+game the same way the installer does (see wow_tools/wow.py) and takes the most
+recently written recording it finds. Pass a path to read another account's or
+another install's, or set $WOW_SAVEDVARIABLES to pin one. If the game lives
+somewhere the search does not reach, $WOW_INSTALL points at it.
+
+EllesmereUISecretsDiag is left out of every table and out of the plot. It only
+runs because you asked for measurements — its cost is not something the suite
+does to a normal session, and it is loud enough to crowd out the modules you
+came to read. `--include-self` puts it back.
+
+Other switches: `--top N` for how many modules each TABLE shows (default 15),
+`--plot-top N` for how many lines the PLOT draws (default 8), `--no-marks` to
+drop the mark list from the end of the summary.
+
+Sharing a run
+
+  `--share run.json` writes the whole analysis as a small JSON file: every
+  statistic the summary prints, the encounters, the marks, the spikes, and one
+  trace reduced to 240 points (`--share-points N`). Each bucket keeps a mean and
+  a max, so a spike survives the reduction instead of being averaged away.
+
+  A 10000-sample 0.1s recording came out at 35 KB, about 10 KB gzipped, against
+  a 5.1 MB SavedVariables file.
+
+  It does not carry the account path: the source is recorded as the file's name
+  only, since the directory it lives in is the account number. The character and
+  realm stay, because a recording without them cannot be reproduced.
+
+The plot draws eight modules and sums the rest into one gray "other" line.
+Eight is where a categorical palette stops being readable — past it, hues have
+to repeat, and two identical blues on one chart are worse than an honest
+aggregate. `--plot-top 14` overrides it and separates the repeats by dash
+instead. Each module keeps the same hue between recordings, so two traces taken
+before and after a change can be read side by side.
+
+What the output means
+
+  source               The SavedVariables file these numbers came from, its
+                       size and when the client last wrote it. There is one per
+                       account, and the tool picks the newest by itself, so the
+                       summary and the PNG both name the one they used.
+  Frame budget         The whole client frame, all addons together, and this
+                       suite, side by side. A module's 0.08 ms means nothing
+                       until you know the frame is 12 ms and every addon in it
+                       adds up to 0.7 ms.
+  MEAN vs P95/MAX      A module with a low mean and a high P95 is spiking, and
+                       spikes are what get felt. `/euidiag cpu spikes` in game
+                       shows the same thing as cumulative counters.
+  In combat vs out     Split by the combat marks. A module that costs the same
+                       standing still as it does mid-pull is doing work it does
+                       not need to do; a high RATIO is a module behaving.
+  Encounters           One row per boss: length, fps, and which module led.
+  Spikes               The recorder stores PeakTime, which is a high-water mark
+                       and never falls, so the raw number only reports what the
+                       addon did while loading. This reports the STEPS UP during
+                       the run instead — each one is a real worst-ever frame,
+                       with the time it happened and the mark it happened under.
+                       "none" is the good result.
+  Worst moments        The lowest-fps samples, 10s apart so one dip is one row,
+                       with the frame time, the addon total, and the loudest
+                       module at that instant.
+  GROWTH / DROPS       Memory at the end minus at the start, plus how many times
+                       the reading fell. Growth with no drops is a leak; growth
+                       with many drops is garbage the collector has not reached.
+  Marks                Combat, encounter, keystone and zone boundaries, so a
+                       spike in the trace can be attributed to something.
+
+One caveat worth knowing before blaming a module: the engine bills a script
+handler's entire call tree to the addon whose execution context created the
+frame carrying the handler, not to the file the code lives in. Work handed to a
+frame the parent created is billed to the parent. `Core (parent)` absorbing an
+implausible share is usually that, not a parent-side regression.
+EllesmereUI_Ticker.lua documents the rule and how to stay on the right side of it.

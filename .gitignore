@@ -1,6 +1,9 @@
 # Build artifact — regenerate with skills/ellesmereui-search/scripts/build_index.py --ensure
 skills/ellesmereui-search/references/index/
 
+# Written by tools/diag/harness.lua on every run, and read by euidiag-perf.py
+tools/diag/harness-sv.lua
+
 # skill-creator eval runs and snapshots
 *-workspace/
 
