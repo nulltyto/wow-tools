@@ -9,6 +9,10 @@ This skill bundles a pre-built JSON index of every documented WoW API function, 
 
 ## Paths
 
+`<skill>` below is this skill's own directory — the one holding this file. Run
+the scripts with `python3`, or `python` on Windows; they need only the standard
+library and Python 3.9+.
+
 **Index** (bundled, works standalone): `references/api_index.json` under this skill's base directory. It answers signature/payload/enum questions without any other setup.
 
 **Source code** (optional, needed only for implementation details): a clone of [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source). Resolve the base path in this order:
@@ -101,7 +105,7 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 The bundled index records its provenance in its first lines: `source_version` (git describe of the wow-ui-source checkout), `generated_on`, `source_fingerprint`, and entry counts. If the user's game version differs or the export has been updated, regenerate:
 
 ```bash
-python3 <skill_dir>/scripts/generate_index.py --ensure
+python3 <skill>/scripts/generate_index.py --ensure
 ```
 
 `--ensure` (default) fingerprints the docs export and rebuilds only when it changed; `--check` reports FRESH/STALE and exits 1 when stale; `--force` always rebuilds. The script auto-locates the clone via `$WOW_UI_SOURCE` or common paths, or takes the docs directory as its first argument. This only matters when a local wow-ui-source clone exists — the bundled index works standalone.

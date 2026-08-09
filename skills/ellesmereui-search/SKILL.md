@@ -16,6 +16,10 @@ definitions, settings keys, locale strings, events, and slash commands.
 python3 <skill>/scripts/build_index.py --ensure
 ```
 
+`<skill>` is this skill's own directory — the one holding this file. Use
+`python` instead of `python3` on Windows; the scripts need only the standard
+library and Python 3.9+.
+
 It rebuilds only when the source actually changed (content hash of every indexed
 file, so it catches uncommitted edits too) and takes ~3 seconds from cold. Running
 it costs nothing when the index is current, and skipping it risks acting on stale

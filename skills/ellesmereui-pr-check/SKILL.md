@@ -15,6 +15,10 @@ section mechanically and tells you where mechanical enforcement stops.
 python3 <skill>/scripts/check_style.py
 ```
 
+`<skill>` is this skill's own directory — the one holding this file. Use
+`python` instead of `python3` on Windows; the scripts need only the standard
+library and Python 3.9+.
+
 It checks **only the lines your branch changes** against the merge-base with
 `main`, including uncommitted edits. That default matters: the tree carries
 legacy violations that predate the rules (377 non-ASCII lines, 3 already
@@ -33,7 +37,10 @@ check_style.py --json               # machine-readable
 ```
 
 Run it from inside the addon checkout, or pass `--root` / set
-`$ELLESMEREUI_ROOT`.
+`$ELLESMEREUI_ROOT`. Given none of those it searches the usual WoW install
+locations, the same ones `ellesmereui-search` uses, and prints the checkout it
+settled on. An explicit `--root` that misses is an error rather than a reason
+to go looking — the wrong tree linted silently is worse than a failed run.
 
 ## Catch it at commit time, not at PR time
 
@@ -157,8 +164,12 @@ slider, swatch, cog popup — open the nearest existing example in the same file
 and copy its shape. Use `ellesmereui-search` to find one:
 
 ```
-Grep pattern="\"key\":\"<settingName>\"" path="<index>/settings.jsonl"
+Grep pattern="\"key\":\"<settingName>\"" path="<ellesmereui-search>/references/index/settings.jsonl"
 ```
+
+`<ellesmereui-search>` is that skill's directory; run its `build_index.py
+--ensure` first, since the index is a build artifact and is not committed. If
+that skill is not installed, grep the `_Options.lua` file directly instead.
 
 The `options_refs` field points straight at the `_Options.lua` line that builds
 the control for a comparable setting. The codebase is consistent on purpose;

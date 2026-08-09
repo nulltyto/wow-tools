@@ -658,21 +658,70 @@ def check_file(src: Source, scope: set[int] | None) -> list[Finding]:
     return sorted(out, key=lambda f: (f.line, f.rule))
 
 
-def resolve_root(explicit: str | None) -> Path:
+def valid_root(p: Path) -> bool:
+    return (p / "EllesmereUI.toc").is_file()
+
+
+def discover_roots() -> list[Path]:
+    """Addon checkouts found without being told where to look.
+
+    Deliberately duplicated from ellesmereui-search's build_index.py: the two
+    skills install independently, so neither may import the other. They must
+    still agree about where the addon lives, or the same cwd resolves for one
+    and not the other.
+
+    WoW installs sit at unpredictable depths, especially under Proton/Wine
+    prefixes (~/Faugus/<app>/drive_c/Program Files (x86)/World of Warcraft/...).
+    Walk a bounded set of wildcard depths rather than a recursive glob, which
+    would be unusably slow from $HOME.
+    """
+    out: list[Path] = []
+    home = Path.home()
+    tail = "World of Warcraft/_retail_/Interface/AddOns/EllesmereUI*"
+    for base in (home, home / "Games", home / ".local/share", Path("/mnt"), Path("/media")):
+        if not base.is_dir():
+            continue
+        for depth in range(6):
+            try:
+                out.extend(sorted(base.glob("*/" * depth + tail)))
+            except OSError:
+                continue
+    for base in (home / "Repos", home / "repos", home / "src", home / "code", home):
+        if base.is_dir():
+            out.extend(sorted(base.glob("EllesmereUI*")))
+    return out
+
+
+def resolve_root(explicit: str | None) -> tuple[Path, bool]:
+    """Return (root, discovered). `discovered` is True when nothing pointed here."""
     if explicit:
         root = Path(explicit).expanduser()
     else:
         env = os.environ.get("ELLESMEREUI_ROOT")
         root = Path(env).expanduser() if env else Path.cwd()
-    if not (root / "EllesmereUI.toc").is_file():
-        top = git(root, "rev-parse", "--show-toplevel")
-        if top and (Path(top) / "EllesmereUI.toc").is_file():
-            return Path(top)
-        sys.exit(
-            f"{root} is not an EllesmereUI checkout (no EllesmereUI.toc).\n"
-            "Run from inside the addon, pass --root, or set $ELLESMEREUI_ROOT."
-        )
-    return root.resolve()
+
+    if valid_root(root):
+        return root.resolve(), False
+
+    top = git(root, "rev-parse", "--show-toplevel")
+    if top and valid_root(Path(top)):
+        return Path(top).resolve(), False
+
+    # Only guess when the caller gave no hint at all. An explicit --root or
+    # $ELLESMEREUI_ROOT that misses is a mistake worth reporting, not a reason
+    # to lint some other checkout.
+    if not explicit and not os.environ.get("ELLESMEREUI_ROOT"):
+        for c in discover_roots():
+            try:
+                if valid_root(c):
+                    return c.resolve(), True
+            except OSError:
+                continue
+
+    sys.exit(
+        f"{root} is not an EllesmereUI checkout (no EllesmereUI.toc).\n"
+        "Run from inside the addon, pass --root, or set $ELLESMEREUI_ROOT."
+    )
 
 
 SEVERITY_ORDER = {ERROR: 0, WARNING: 1, NOTE: 2}
@@ -694,7 +743,11 @@ def main() -> int:
                     help="install --staged as this repo's git pre-commit hook")
     args = ap.parse_args()
 
-    root = resolve_root(args.root)
+    root, discovered = resolve_root(args.root)
+    if discovered and not args.json:
+        # Nothing pointed us here, so name the checkout being linted rather
+        # than letting the findings imply the wrong tree.
+        print(f"Using discovered checkout: {root}")
 
     if args.install_hook:
         return install_hook(root)

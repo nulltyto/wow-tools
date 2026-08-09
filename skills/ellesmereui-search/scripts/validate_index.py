@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_index import INDEX_DIR, mask_lua, iter_lua  # noqa: E402
+from build_index import INDEX_DIR, iter_lua, mask_lua  # noqa: E402
 
 FUNCTION_KW = re.compile(r"\bfunction\b")
 ANON_FUNCTION = re.compile(r"\bfunction\s*\(")
