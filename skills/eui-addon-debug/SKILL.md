@@ -66,7 +66,10 @@ Find all of these before editing anything:
   field on the `symbols.jsonl` record. This is the step that gets replaced by
   `grep -n` on a 13,000-line file, once per function, and it answers "what else
   breaks" that grep does not. A record carrying `caller_ambiguity` instead is
-  telling you to grep; a record with `callers` is telling you not to.
+  telling you to grep; a record with `callers` is telling you not to. Read
+  `aliases` with it: a shared helper here is a file-local bound onto
+  `EllesmereUI`, so most of its callers name it something other than what the
+  definition line says, and the count only makes sense once you know that.
 - every event the handler is registered for
 - the git history of the guard — `git log -S"<key>"`. A guard that used to be
   correct tells you which change broke it, and the commit message usually says
@@ -108,6 +111,16 @@ belongs in a comment only once something confirms it.
 
 If the answer is genuinely not in the API — event *ordering* often is not — say
 so, and design so that being wrong about it is survivable. That is step 4.
+
+**If the verdict is "not a bug", stop and say so.** Report the model the code
+actually implements, the evidence, and what the reporter believed instead. Then
+offer the options — do nothing, change the default, add an opt-in — and let the
+user pick. Do not start building the one you prefer.
+
+When the user picks one, the work is now a feature rather than a fix, and the
+loop still applies: steps 4 through 7 are about the change, not about the bug.
+This is where they get skipped, because "yes, do it" reads like permission to
+edit. It is not; it is the start of step 4.
 
 ### 4. Design for correctness, and name the failure direction
 
@@ -181,6 +194,15 @@ user choose. Do not resolve it silently in favour of either one.
 
 Then, and only then, `ellesmereui-pr-check`. It is the house-style and PR gate,
 not a correctness review, and it does not check anything above.
+
+## Discarding work
+
+A change abandoned mid-way is still the user's. Say what will be lost and get
+agreement before touching the tree — but prefer `git stash push -m "<what it
+was>"` over `git restore`, and say which you used. A stash costs nothing, keeps
+the work reachable, and does not need the user to decide now whether they will
+want it back. `git restore` is unrecoverable: the edits were never committed, so
+they are not in the reflog either.
 
 ## Combat-time reads
 
