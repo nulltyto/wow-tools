@@ -1,6 +1,6 @@
 ---
 name: wow-api-search
-description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use this skill whenever the user asks about WoW API functions, events, frame XML, UI templates, mixin implementations, or how Blizzard implements any part of the default UI. Also use it when writing addon code and you need a signature, an event payload, an enum value, or Blizzard's own handling of something — and when debugging against Blizzard's behaviour rather than looking up a name: "why does Blizzard's frame do X", "which Blizzard function sets this field", "what refreshes this cached value", "is this field secret in combat", "can I compare this while tainted", "what args does X take", "find the event for Z". Reach for it the moment the answer is in Blizzard's code rather than the addon's, and always before asserting when an event fires, what its full payload carries, or what a constant means — never from memory.
+description: Search a local export of Blizzard's World of Warcraft interface code for API functions, events, enums, structures, frame templates, mixins, and UI implementation details. Use it whenever the question is about a WoW API function, an event, frame XML, a UI template, a mixin, or how Blizzard implements any part of the default UI — and when writing addon code that needs a signature, an event payload, an enum value, a profiling or measurement API, or Blizzard's own handling of something: "why does Blizzard's frame do X", "which Blizzard function sets this field", "what refreshes this cached value", "is this field secret in combat", "can I compare this while tainted", "what args does X take", "find the event for Z", "how do I measure per-addon CPU". Reach for it the moment the answer is in Blizzard's code rather than the addon's, and always before asserting when an event fires, what its payload carries, what a constant means, or which API measures something — never from memory.
 ---
 
 # WoW API Search
@@ -122,6 +122,36 @@ re-derives what the index already holds, and only for the one struct grepped.
 `preconditions` lists the predicate names a function requires (e.g. `RequiresNonReadOnlyCVar`). Grep the predicate name in the `predicates` section for its `failure_mode`: `Error` means the call raises, `ReturnNothing` means it silently returns nothing — useful when explaining why an API "doesn't work".
 
 For partial-name or fuzzy searches, grep the index without the quotes/colon anchor (`pattern="MapInfo"`). If you need more than the index provides (full system docs, related types), the `file` field names the source file in `Blizzard_APIDocumentationGenerated/`.
+
+### Measuring cost — `C_AddOnProfiler`
+
+"How do I measure this" is an index question, and answering it from memory
+reaches for the wrong tool. The client runs a per-addon profiler continuously
+for every user — no CVar, no `/reload`:
+
+```
+Grep pattern="\"GetAddOnMetric\":" path="<index_path>" output_mode="content"
+Grep pattern="\"AddOnProfilerMetric\":" path="<index_path>" output_mode="content"
+```
+
+| Call | Gives |
+|---|---|
+| `C_AddOnProfiler.GetAddOnMetric(name, metric)` | one addon's cost, in ms |
+| `C_AddOnProfiler.GetTopKAddOnsForMetric(metric, k)` | the ranking, in one call |
+| `C_AddOnProfiler.GetOverallMetric` / `GetApplicationMetric` | all addons, and the whole client |
+| `C_AddOnProfiler.MeasureCall(func, args)` | one call's `elapsedMilliseconds` **and** `allocatedBytes` |
+
+`Enum.AddOnProfilerMetric` is where the useful part lives: `RecentAverageTime`
+is the last 60 ticks, `PeakTime` is per-frame and does not average, and
+`CountTimeOver1Ms` through `CountTimeOver1000Ms` are cumulative hitch counters
+— which is the "why are my 1% lows bad" question asked directly, per addon.
+
+The older `GetAddOnCPUUsage` path needs `scriptProfile` set plus a reload,
+costs global overhead, and double-counts work a module runs inside a Blizzard
+frame. Prefer `C_AddOnProfiler`, and say so if the user proposes the other.
+
+For EllesmereUI specifically this is already wrapped — see `eui-perf`, which
+routes to `/euidiag cpu` and `tools/perf/` rather than to raw API calls.
 
 ### What a secure snippet may do in combat — `Blizzard_RestrictedAddOnEnvironment/`
 

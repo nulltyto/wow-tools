@@ -12,6 +12,17 @@ and reads like a fact to the next person.
 
 This skill is the order to work in. Follow it top to bottom.
 
+## If the report is "slow", not "wrong", use `eui-perf`
+
+This loop is for a behaviour that is incorrect. A request to make something
+cheaper — "find optimization opportunities", "why do I drop frames", "audit this
+module for hot paths", anything arriving with fps numbers attached — inverts the
+first step: there, the measurement comes before the code, because the module's
+share of the frame decides whether the audit is worth running at all.
+
+Load `eui-perf` for that and come back here only if the profiling turns up a
+behaviour that is wrong rather than slow.
+
 ## Correctness first, cost a close second
 
 Both are gates. They are not the same gate and they are not checked at the same

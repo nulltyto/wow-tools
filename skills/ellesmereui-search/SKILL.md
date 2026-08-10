@@ -1,6 +1,6 @@
 ---
 name: ellesmereui-search
-description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use this skill whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, EllesmereUINameplates, EllesmereUIUnitFrames, EllesmereUIRaidFrames, EllesmereUICooldownManager, and the other EllesmereUI* child addons). Triggers on questions like "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "what reads this profile key", "which files handle event E", or any navigation task in this addon. Reach for it first when a bug report arrives, before grepping the tree by hand. This indexes EllesmereUI's own code — for Blizzard's API, events, and default UI implementation, use wow-api-search instead.
+description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use it whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, and the EllesmereUI* child addons). Triggers on "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "what reads this profile key", "which files handle event E", "what calls this function and what breaks if I change it", "audit this module for hot paths", or any navigation or survey task in this addon. Reach for it first when a bug report or a performance question arrives, before grepping the tree by hand. This indexes EllesmereUI's own code — for Blizzard's API, use wow-api-search.
 ---
 
 # EllesmereUI Search
@@ -76,6 +76,30 @@ Without that, `SetPoint` would report 6836 callers, nearly all of them Blizzard
 frames. A `field` on a module-local table — `ns.Foo`, the usual case — is scoped
 to its own module, because each addon folder has its own `ns`. `EllesmereUI` is
 not that: it is one suite-wide table, so `EllesmereUI.Foo` reaches every module.
+
+When the question is "what breaks if I change this", a small `caller_count` is
+the complete answer, not a starting point. `caller_count: 1` means the blast
+radius is that one line — read it and you are done. Reaching for `grep -n` on a
+13,000-line file to re-derive that is the round trip this field exists to
+remove.
+
+## Surveying a module, not looking one thing up
+
+An audit — "find the hot paths", "what does this module do on every event" — is
+the same index read breadth-first, and it is cheaper than the greps it replaces:
+
+- `events.jsonl` is the registration census. One grep gives every
+  `RegisterEvent`/`RegisterUnitEvent` site for an event **across the suite**,
+  with a count, so "is this handler registered once or in six places" needs no
+  file reading at all.
+- `symbols.jsonl` filtered by `"module":"<name>"` enumerates what the module
+  defines, with `caller_count` beside each — a cheap first pass at what is
+  reachable and what is dead.
+- `modules.jsonl` gives load order and line counts, which is how you tell a
+  1 MB options file apart from the runtime file worth reading.
+
+Subagents dispatched to audit a file cannot call this skill. Give them the
+index paths in their prompt, or they will each grep the megabyte again.
 
 ## Second names — `aliases`
 

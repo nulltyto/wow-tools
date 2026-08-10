@@ -434,3 +434,87 @@ def test_an_addon_private_table_does_not_export_across_modules():
     })
     row = rows[("ModA/a.lua", "Refresh")]
     assert row["callers"] == ["ModA/a.lua:5"], row["callers"]
+
+
+# --- The skills point at things that exist -----------------------------------
+#
+# eui-perf does no lookup of its own: it routes to the diagnostics addon, to
+# tools/perf, and to the bundled API index. Routing is the whole value, so a
+# renamed command or a moved script breaks the skill completely while leaving
+# every other check green. These are the hookup tests for that.
+
+
+def test_euidiag_commands_named_in_skills_really_dispatch():
+    """Every `/euidiag <cmd>` a skill tells the user to run is registered.
+
+    The addon registers subcommands with ns.Command("name", {...}); an
+    unregistered one prints usage and does nothing, and the user is the only
+    one who would ever find out.
+    """
+    addon = REPO / "addons" / "EllesmereUISecretsDiag"
+    registered = set()
+    for lua in addon.glob("*.lua"):
+        registered.update(
+            re.findall(r'ns\.Command\(\s*"([a-z]+)"', lua.read_text(encoding="utf-8"))
+        )
+    assert registered, "no /euidiag subcommands found in the addon at all"
+
+    named = set()
+    for skill_dir in SKILL_DIRS:
+        for doc in ("SKILL.md", "README.md"):
+            path = skill_dir / doc
+            if path.is_file():
+                named.update(
+                    re.findall(r"/euidiag\s+([a-z]+)", path.read_text(encoding="utf-8"))
+                )
+    assert named, "no skill names a /euidiag command -- eui-perf should"
+    assert not (named - registered), (
+        f"skills name /euidiag commands the addon does not register: "
+        f"{sorted(named - registered)}"
+    )
+
+
+def test_repo_paths_named_in_skills_exist():
+    """A skill that routes to `tools/perf/...` has to be routing somewhere real."""
+    missing = []
+    for skill_dir in SKILL_DIRS:
+        for doc in ("SKILL.md", "README.md"):
+            path = skill_dir / doc
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            for rel in re.findall(r"(?<![\w./])(?:\./)?((?:tools|addons)/[\w./-]+)", text):
+                rel = rel.rstrip(".")
+                if not (REPO / rel).exists():
+                    missing.append(f"{skill_dir.name}/{doc}: {rel}")
+    assert not missing, "skills point at paths that do not exist: " + "; ".join(missing)
+
+
+def test_bundled_index_carries_the_profiler_surface():
+    """wow-api-search documents C_AddOnProfiler, so the index must hold it.
+
+    This is the API that answers "what does this addon cost" without a CVar or
+    a reload, and a session that cannot find it falls back to frame rate --
+    which cannot attribute cost to a module at all. The worked example in
+    SKILL.md names these; this keeps the example from going stale silently.
+    """
+    index = _bundled_index()
+    functions = index["functions"]
+    for name in (
+        "GetAddOnMetric",
+        "GetOverallMetric",
+        "GetApplicationMetric",
+        "GetTopKAddOnsForMetric",
+        "MeasureCall",
+    ):
+        entries = functions.get(name)
+        assert entries, f"C_AddOnProfiler.{name} missing from the bundled index"
+        qualified = {e["qualified_name"] for e in (entries if isinstance(entries, list) else [entries])}
+        assert f"C_AddOnProfiler.{name}" in qualified, qualified
+
+    metric = _first(index["tables"]["AddOnProfilerMetric"])
+    members = {f["name"] for f in metric["fields"]}
+    # RecentAverageTime is the steady-state read; the CountTimeOver* buckets are
+    # the only per-addon answer to "why are my 1% lows bad".
+    assert "RecentAverageTime" in members
+    assert {"CountTimeOver1Ms", "CountTimeOver5Ms", "CountTimeOver10Ms"} <= members, members

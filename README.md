@@ -16,14 +16,19 @@ The addon is a real WoW addon, and the installer places it in the game.
 | [`ellesmereui-pr-check`](skills/ellesmereui-pr-check/) | Checks EllesmereUI changes against the code style rules in the addon's `CONTRIBUTING.md`, and flags code that names another addon so its provenance gets checked. Diff-scoped; installs as a pre-commit hook. |
 | [`wow-secret-values`](skills/wow-secret-values/) | Writing addon code that survives restricted combat: which API fields stay readable, which operations raise on a secret, and how to confirm either live. |
 | [`eui-addon-debug`](skills/eui-addon-debug/) | The order to work in on a reported EllesmereUI bug: correctness first, cost a close second, Blizzard's contract verified before any theory. Sequences the other four. |
+| [`eui-perf`](skills/eui-perf/) | The order to work in on an EllesmereUI performance request: measure the module's share of the frame before auditing it, from the client's own profiler rather than from frame rate. |
 
 `wow-api-search` answers "what does this Blizzard API do" and "how does
 Blizzard implement this". `ellesmereui-search` answers "where does EllesmereUI
 define or read this". `ellesmereui-pr-check` answers "will this change survive
 review". `wow-secret-values` answers "will this line raise in a raid".
-`eui-addon-debug` answers "what do I do first" — it calls the other four in
-order and does no lookup of its own. Each skill's own README documents its
-format, scripts, and limitations.
+`eui-addon-debug` and `eui-perf` answer "what do I do first" for a bug and for
+a slowdown respectively — both call the other four in order and do no lookup of
+their own. Each skill's own README documents its format, scripts, and
+limitations.
+
+`eui-perf` is also the half of this repo that ties the skills to the addon: the
+measurements it works from come from `/euidiag` and `tools/perf/`, below.
 
 ## Addons
 

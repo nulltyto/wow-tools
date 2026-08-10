@@ -45,6 +45,11 @@ No scripts. The work this skill governs is done by the other four:
 | Combat-time reads that may return a secret | `wow-secret-values` |
 | House style and PR gate, at the end only | `ellesmereui-pr-check` |
 
+A report that the addon is **slow** rather than wrong goes to `eui-perf`
+instead. That loop inverts the first step — measure the module's share of the
+frame before reading any of its code — because the measurement decides whether
+the audit is worth running.
+
 ## The part that matters
 
 Step 3. Do not assert from memory when an event fires, what it carries, what
