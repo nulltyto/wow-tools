@@ -272,23 +272,31 @@ for _, line in ipairs(SCRIPT) do
 end
 
 -- Drive the recorder's OnUpdate so sampling actually runs.
-local walksBefore = memoryWalks
-for _, f in ipairs(frames) do
-    local onUpdate = f._scripts and f._scripts["OnUpdate"]
-    if onUpdate and f._shown then
-        for _ = 1, 8 do pcall(onUpdate, f, 1.0) end
+local function tickSamplers(n)
+    for _, f in ipairs(frames) do
+        local onUpdate = f._scripts and f._scripts["OnUpdate"]
+        if onUpdate and f._shown then
+            for _ = 1, n do pcall(onUpdate, f, 1.0) end
+        end
     end
 end
--- Memory must NOT be read once per sample: UpdateAddOnMemoryUsage walks every
--- installed addon, and at a dungeon-rate interval that is the expensive part of
--- sampling. Eight samples at 0.5s fit inside a single MEMORY_EVERY window, so
--- the recorder should walk at most once across all of them.
-local walksDuring = memoryWalks - walksBefore
-realPrint(("  memory walks during 8 samples: %d"):format(walksDuring))
-if walksDuring > 1 then
-    failures[#failures + 1] =
-        ("recorder walked addon memory %d times over 8 samples"):format(walksDuring)
+
+-- Walks are counted from before `rec start`, not after: RecStart takes its
+-- first sample inline and that sample sits on the memory cadence, so a
+-- recorder that samples memory walks immediately. Counting from after the
+-- command misses the only walk a short run makes, and the check passes whatever
+-- the code does.
+local function walksAroundRecording(startLine)
+    realPrint(("\n--- /euidiag %s"):format(startLine))
+    local before = memoryWalks
+    slash(startLine)
+    tickSamplers(8)
+    local walked = memoryWalks - before
+    slash("rec stop")
+    return walked
 end
+
+tickSamplers(8)
 realPrint("\n--- /euidiag rec stop")
 local ok, err = pcall(slash, "rec stop")
 if not ok then failures[#failures + 1] = "rec stop -> " .. tostring(err) end
@@ -296,6 +304,53 @@ for _, line in ipairs({ "rec list", "rec export" }) do
     realPrint(("\n--- /euidiag %s"):format(line))
     local ok2, err2 = pcall(slash, line)
     if not ok2 then failures[#failures + 1] = line .. " -> " .. tostring(err2) end
+end
+
+-- The recorder must not walk addon memory at all unless asked. The walk behind
+-- UpdateAddOnMemoryUsage measured 102 ms on a real client -- eight frames -- so
+-- a recorder that runs it on a timer writes the largest spike in the trace into
+-- its own trace.
+local walksPlain = walksAroundRecording("rec start 0.5 20")
+realPrint(("  memory walks, plain recording: %d"):format(walksPlain))
+if walksPlain ~= 0 then
+    failures[#failures + 1] =
+        ("recorder walked addon memory %d times without `mem`"):format(walksPlain)
+end
+
+-- The other half of that rule: `mem` must actually turn it back on, or the
+-- opt-in is a switch wired to nothing and leak hunting quietly stopped working.
+local walksWithMem = walksAroundRecording("rec start 0.5 20 mem")
+realPrint(("  memory walks, `mem` recording: %d"):format(walksWithMem))
+if walksWithMem < 1 then
+    failures[#failures + 1] = "`rec start ... mem` never walked addon memory"
+end
+
+-- `mem` can sit anywhere among the numbers, so the keyword must not be read as
+-- an interval or a cap. `rec start mem` leaving cap at nil would take the
+-- default; `rec start mem 0.5` misreading 0.5 as the cap would record once.
+realPrint("\n--- /euidiag rec start mem 0.5 20")
+slash("rec start mem 0.5 20")
+local started = EllesmereUISecretsDiagDB and EllesmereUISecretsDiagDB.recordings
+local newest = started and started[#started]
+if not newest or newest.interval ~= 0.5 or newest.cap ~= 20 then
+    failures[#failures + 1] = ("`rec start mem 0.5 20` parsed interval=%s cap=%s")
+        :format(tostring(newest and newest.interval), tostring(newest and newest.cap))
+end
+if not (newest and newest.memoryOn) then
+    failures[#failures + 1] = "`rec start mem 0.5 20` did not set memoryOn"
+end
+slash("rec stop")
+
+-- `/euidiag cpu` is read repeatedly while watching a fight, so it must cost
+-- nothing beyond the profiler reads. It used to walk every addon's memory for
+-- one column, which put this addon at the top of the table it was printing.
+local walksBeforeCPU = memoryWalks
+slash("cpu")
+slash("cpu all 3")
+local walksCPU = memoryWalks - walksBeforeCPU
+realPrint(("  memory walks during two cpu commands: %d"):format(walksCPU))
+if walksCPU ~= 0 then
+    failures[#failures + 1] = ("`cpu` walked addon memory %d times"):format(walksCPU)
 end
 
 

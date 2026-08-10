@@ -13,6 +13,8 @@
 --                            One sample a second by default, which is meant to
 --                            hold a whole dungeon. Drop what you have finished
 --                            with: the file is re-read at EVERY login.
+--                            Add `mem` to sample memory too -- see below for
+--                            why that is off by default.
 --
 --  All readings come from C_AddOnProfiler, which the client keeps running on
 --  its own. The older GetAddOnCPUUsage path needs the scriptProfile CVar set
@@ -25,6 +27,11 @@
 --  lives in. A module that hands work to a frame the parent created will read
 --  low here while the parent reads high. EllesmereUI_Ticker.lua documents the
 --  rule and the two ways to stay on the right side of it.
+--
+--  Memory is the one reading that is not cheap, and it is why `mem` is opt-in
+--  everywhere. UpdateAddOnMemoryUsage walks every installed addon; measured
+--  with the client's own profiler it took 102 ms, about eight frames. Nothing
+--  here runs it on a timer any more. See the Memory section below.
 -------------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
 
@@ -145,10 +152,35 @@ ns.EUIModules = euiModules
 -------------------------------------------------------------------------------
 -- Memory
 -------------------------------------------------------------------------------
--- UpdateAddOnMemoryUsage walks every addon, so it is only called when a memory
--- number is actually about to be printed or recorded.
+-- UpdateAddOnMemoryUsage walks every installed addon, and that walk is the most
+-- expensive thing this addon can do -- by a wide margin, and not by a little.
+-- Measured with the client's own profiler on a full UI:
+--
+--     /euidiag eval C_AddOnProfiler.MeasureCall(UpdateAddOnMemoryUsage)
+--         .elapsedMilliseconds   ->   102.4
+--
+-- That is roughly eight frames in one call. It used to run on three automatic
+-- cadences -- every `cpu` command, every 5s of an open monitor, and every 5s of
+-- a recording -- which made this addon the largest single frame cost in any run
+-- it measured: a 97s idle recording produced four spikes of 115-131 ms, all of
+-- them this call, against a next-worst of 14 ms from any other addon.
+--
+-- So nothing calls it on a timer any more. GetAddOnMemoryUsage reads the figures
+-- from the last walk and is free, so a stale number costs nothing and a fresh
+-- one costs a visible hitch. `stamp` is when the last walk happened, so a
+-- display can say how old its numbers are instead of implying they are live.
+local memoryStamp = nil
+
 local function refreshMemory()
     if UpdateAddOnMemoryUsage then pcall(UpdateAddOnMemoryUsage) end
+    memoryStamp = GetTime()
+end
+
+-- Seconds since the last walk, or nil if nothing has ever read memory. The
+-- caller decides whether that is worth saying; it always is when the figures
+-- are being printed next to live CPU numbers.
+local function memoryAge()
+    return memoryStamp and (GetTime() - memoryStamp) or nil
 end
 
 local function memoryKB(folder)
@@ -176,8 +208,20 @@ local function msText(value)
 end
 
 local function formatKB(kb)
+    -- nil means no walk has happened this session, which is not the same as
+    -- zero and must not print as it: 0 KB reads as a module holding nothing.
+    if not kb then return "-" end
     if kb >= 1024 then return format("%.2f MB", kb / 1024) end
     return format("%.0f KB", kb)
+end
+
+-- "MEMORY as of 12s ago", or the reason there is nothing to date.
+local function memoryNote()
+    local age = memoryAge()
+    if not age then
+        return "  MEMORY is blank until something reads it -- /euidiag mem"
+    end
+    return format("  MEMORY is from %.0fs ago; /euidiag mem re-reads it", age)
 end
 
 -------------------------------------------------------------------------------
@@ -189,11 +233,11 @@ local function cpuTable(rows, appMs, allAddonMs, title)
         Pad("MODULE", 26), Pad("RECENT", 12), Pad("SHARE", 8),
         Pad("SESSION", 12), Pad("PEAK", 12), "MEMORY")
 
-    local totalRecent, totalSession, totalKB = 0, 0, 0
+    local totalRecent, totalSession, totalKB = 0, 0, nil
     for _, row in ipairs(rows) do
         totalRecent = totalRecent + row.recent
         totalSession = totalSession + row.session
-        totalKB = totalKB + row.kb
+        if row.kb then totalKB = (totalKB or 0) + row.kb end
         outf("  %s %s %s %s %s %s",
             Pad(row.display, 26),
             Pad(msText(row.recent) .. " ms", 12),
@@ -221,6 +265,7 @@ local function contextLine(appMs, allAddonMs)
         msText(allAddonMs), appMs > 0 and (allAddonMs / appMs * 100) or 0, msText(appMs))
     emit("  RECENT is the client's rolling per-frame average; SHARE is that")
     emit("  measured against a frame with the other addons removed.")
+    emit(memoryNote())
 end
 
 local function cmdCPU(args)
@@ -235,7 +280,11 @@ local function cmdCPU(args)
 
     local appMs = appMetric(Metric.RecentAverageTime)
     local allAddonMs = overallMetric(Metric.RecentAverageTime)
-    refreshMemory()
+    -- No refreshMemory() here. This command is read every few seconds while
+    -- watching a fight, and a 100 ms walk per read put this addon at the top of
+    -- the very table it was printing. Memory figures come from whenever
+    -- something last asked for them, with their age stated below the table.
+    local haveMemory = memoryAge() ~= nil
 
     local rows = {}
     if sub == "all" then
@@ -254,7 +303,7 @@ local function cmdCPU(args)
                 recent  = entry.metricValue or 0,
                 session = metric(name, Metric.SessionAverageTime),
                 peak    = metric(name, Metric.PeakTime),
-                kb      = memoryKB(name),
+                kb      = haveMemory and memoryKB(name) or nil,
             }
         end
         cpuTable(rows, appMs, allAddonMs, format("Top %d addons by recent CPU", #rows))
@@ -265,7 +314,7 @@ local function cmdCPU(args)
                 recent  = metric(mod.folder, Metric.RecentAverageTime),
                 session = metric(mod.folder, Metric.SessionAverageTime),
                 peak    = metric(mod.folder, Metric.PeakTime),
-                kb      = memoryKB(mod.folder),
+                kb      = haveMemory and memoryKB(mod.folder) or nil,
             }
         end
         sort(rows, function(a, b) return a.recent > b.recent end)
@@ -376,7 +425,11 @@ end
 --     button zooms the axis to the band the data occupies when everything is
 --     riding a high flat baseline
 local MONITOR_INTERVAL = 1
-local MEMORY_INTERVAL = 5   -- UpdateAddOnMemoryUsage walks every addon
+-- The window's memory column, on its own much slower clock. The walk behind it
+-- measured 102 ms, so at the old 5s this window cost a visible hitch twelve
+-- times a minute for a column that moves in kilobytes. Once a minute keeps the
+-- column alive and honest without the monitor being the thing it is monitoring.
+local MEMORY_INTERVAL = 60
 local MONITOR_MAX_ROWS = 24
 local ROW_HEIGHT = 14
 
@@ -1305,11 +1358,16 @@ local function takeSample()
     local modules = r._modules
     local now = floor((GetTime() - r._startTime) * 10 + 0.5) / 10
 
-    -- Memory keeps its own table on the MEMORY_EVERY cycle. Reading it walks
-    -- every installed addon, so the cadence cannot follow the sample rate, and
-    -- once it does not, a column per sample only repeats the last figure.
+    -- Memory keeps its own table on the MEMORY_EVERY cycle, and is off unless
+    -- asked for. Reading it walks every installed addon, which measured 102 ms
+    -- -- eight frames. A recorder that injects the largest spike in its own
+    -- trace every few seconds is not measuring the session, it is measuring
+    -- itself: a 97s idle run produced four 115-131 ms spikes, all this call,
+    -- against 14 ms from the worst other addon. `rec start <interval> mem`
+    -- turns it back on for leak hunting, where the hitch is the price of the
+    -- answer and the CPU trace is not what is being read.
     local everyN = math.max(1, floor(MEMORY_EVERY / r.interval + 0.5))
-    if (#r.samples % everyN) == 0 then
+    if r.memoryOn and (#r.samples % everyN) == 0 then
         refreshMemory()
         local row = { now }
         for i, mod in ipairs(modules) do
@@ -1407,7 +1465,19 @@ function ns.RecStart(args)
     local db = ns.db
     if not db then result("ERR", "rec start", "SavedVariables not loaded yet"); return end
 
-    local interval = tonumber(args[1]) or DEFAULT_INTERVAL
+    -- `mem` may sit anywhere among the numbers, so pull the keywords out before
+    -- reading position 1 and 2 -- otherwise `rec start mem 0.1` reads 0.1 as the
+    -- sample cap and records four samples.
+    local memoryOn, numbers = false, {}
+    for _, raw in ipairs(args) do
+        if tostring(raw):lower() == "mem" then
+            memoryOn = true
+        else
+            numbers[#numbers + 1] = raw
+        end
+    end
+
+    local interval = tonumber(numbers[1]) or DEFAULT_INTERVAL
     if interval < MIN_INTERVAL then interval = MIN_INTERVAL end
 
     local modules = euiModules()
@@ -1419,7 +1489,7 @@ function ns.RecStart(args)
     -- Column count is known only now, and it sets what a sample costs.
     local columns = buildColumns(modules)
     local heapPerSample = heapKBPerRow(#columns)
-    local cap = tonumber(args[2])
+    local cap = tonumber(numbers[2])
     if not cap then
         cap = math.ceil(DEFAULT_MINUTES * 60 / interval)
         if cap < DEFAULT_CAP then cap = DEFAULT_CAP end
@@ -1449,6 +1519,7 @@ function ns.RecStart(args)
         -- sample columns name their module; these two tables index into this.
         modules    = moduleNames(modules),
         memory     = {},
+        memoryOn   = memoryOn,
         peaks      = {},
         -- Leading underscore: runtime-only, stripped before this reaches disk.
         _modules   = modules,
@@ -1481,6 +1552,15 @@ function ns.RecStart(args)
             METRIC_FRAMES, window)
         emit("  frame rate, so samples this close together re-read the same frames.")
         emit("  Frame rate, memory and the timing of a spike do still get sharper.")
+    end
+    -- Both directions are said out loud. Silent memory sampling is what put a
+    -- 100 ms spike every 5s into traces nobody knew to distrust.
+    if memoryOn then
+        outf("  memory sampling ON: expect a hitch every %ds from the whole-addon walk",
+            MEMORY_EVERY)
+        emit("  Read the GROWTH table, not the spikes -- the spikes are this.")
+    else
+        emit("  memory sampling off (`rec start ... mem` enables it, at ~100 ms a hitch)")
     end
     emit("  /euidiag rec stop when you are done; the file is written on /reload or logout")
     takeSample()
@@ -1614,9 +1694,11 @@ local function cmdRec(args)
     elseif sub == "drop" then recDrop(rest)
     elseif sub == "export" then recExport(rest)
     else
-        emit("usage: /euidiag rec start [interval] [cap] | stop | status | list | export [n] | drop <n|all>")
+        emit("usage: /euidiag rec start [interval] [cap] [mem] | stop | status | list | export [n] | drop <n|all>")
         emit("  interval is in seconds, default 1, floor 0.05 — `rec start 0.1` samples")
         emit("  ten times a second. Finer costs file size at about the same ratio.")
+        emit("  `mem` also samples memory, for leak hunting. It costs a ~100 ms hitch")
+        emit("  every few seconds, which lands in the trace, so it is off by default.")
         emit("  Drop what you are done with.")
         dropReminder()
     end

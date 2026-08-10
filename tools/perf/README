@@ -6,6 +6,7 @@ In game:
     /euidiag rec start 0.1      ten a second (floor 0.05; a frame is the real
                                 floor, since the timer runs on OnUpdate)
     /euidiag rec start 1 20000  and a bigger sample cap
+    /euidiag rec start 1 mem    also sample memory (see below; off by default)
     ... play ...
     /euidiag rec stop
     /reload                     the client only writes SavedVariables on
@@ -26,6 +27,21 @@ Heap is the cost that bites, not disk: Lua grows a table's array part by
 doubling, so a 25-value sample sits in 32 slots. It is also paid twice — once
 while recording, and again at every login after, when the client reads the file
 back. A second argument overrides the cap: `rec start 0.1 40000`.
+
+Memory sampling is opt-in, and the reason is the recording itself. The reading
+comes from UpdateAddOnMemoryUsage, which walks every installed addon; measured
+with the client's own profiler on a full UI it took 102 ms -- about eight
+frames. Running that every few seconds made the diagnostics addon the largest
+single frame cost in every trace it took: a 97-second idle recording produced
+four spikes of 115-131 ms, all of them this call, against a worst of 14 ms from
+any other addon. A recorder that writes the biggest spike in the trace into its
+own trace is measuring itself.
+
+So `rec start` no longer samples memory. `rec start 1 mem` turns it back on for
+leak hunting, where the GROWTH table is the answer being read and the hitch is
+the price of it -- but read the Spikes section in that mode knowing the addon's
+own rows are the walk. Recordings without memory simply have no GROWTH section;
+nothing else changes.
 
 A sample used to carry a memory and a PeakTime column per module as well, which
 made it 67 values instead of 25 and pushed it into a 128-slot table. Measured
