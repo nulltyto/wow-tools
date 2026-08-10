@@ -214,6 +214,25 @@ design does not handle while changing the design is still cheap. Cover the
 reported case, the inverse, the option toggled off, the first use after
 `/reload`, and the case the change is knowingly weakest at. Number them.
 
+### 6a. Two things a `/reload` does not do
+
+Both of these turn an A/B into a measurement of the wrong build, and both look
+like a clean result rather than a broken one.
+
+**It does not reload code you changed after the client last read it.** The
+client parses Lua at login and at `/reload`, so a recording started before a
+reload is running whatever was on disk at the *previous* one. Put the reload
+**first** in any instruction you give the user — `/reload`, then `rec start` —
+and remember the trailing `/reload` is only there to write SavedVariables.
+The tell is a recording with none of the fields the new code writes.
+
+**It does not reset `PeakTime`.** Blizzard defines it as the highest time
+"since application startup", and a `/reload` keeps the process alive. Every
+`CountTimeOver*` bucket is cumulative the same way. So the Spikes section
+cannot show a new entry for a module whose old high-water mark still stands,
+and an empty Spikes section after a fix proves nothing. Quit to desktop and
+relaunch before measuring spikes, and say so when asking for the run.
+
 ### 7. A/B in one session, or do not claim a win
 
 Cross-session comparisons cannot resolve anything smaller than the run-to-run
