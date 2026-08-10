@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 4
+BUILDER_VERSION = 5
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -247,6 +247,39 @@ def _read_value(mask: str, text: str, start: int, end: int) -> tuple[str, int]:
     return raw[:160], i
 
 
+COLOUR_KEYS = frozenset("rgba")
+
+
+def _colour_table(mask: str, open_idx: int) -> bool:
+    """Is the table at open_idx a colour literal -- `{ r = .., g = .., b = .. }`?
+
+    A colour is one setting, not three. Descending into it records leaves keyed
+    `r`, `g` and `b`, which loses the colour's own name -- nothing answers
+    `"key":"castbarFillColor"` -- and gives each leaf the reference list of a
+    one-letter identifier, so `r` claims every `r` in the module. Colours are
+    ~19% of this addon's defaults, so that is a large hole with wrong data in
+    it. The constructor is the value; the key above it is the setting.
+    """
+    end = _match_brace(mask, open_idx)
+    seen: set[str] = set()
+    i = open_idx + 1
+    while i < end - 1:
+        c = mask[i]
+        if c.isspace() or c == ",":
+            i += 1
+            continue
+        m = TABLE_KEY.match(mask, i)
+        if not m or m.group(1) not in COLOUR_KEYS:
+            return False
+        literal, i = _read_value(mask, mask, m.end(), end - 1)
+        if "{" in literal:
+            return False
+        seen.add(m.group(1))
+    # `a` is optional, the other three are what makes it a colour. Requiring all
+    # three keeps an unrelated single-letter key from collapsing its table.
+    return {"r", "g", "b"} <= seen
+
+
 def _names_keys(mask: str, open_idx: int) -> bool:
     """Does the table at open_idx hold a named key anywhere below it?
 
@@ -310,14 +343,21 @@ def parse_defaults_table(src: Source, open_idx: int) -> list[tuple[str, str, int
         while j < end and mask[j] in " \t\n":
             j += 1
 
-        if j < end and mask[j] == "{" and _names_keys(mask, j):
+        if (
+            j < end
+            and mask[j] == "{"
+            and _names_keys(mask, j)
+            and not _colour_table(mask, j)
+        ):
             pending = key
             i = j
             continue
 
-        # A table with no named key below it -- `gold = {0.886, 0.675, 0.478}`,
-        # `paging = {}`. Descending finds no leaf to record, so the key would
-        # vanish. The key itself is the setting; the constructor is its value.
+        # A table this walk must not descend into: one with no named key below
+        # it (`gold = {0.886, 0.675, 0.478}`, `paging = {}`), where descending
+        # finds no leaf at all, or a colour (`{ r = .., g = .., b = .. }`),
+        # where descending finds the wrong three. Either way the key itself is
+        # the setting and the constructor is its value.
 
         literal, after = _read_value(mask, text, j, end)
         out.append((".".join(path[1:] + [key]), literal, src.line(i)))
@@ -475,6 +515,23 @@ CALL = re.compile(r"(?:([A-Za-z_][\w.]*)[ \t]*([.:])[ \t]*)?([A-Za-z_]\w*)[ \t]*
 LOCAL_DECL = re.compile(r"^[ \t]*local[ \t]+([A-Za-z_][\w, \t]*)", re.M)
 IDENT = re.compile(r"^[A-Za-z_]\w*$")
 
+# `EllesmereUI.ComputeCastBarTint = ComputeCastBarTint` -- this addon exports
+# across modules by binding a file-local onto a shared table, so the local and
+# the field are one function and calls through the field belong to the local.
+# Anchored at column 0: at file scope this is the export idiom, while the same
+# line indented inside a function body is a conditional rebind whose target
+# cannot be resolved from a regex.
+EXPORT_ALIAS = re.compile(
+    r"^([A-Za-z_][\w.]*)[ \t]*\.[ \t]*([A-Za-z_]\w*)[ \t]*=[ \t]*([A-Za-z_]\w*)[ \t]*$",
+    re.M,
+)
+# `local ComputeCastBarTint = ns.ComputeCastBarTint` -- the same edge inbound.
+# Bare calls to the local in that file are calls to the field it was bound from.
+IMPORT_ALIAS = re.compile(
+    r"^local[ \t]+([A-Za-z_]\w*)[ \t]*=[ \t]*([A-Za-z_][\w.]*)[ \t]*\.[ \t]*([A-Za-z_]\w*)[ \t]*$",
+    re.M,
+)
+
 CALLER_CAP = 40
 
 
@@ -482,6 +539,28 @@ def file_local_names(src: Source) -> set[str]:
     """Names this file declares with `local`, one chunk's worth of scope."""
     names: set[str] = set()
     for m in LOCAL_DECL.finditer(src.mask):
+        for part in m.group(1).split(","):
+            part = part.strip()
+            if IDENT.match(part):
+                names.add(part)
+    return names
+
+
+# `local ADDON_NAME, ns = ...` -- the private table WoW hands each addon.
+ADDON_TABLE = re.compile(r"^[ \t]*local[ \t]+([A-Za-z_][\w, \t]*)=[ \t]*\.\.\.", re.M)
+
+
+def addon_table_names(src: Source) -> set[str]:
+    """Locals this file binds from its addon vararg.
+
+    The test for "is this receiver private to one module" cannot be "is it a
+    local": `local EllesmereUI = _G.EllesmereUI` is a local too, and treating
+    that as module-private hides every cross-module call to a suite-wide
+    helper. What is genuinely per-addon is the table WoW passes as the second
+    vararg, which only `local _, ns = ...` binds.
+    """
+    names: set[str] = set()
+    for m in ADDON_TABLE.finditer(src.mask):
         for part in m.group(1).split(","):
             part = part.strip()
             if IDENT.match(part):
@@ -520,6 +599,61 @@ def call_key(row: dict, module_scoped: bool) -> tuple:
     return base + (row["module"],) if module_scoped else base
 
 
+def collect_aliases(
+    sources: list[Source], symbols: list[dict]
+) -> tuple[
+    dict[tuple[str, str], tuple[str, str]],
+    dict[tuple[str, str], list[tuple[str, str]]],
+]:
+    """Second names that definitions are called through.
+
+    Returns two maps, each keyed so the caller pass can look an edge up from a
+    symbol row it already holds:
+
+    - **exports** -- `(file, local_name) -> [(receiver, field), ...]`. The local
+      was bound onto a table at file scope, so `receiver.field(` calls it. More
+      than one is normal: a helper is commonly published both on the suite
+      table and on `_G` under a prefixed name.
+    - **imports** -- `(receiver, field) -> [(file, local_name), ...]`. Each
+      listed file binds that field to a local, so a bare call there reaches it.
+
+    An alias is dropped when more than one definition claims it, and an import
+    is dropped when the importing file also defines that name itself. A wrong
+    edge is worse than a missing one: it credits a call to a function that
+    never runs, and unlike a gap it leaves nothing to notice.
+    """
+    export_claims: dict[tuple[str, str], set[tuple[str, str]]] = {}
+    import_claims: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    raw_exports: list[tuple[str, str, str, str]] = []
+
+    defined_locals: set[tuple[str, str]] = {
+        (r["file"], r["name"]) for r in symbols if r["kind"] == "local"
+    }
+
+    for src in sources:
+        for m in EXPORT_ALIAS.finditer(src.mask):
+            recv, field, local = m.group(1), m.group(2), m.group(3)
+            # The right-hand side has to name a local function defined in this
+            # file. Anything else is a plain table assignment, not this idiom.
+            if (src.rel, local) not in defined_locals:
+                continue
+            raw_exports.append((src.rel, local, recv, field))
+            export_claims.setdefault((recv, field), set()).add((src.rel, local))
+        for m in IMPORT_ALIAS.finditer(src.mask):
+            local, recv, field = m.group(1), m.group(2), m.group(3)
+            # `local Foo = ns.Foo` beside a `local function Foo` in the same
+            # file: bare calls there are the file's own, not the import's.
+            if (src.rel, local) in defined_locals:
+                continue
+            import_claims.setdefault((recv, field), []).append((src.rel, local))
+
+    exports: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for rel, local, recv, field in raw_exports:
+        if len(export_claims[(recv, field)]) == 1:
+            exports.setdefault((rel, local), []).append((recv, field))
+    return exports, import_claims
+
+
 def collect_callers(
     sources: list[Source], symbols: list[dict], module_names: list[str]
 ) -> None:
@@ -531,16 +665,24 @@ def collect_callers(
     one name -- and a list spread over 1402 identical keys says nothing while
     reading like an answer. Those rows carry the count of competing
     definitions instead, which is the signal to grep.
+
+    A definition is also reached through the names it is aliased to. Every
+    cross-module helper here is a file-local bound onto a shared table
+    (`EllesmereUI.ComputeCastBarTint = ComputeCastBarTint`), so resolving only
+    the name at the definition site counts the file's own calls and misses the
+    rest of the suite -- silently, since the count is non-zero and looks like an
+    answer. `collect_aliases` supplies those edges.
     """
-    locals_by_file = {src.rel: file_local_names(src) for src in sources}
+    private_by_file = {src.rel: addon_table_names(src) for src in sources}
     module_by_file = {
         src.rel: module_of(src.rel, module_names) for src in sources
     }
+    exports, imports = collect_aliases(sources, symbols)
 
     def scoped(row: dict) -> bool:
         return row["kind"] in ("field", "method") and owner_root(
             row["owner"]
-        ) in locals_by_file.get(row["file"], ())
+        ) in private_by_file.get(row["file"], ())
 
     by_key: dict[tuple, int] = {}
     for row in symbols:
@@ -578,6 +720,11 @@ def collect_callers(
             row["caller_ambiguity"] = by_key[key]
             continue
         kind = row["kind"]
+        # Second names this definition is reached through. Recorded on the row
+        # because `caller_count` is otherwise unexplainable: a reader who greps
+        # the definition's own name finds a fraction of the list and concludes
+        # the index is wrong.
+        names: list[str] = []
         if kind == "method":
             sites = list(qualified.get((row["owner"], ":", row["name"]), []))
             # `self:Foo()` resolves to the owner only inside the file that
@@ -589,8 +736,29 @@ def collect_callers(
             ]
         elif kind == "field":
             sites = list(qualified.get((row["owner"], ".", row["name"]), []))
+            for rel, local in imports.get((row["owner"], row["name"]), ()):
+                sites += [s for s in plain.get(local, []) if s[0] == rel]
+                names.append(local)
         elif kind == "local":
             sites = [s for s in plain.get(row["name"], []) if s[0] == row["file"]]
+            for alias in exports.get((row["file"], row["name"]), ()):
+                names.append(f"{alias[0]}.{alias[1]}")
+                alias_sites = list(qualified.get((alias[0], ".", alias[1]), []))
+                # A file that binds the export back to a local of its own calls
+                # it bare. Widgets does this for a dozen core helpers, so
+                # without the second hop those calls belong to nothing.
+                for rel, local in imports.get(alias, ()):
+                    alias_sites += [s for s in plain.get(local, []) if s[0] == rel]
+                    names.append(local)
+                if owner_root(alias[0]) in private_by_file.get(row["file"], ()):
+                    # It was bound onto this file's own `ns`, so the export
+                    # reaches only this module. Another module's `ns.Name` is a
+                    # different table and a different function.
+                    home = module_by_file.get(row["file"])
+                    alias_sites = [
+                        s for s in alias_sites if module_by_file.get(s[0]) == home
+                    ]
+                sites += alias_sites
         else:
             skip = shadowed.get(row["name"], ())
             sites = [s for s in plain.get(row["name"], []) if s[0] not in skip]
@@ -606,6 +774,8 @@ def collect_callers(
         # unrelated definition.
         own = (row["file"], row["line"])
         hits = sorted({f"{f}:{n}" for f, n in sites if (f, n) != own})
+        if names:
+            row["aliases"] = sorted(set(names))
         row["callers"] = hits[:CALLER_CAP]
         row["caller_count"] = len(hits)
 

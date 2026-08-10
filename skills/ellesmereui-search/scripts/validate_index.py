@@ -39,10 +39,39 @@ def caller_pattern(row: dict) -> re.Pattern:
     name = re.escape(row["name"])
     if row["kind"] == "method":
         owner = re.escape(row["owner"])
-        return re.compile(rf"(?:{owner}|self)[ \t]*:[ \t]*{name}[ \t]*\(")
-    if row["kind"] == "field":
-        return re.compile(rf"{re.escape(row['owner'])}[ \t]*\.[ \t]*{name}[ \t]*\(")
-    return re.compile(rf"(?<![\w.:]){name}[ \t]*\(")
+        forms = [rf"(?:{owner}|self)[ \t]*:[ \t]*{name}[ \t]*\("]
+    elif row["kind"] == "field":
+        forms = [rf"{re.escape(row['owner'])}[ \t]*\.[ \t]*{name}[ \t]*\("]
+    else:
+        forms = [rf"(?<![\w.:]){name}[ \t]*\("]
+    # A definition bound onto a shared table is called through that name too,
+    # and the row has to say so -- otherwise the caller list cites lines that
+    # do not mention the function, which is indistinguishable from a bad edge.
+    for alias in row.get("aliases", ()):
+        if "." in alias:
+            recv, field = alias.rsplit(".", 1)
+            forms.append(rf"{re.escape(recv)}[ \t]*\.[ \t]*{re.escape(field)}[ \t]*\(")
+        else:
+            forms.append(rf"(?<![\w.:]){re.escape(alias)}[ \t]*\(")
+    return re.compile("|".join(forms))
+
+
+# `EllesmereUI.Foo = Foo` at file scope, read a line at a time -- the builder
+# scans offsets across one masked string, so agreement is evidence.
+EXPORT_LINE = re.compile(
+    r"^([A-Za-z_][\w.]*)[ \t]*\.[ \t]*([A-Za-z_]\w*)[ \t]*=[ \t]*([A-Za-z_]\w*)[ \t]*$"
+)
+# `local ADDON_NAME, ns = ...` -- the one table that really is per-addon.
+VARARG_LOCAL = re.compile(r"^[ \t]*local[ \t]+([\w, \t]+)=[ \t]*\.\.\.")
+
+# A colour written whole on one line: `castbarFillColor = { r = .., g = .., b = .. }`.
+# Matched a line at a time against the mask, where the builder decides the same
+# question by walking the constructor's entries from its opening brace.
+COLOUR_LINE = re.compile(
+    r"^[ \t]*([A-Za-z_]\w*)[ \t]*=[ \t]*\{[ \t]*"
+    r"r[ \t]*=[^,{}]+,[ \t]*g[ \t]*=[^,{}]+,[ \t]*b[ \t]*=[^,{}]+"
+    r"(?:,[ \t]*a[ \t]*=[^,{}]+)?[ \t]*,?[ \t]*\}"
+)
 
 
 # A bare `name(` call, with any receiver captured -- an independent
@@ -222,9 +251,12 @@ def main() -> int:
     # exactly. The other kinds depend on resolution rules a second
     # implementation could only restate, so a disagreement there would prove
     # nothing -- this class is where a scan regression actually shows up.
+    # An exported local is excluded: it is reached under a second name, so its
+    # own file no longer holds every call and exact agreement is not the
+    # invariant. The axis below covers those instead.
     by_file: dict[str, list[dict]] = {}
     for r in symbols:
-        if r["kind"] == "local" and "callers" in r:
+        if r["kind"] == "local" and "callers" in r and "aliases" not in r:
             by_file.setdefault(r["file"], []).append(r)
     total = 0
     bad = []
@@ -247,6 +279,72 @@ def main() -> int:
                            f"{r['caller_count']}, scan finds {expect}")
     c.report("local caller counts", total, bad)
 
+    # The other half of that invariant, and the one that silently rotted: every
+    # cross-module helper here is a file-local bound onto a shared table, so
+    # resolving only the definition's own name credits its own file and drops
+    # the rest of the suite. The count stays non-zero, which is why nothing
+    # noticed -- `BuildColorSwatch` read 11 callers against a true 301.
+    #
+    # Re-derive the export lines and the calls through them with a
+    # line-oriented scan, and require every one to be cited.
+    lua = sorted(iter_lua(root))
+    module_names = {m["module"] for m in load("modules.jsonl")}
+    private: set[str] = set()
+    exports: dict[str, list[tuple[str, str]]] = {}
+    masks: dict[str, list[str]] = {}
+    for rel, path in lua:
+        masks[rel] = mask_lua(path.read_text(encoding="utf-8", errors="replace")).splitlines()
+        for line in masks[rel]:
+            m = VARARG_LOCAL.match(line)
+            if m:
+                private.update(p.strip() for p in m.group(1).split(",") if p.strip())
+            m = EXPORT_LINE.match(line)
+            if m:
+                exports.setdefault(f"{m.group(1)}.{m.group(2)}", []).append(
+                    (rel, m.group(3))
+                )
+
+    # Where a call through each alias actually is.
+    wanted = {a for a, claims in exports.items() if len(claims) == 1}
+    sites: dict[str, set[str]] = {}
+    for rel, _ in lua:
+        for lineno, line in enumerate(masks[rel], 1):
+            for m in CALL_ON_LINE.finditer(line):
+                if not m.group(1):
+                    continue
+                expr = m.group(1).rstrip(" \t")[:-1].rstrip(" \t") + "." + m.group(2)
+                if m.group(1).rstrip(" \t").endswith(".") and expr in wanted:
+                    sites.setdefault(expr, set()).add(f"{rel}:{lineno}")
+
+    def module_of(rel: str) -> str:
+        head = rel.split("/", 1)[0]
+        return head if head in module_names else "EllesmereUI"
+
+    by_def = {(r["file"], r["name"]): r for r in symbols if r["kind"] == "local"}
+    total = 0
+    bad = []
+    for alias in sorted(wanted):
+        rel, local = exports[alias][0]
+        row = by_def.get((rel, local))
+        if row is None or "callers" not in row:
+            continue
+        total += 1
+        found = sites.get(alias, set())
+        if alias.split(".", 1)[0] in private:
+            # Bound onto the file's own addon table, so the export reaches only
+            # this module; another module's same-named table is another object.
+            found = {s for s in found if module_of(s.rsplit(":", 1)[0]) == row["module"]}
+        if len(row["callers"]) >= 40:
+            if row["caller_count"] < len(found):
+                bad.append(f"{rel}:{row['line']} {local}: caller_count="
+                           f"{row['caller_count']} < {len(found)} calls to {alias}")
+        else:
+            missing = found - set(row["callers"]) - {f"{rel}:{row['line']}"}
+            if missing:
+                bad.append(f"{rel}:{row['line']} {local}: {len(missing)} call(s) "
+                           f"to {alias} not cited, e.g. {sorted(missing)[0]}")
+    c.report("exported local callers", total, bad)
+
     # Every defaults table in the source must have produced records. A settings
     # key can only be looked up if its declaration was seen, and a declaration
     # written in a shape the extractor does not match fails silently: the
@@ -255,6 +353,7 @@ def main() -> int:
     # `clickThrough`, `barVisibility` -- stayed invisible while the index
     # reported 3,876 settings and looked healthy.
     declared: dict[tuple[str, str], int] = {}
+    defaults_span: dict[str, list[tuple[int, int]]] = {}
     for rel, path in iter_lua(root):
         lines = mask_lua(path.read_text(encoding="utf-8", errors="replace")).splitlines()
         for lineno, line in enumerate(lines, 1):
@@ -264,18 +363,49 @@ def main() -> int:
             # Walk to the closing brace by depth, counting a line at a time --
             # the builder matches braces by offset, so this stays a second
             # implementation rather than a restatement.
-            depth, named = 0, False
-            for body in lines[lineno - 1 :]:
+            depth, named, end = 0, False, lineno
+            for offset, body in enumerate(lines[lineno - 1 :]):
                 named = named or bool(NAMED_KEY.match(body))
                 depth += body.count("{") - body.count("}")
                 if depth <= 0:
+                    end = lineno + offset
                     break
             if named:
                 declared.setdefault((rel, m.group(1)), lineno)
+                defaults_span.setdefault(rel, []).append((lineno, end))
     covered = {(r["file"], r["table"]) for r in settings if r["store"] == "defaults"}
     bad = [f"{rel}:{declared[(rel, tbl)]} defaults table {tbl!r} has no records"
            for rel, tbl in sorted(declared) if (rel, tbl) not in covered]
     c.report("defaults tables indexed", len(declared), bad)
+
+    # A colour is one setting and has to be indexed under its own name. Walking
+    # into `{ r = .., g = .., b = .. }` produces leaves keyed `r`, `g` and `b`
+    # instead: the colour's name answers nothing, and each leaf inherits the
+    # references of a one-letter identifier -- 787 records, 19% of the index,
+    # every one of them unfindable and carrying the wrong `refs`. Colours are
+    # the most common setting in a UI addon, so this is checked by name.
+    keys_by_file: dict[str, set[str]] = {}
+    for r in settings:
+        keys_by_file.setdefault(r["file"], set()).add(r["key"])
+    total = len(settings)
+    bad = [f"{r['file']}:{r['line']} record keyed {r['key']!r} -- a colour channel, "
+           "not a setting" for r in settings if r["key"] in ("r", "g", "b", "a")]
+    for rel, spans in defaults_span.items():
+        lines = mask_lua(
+            (root / rel).read_text(encoding="utf-8", errors="replace")
+        ).splitlines()
+        for lineno, line in enumerate(lines, 1):
+            # Only inside a defaults table. A colour elsewhere -- the class
+            # colour table, a theme palette -- is a constant, not a setting.
+            if not any(a <= lineno <= b for a, b in spans):
+                continue
+            m = COLOUR_LINE.match(line)
+            if not m:
+                continue
+            total += 1
+            if m.group(1) not in keys_by_file.get(rel, ()):
+                bad.append(f"{rel}:{lineno} colour {m.group(1)!r} has no record")
+    c.report("colours indexed by name", total, bad)
 
     indexed = {(r["file"], r["line"]) for r in symbols}
     total = 0

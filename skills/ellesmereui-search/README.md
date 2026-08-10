@@ -52,7 +52,7 @@ python3 scripts/build_index.py --ensure
 ```
 
 `--ensure` hashes the content of every indexed file and rebuilds only when something
-actually changed, so it is a no-op when current and ~16 seconds when not. It detects
+actually changed, so it is a no-op when current and ~12 seconds when not. It detects
 uncommitted working-tree edits, not just commits — which matters, since you are
 usually asking about code you just wrote.
 
@@ -82,7 +82,11 @@ second form matters more than it looks: it holds most of what a bug report is ab
 form lost all of it while the index still reported 3,876 settings and looked healthy.
 A key whose value is a positional table — `gold = { 0.886, 0.675, 0.478 }`, `paging =
 {}` — is recorded as its own leaf, since there is no named key below it to record
-instead.
+instead. A colour is the same call for a different reason: `{ r = .., g = .., b = .. }`
+does name keys, but they are channels rather than settings. Walking in produced three
+records keyed `r`, `g` and `b`, so nothing answered `castbarFillColor`, and each leaf
+inherited the references of a one-letter identifier — 787 records, 19% of the index,
+every one unfindable and carrying refs belonging to some other `b`.
 
 Call sites are matched on the whole call expression, not the bare name. A method
 counts only `owner:Name(`, a field only `owner.Name(`, and a local only calls in
@@ -90,7 +94,21 @@ its own file, since one Lua file is one chunk. Bare-name matching would report
 6836 callers of `SetPoint` — almost every one of them a Blizzard frame, none of
 them the addon's own function. Fields on a module-local table (`ns.Foo`, the
 common case) are scoped per module, because every addon folder declares its own
-`ns` and two modules' `ns.Foo` are unrelated.
+`ns` and two modules' `ns.Foo` are unrelated. What makes a table per-module is
+being bound from the addon vararg, not being a local: `local EllesmereUI =
+_G.EllesmereUI` is a local too, and reading that as module-private hid every
+cross-module call to a suite-wide helper.
+
+A definition is also reached under the names it is aliased to, which in this
+codebase is how anything shared is reached at all: a file-local bound onto a
+table (`EllesmereUI.ComputeCastBarTint = ComputeCastBarTint`), and often bound
+back to a local at the far end (`local MakeBorder = EllesmereUI.MakeBorder`).
+Resolving only the definition's own name counted its own file and dropped the
+rest of the suite — 333 helpers missing 4,354 call sites, `BuildColorSwatch`
+reading 11 against a true 301. That failure is quiet in a way a missing record
+is not, because the count stays plausible. The row now carries an `aliases`
+field naming the other call expressions, so the number can be checked instead
+of believed. An alias claimed by two definitions is dropped rather than guessed.
 
 Where a definition cannot be told apart from others called the same way, the
 record says so — `caller_ambiguity: N` — and gives no list. That covers 46% of
@@ -112,15 +130,20 @@ index alone: a lookup that returns nothing reads exactly like "this key does not
 exist". The defaults-table check finds a whole namespace going missing by re-deriving
 the tables from source with a line-oriented scan and requiring each one that names a
 key to have records. It found the per-bar namespace absent — ~89 keys, including the
-subject of an open bug report — from an index that otherwise passed every check.
+subject of an open bug report — from an index that otherwise passed every check. A
+sibling check requires every colour inside a defaults table to have a record under its
+own name, and no record anywhere to be keyed by a channel.
 
 Caller records are checked on both axes, and the checks are worth the trouble: they
 caught `GetFFD(frame).refreshVerticalScroll()` being credited to a same-named local,
 because a receiver that is itself a call does not look like a receiver. Precision
-rebuilds the expected call expression from each record's own fields and requires the
-cited line to contain it. Recall re-counts call sites for every file-local — the one
-class whose scope is exactly a file, so a second implementation must agree exactly
-rather than merely restate the resolution rules.
+rebuilds the expected call expression from each record's own fields — including its
+declared aliases, so a caller list can never cite a line that does not mention the
+function under some name it claims. Recall re-counts call sites for every file-local,
+the one class whose scope is exactly a file, so a second implementation must agree
+exactly rather than merely restate the resolution rules; exported locals are the
+harder half, and each one has to cite every call made through the name it was
+exported under.
 
 ## Limitations
 

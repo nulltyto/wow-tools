@@ -21,7 +21,7 @@ python3 <skill>/scripts/build_index.py --ensure
 library and Python 3.9+.
 
 It rebuilds only when the source actually changed (content hash of every indexed
-file, so it catches uncommitted edits too) and takes ~16 seconds from cold. Running
+file, so it catches uncommitted edits too) and takes ~12 seconds from cold. Running
 it costs nothing when the index is current, and skipping it risks acting on stale
 line numbers — this codebase changes fast.
 
@@ -36,7 +36,7 @@ current counts, the git commit it was built from, and the addon root path.
 
 | File | Grep for | Record fields |
 |---|---|---|
-| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `callers` `caller_count` *or* `caller_ambiguity` |
+| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `aliases` `callers` `caller_count` *or* `caller_ambiguity` |
 | `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by` |
 | `locale.jsonl` | `"key":"Enable Nameplates"` | `key` `count` `sites` |
 | `events.jsonl` | `"event":"UNIT_HEALTH"` | `event` `count` `sites` |
@@ -59,10 +59,10 @@ things, never both**:
 - **`caller_ambiguity: N`** — this definition could not be told apart from N−1
   others called the same way, so no list is given. Grep instead.
 
-`caller_count: 0` with an empty `callers` is a real answer, not a gap: nothing in
-the addon calls it by name. Before calling it dead, remember what the index
-cannot see — a handler reached through `hooksecurefunc`, a name assembled at
-runtime, or a function stored in a table and invoked from there.
+`caller_count: 0` with an empty `callers` means nothing calls it under any name
+the index resolves. Before calling it dead, remember what the index cannot see
+— a handler reached through `hooksecurefunc`, a name assembled at runtime, or a
+function stored in a table and invoked from there.
 
 About 46% of definitions are ambiguous, and that is mostly one idiom: the options
 files declare thousands of `get = function(info)` / `getValue = function(info)`
@@ -74,7 +74,28 @@ Attribution follows the receiver, not the bare name. A `method` matches only
 `owner.Name(`, and a `local` only its own file, since one file is one Lua chunk.
 Without that, `SetPoint` would report 6836 callers, nearly all of them Blizzard
 frames. A `field` on a module-local table — `ns.Foo`, the usual case — is scoped
-to its own module, because each addon folder has its own `ns`.
+to its own module, because each addon folder has its own `ns`. `EllesmereUI` is
+not that: it is one suite-wide table, so `EllesmereUI.Foo` reaches every module.
+
+## Second names — `aliases`
+
+This addon exports across modules by binding a file-local onto a shared table:
+
+```lua
+local function ComputeCastBarTint(readyTint, baseTint) end
+EllesmereUI.ComputeCastBarTint = ComputeCastBarTint
+```
+
+Both names are the same function, so `callers` covers both, and `aliases` lists
+the other ones. **Read it before you disbelieve a count.** A record for
+`ComputeCastBarTint` at `EllesmereUI_Kick.lua:61` citing callers in Nameplates
+is not a bad edge — grepping only the definition's own name finds a fraction of
+the list, because most of the suite calls it as `EllesmereUI.ComputeCastBarTint`.
+
+A definition with no `aliases` is reached under one name only. Where two
+definitions are bound onto the same field, neither gets the edge — a wrong
+caller is worse than a missing one — so the alias is dropped, and that field is
+worth a grep.
 
 ## Settings keys
 
@@ -87,6 +108,13 @@ different ways. The `store` field says which:
 declaration, and `path` gives the dotted position within it
 (`player.absorbCleanAlpha`) with the AceDB `profile.` prefix stripped, since runtime
 code reads bare `p.key`.
+
+A colour is **one** setting. `castbarFillColor = { r = 0.863, g = 0.820, b =
+0.639 }` is a single record whose `default` is the whole constructor — there
+are no `r`/`g`/`b` records to look up, and `"key":"castbarFillColor"` is the
+lookup that answers. Colours are about 7% of this addon's settings and most of
+what a colour bug report names, so reach for the key you can see in the options
+UI rather than the channel.
 
 A `[]` in the path is a key chosen at runtime, so the declaration is shared by
 every entry under it. `bars.[].alwaysShowButtons` is declared once and holds

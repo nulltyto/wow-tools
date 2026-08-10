@@ -330,3 +330,108 @@ def test_an_array_of_named_tables_is_walked_not_collapsed():
     )
     assert rows["bars.[].key"]["default"] == '"cooldowns"'
     assert rows["bars.[].iconSize"]["default"] == "42"
+
+
+def test_a_colour_is_one_setting_not_three_channels():
+    """`{ r = .., g = .., b = .. }` is the value, not three settings.
+
+    Walking into a colour records leaves keyed `r`, `g` and `b`: the colour's
+    own name answers nothing, and each leaf inherits the references of a
+    one-letter identifier. That was 787 records -- 19% of the index -- all
+    unfindable and all carrying the wrong `refs`, and it is why a bug report
+    about cast bar colours had to fall back to grepping the tree.
+    """
+    rows = _settings(
+        "local defaults = {\n"
+        "    castbarFillColor = { r = 0.863, g = 0.820, b = 0.639 },\n"
+        "    borderColor = { r = 0, g = 0, b = 0, a = 0.5 },\n"
+        "    frame = { size = 24 },\n"
+        "}\n"
+    )
+    assert rows["castbarFillColor"]["default"] == "{ r = 0.863, g = 0.820, b = 0.639 }"
+    assert rows["borderColor"]["default"] == "{ r = 0, g = 0, b = 0, a = 0.5 }"
+    assert not any(r["key"] in ("r", "g", "b", "a") for r in rows.values()), rows
+    assert "frame.size" in rows, "an ordinary nested table must still be walked"
+
+
+def test_a_table_of_short_keys_that_is_not_a_colour_is_still_walked():
+    """The collapse is for colours, not for every table with short keys."""
+    rows = _settings(
+        "local defaults = {\n"
+        "    offset = { x = 4, y = -2 },\n"
+        "    tint = { r = 1, g = 1 },\n"
+        "}\n"
+    )
+    assert "offset.x" in rows and "offset.y" in rows
+    assert "tint.r" in rows, "r and g without b is not a colour"
+
+
+def test_a_local_bound_onto_a_shared_table_is_called_through_that_name():
+    """Every cross-module helper here is a local exported onto a shared table.
+
+    Resolving only the definition's own name credits its file's calls and
+    silently drops the rest of the suite -- `BuildColorSwatch` read 11 callers
+    against a true 301, and `ComputeCastBarTint` read zero while a session was
+    about to change its signature. The row states the second name so the count
+    can be checked rather than merely believed.
+    """
+    rows = _callers({
+        "shared.lua": (
+            "local EllesmereUI = _G.EllesmereUI\n"
+            "local function ComputeTint(a, b)\n"
+            "end\n"
+            "EllesmereUI.ComputeTint = ComputeTint\n"
+        ),
+        "ModA/a.lua": (
+            "local EllesmereUI = _G.EllesmereUI\n"
+            "EllesmereUI.ComputeTint(1, 2)\n"
+        ),
+        "ModB/b.lua": (
+            "local EllesmereUI = _G.EllesmereUI\n"
+            "local ComputeTint = EllesmereUI.ComputeTint\n"
+            "ComputeTint(3, 4)\n"
+        ),
+    })
+    row = rows[("shared.lua", "ComputeTint")]
+    assert row["aliases"] == ["ComputeTint", "EllesmereUI.ComputeTint"], row["aliases"]
+    # ModA calls it qualified; ModB binds it back to a local and calls it bare.
+    assert row["callers"] == ["ModA/a.lua:2", "ModB/b.lua:3"], row["callers"]
+
+
+def test_an_export_two_definitions_claim_is_not_credited_to_either():
+    """A contested alias gives no edge. A wrong caller is worse than a gap."""
+    rows = _callers({
+        "ModA/a.lua": (
+            "local EllesmereUI = _G.EllesmereUI\n"
+            "local function Refresh()\n"
+            "end\n"
+            "EllesmereUI.Refresh = Refresh\n"
+        ),
+        "ModB/b.lua": (
+            "local EllesmereUI = _G.EllesmereUI\n"
+            "local function Refresh()\n"
+            "end\n"
+            "EllesmereUI.Refresh = Refresh\n"
+            "EllesmereUI.Refresh()\n"
+        ),
+    })
+    for rel in ("ModA/a.lua", "ModB/b.lua"):
+        row = rows[(rel, "Refresh")]
+        assert "aliases" not in row, row
+        assert row["callers"] == [], row["callers"]
+
+
+def test_an_addon_private_table_does_not_export_across_modules():
+    """`ns` is per addon, so `ns.Foo` in another module is another function."""
+    rows = _callers({
+        "ModA/a.lua": (
+            "local _, ns = ...\n"
+            "local function Refresh()\n"
+            "end\n"
+            "ns.Refresh = Refresh\n"
+            "ns.Refresh()\n"
+        ),
+        "ModB/b.lua": "local _, ns = ...\nns.Refresh()\n",
+    })
+    row = rows[("ModA/a.lua", "Refresh")]
+    assert row["callers"] == ["ModA/a.lua:5"], row["callers"]
