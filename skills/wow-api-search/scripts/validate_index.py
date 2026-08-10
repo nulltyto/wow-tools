@@ -282,8 +282,8 @@ def main():
             1 for line in text.splitlines()
             if line.strip().startswith("{ Name") and "Documentation = {" in line)
 
-    idx_entry = {f: 0 for f in src_entry}
-    idx_field = {f: 0 for f in src_entry}
+    idx_entry = dict.fromkeys(src_entry, 0)
+    idx_field = dict.fromkeys(src_entry, 0)
     counted = set()
     for section in ("functions", "events", "tables", "predicates"):
         for key, entry in flatten(index[section]):

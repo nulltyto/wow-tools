@@ -96,7 +96,6 @@ def test_bundled_api_index_is_internally_consistent():
     empty. Unqualified names that collide across namespaces are stored as a
     list of entries under one key, so this counts entries rather than keys.
     """
-    import json
 
     index = _bundled_index()
     for section in ("functions", "events", "tables", "predicates"):
