@@ -64,6 +64,35 @@ the index resolves. Before calling it dead, remember what the index cannot see
 — a handler reached through `hooksecurefunc`, a name assembled at runtime, or a
 function stored in a table and invoked from there.
 
+### The one gap worth a second look — a renamed receiver
+
+Measured against a real parser, the published lists are 99.1% complete on bare
+`Foo()` calls. Dotted `owner.Foo()` calls are 73.9% complete, and nearly all of
+the shortfall is a single case: **the call site spells the receiver differently
+from the `owner` this record stores.** A file does `local PPc = PP` and then
+calls `PPc.ToPixels(...)`; attribution follows the receiver, so the edge is
+dropped. Real pairs in this tree include `PPa.` for `PP.`, `EllesmereUI.Lite.`
+for `EUILite.`, `barCtx.` for `ctx.`, and `ns.Engine.` for `Engine.`.
+
+`PP.ToPixels` at `EllesmereUI.lua:2137` reports `caller_count: 0`. It has eight
+real callers, reached as `PPi.`, `PPc.`, and `gamePP.` — three aliases for one
+table, none of them the recorded `owner`.
+
+So for a **`field` or `method` record**, treat a zero or suspiciously small
+count as unproven rather than as an answer. One grep settles it, and it is the
+bare name you want — the receiver is the part that varies:
+
+```
+grep -rn '[.:]ToPixels(' --include=*.lua . | grep -v '/\.release/'
+```
+
+Drop `.release/`: it is the packager's copy of the whole tree, the index skips
+it, and it doubles the hits with stale line numbers. Any receiver in the result
+other than the record's `owner` is a caller the count is missing.
+
+**`local` and `global` records do not have this problem** — there is no
+receiver to rename, and a small count there is the complete answer, as below.
+
 About 46% of definitions are ambiguous, and that is mostly one idiom: the options
 files declare thousands of `get = function(info)` / `getValue = function(info)`
 callbacks, 1402 sharing a single name. AceConfig invokes those, never addon code,
@@ -77,11 +106,13 @@ frames. A `field` on a module-local table — `ns.Foo`, the usual case — is sc
 to its own module, because each addon folder has its own `ns`. `EllesmereUI` is
 not that: it is one suite-wide table, so `EllesmereUI.Foo` reaches every module.
 
-When the question is "what breaks if I change this", a small `caller_count` is
-the complete answer, not a starting point. `caller_count: 1` means the blast
-radius is that one line — read it and you are done. Reaching for `grep -n` on a
-13,000-line file to re-derive that is the round trip this field exists to
-remove.
+When the question is "what breaks if I change this", a small `caller_count` on
+a `local` or `global` record is the complete answer, not a starting point.
+`caller_count: 1` means the blast radius is that one line — read it and you are
+done. Reaching for `grep -n` on a 13,000-line file to re-derive that is the
+round trip this field exists to remove. On a `field` or `method` record, spend
+the one grep above first; a renamed receiver is the difference between a blast
+radius of one line and one you have not seen yet.
 
 ## Surveying a module, not looking one thing up
 
