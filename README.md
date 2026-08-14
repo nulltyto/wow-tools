@@ -41,16 +41,18 @@ opt-in — the interactive installer defaults to no addons, since putting a
 diagnostics addon into somebody's game is not a side effect of installing a
 search skill.
 
-Two offline tools go with it, and stay in this repo rather than in the game:
+Three offline tools go with it, and stay in this repo rather than in the game:
 
 | Tool | What it does |
 |---|---|
 | [`tools/diag/harness.lua`](tools/diag/) | Loads all five addon files under a stubbed WoW API and dispatches every `/euidiag` command. Catches load-order faults, registration errors, and dispatch bugs that a syntax check cannot see. Runs in CI. |
 | [`tools/perf/euidiag-perf.py`](tools/perf/) | Turns `/euidiag rec` recordings into per-module statistics, CSV, a shareable JSON summary, and an optional plot. |
+| [`tools/lint/lua_comments.py`](tools/lint/) | Caps how long a comment block may run in this repo's own Lua, using the rule the `ellesmereui-pr-check` skill applies to the addon. Diff-scoped, so only the comment lines a change adds count. Runs in CI. |
 
 ```bash
 cd tools/diag && lua5.1 harness.lua        # smoke test, exit 0 means clean
 ./tools/perf/euidiag-perf.py               # summarise the newest recording
+./tools/lint/lua_comments.py               # comment budget over the diff
 ```
 
 `euidiag-perf.py` finds the SavedVariables file by locating the game the same
@@ -103,6 +105,29 @@ Nothing is ever silently replaced. A directory or symlink the installer did not
 create is reported and left alone until you pass `--force`, which matters most
 in an AddOns folder, where a hand-installed copy of the same addon is the
 normal case rather than the strange one.
+
+### Git hooks
+
+The installer places skills and addons. It does not place hooks, and this repo
+ships no harness configuration — no `settings.json`, no `CLAUDE.md`, nothing
+that changes how an agent behaves outside the skills themselves.
+
+One hook is installed separately, and into a different repo. `ellesmereui-pr-
+check` can install itself as a `pre-commit` hook in an **EllesmereUI addon
+checkout**, so a style violation never reaches a commit:
+
+```bash
+cd /path/to/EllesmereUI
+python3 ~/.claude/skills/ellesmereui-pr-check/scripts/check_style.py --install-hook
+```
+
+It runs the staged half of the same check, reading the indexed blob rather than
+the file on disk. Errors block the commit; warnings and notes print and let it
+through. `git commit --no-verify` skips it, and an existing hook that is not
+this one is never overwritten. That skill's README covers the rest.
+
+This repo runs its own checks in CI rather than in a hook: `ruff`, the Lua
+comment budget, the addon harness, and the installer end to end.
 
 ### Finding the game
 

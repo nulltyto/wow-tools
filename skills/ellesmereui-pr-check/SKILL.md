@@ -1,6 +1,6 @@
 ---
 name: ellesmereui-pr-check
-description: Check EllesmereUI changes against the code style in .github/CONTRIBUTING.md before committing or opening a pull request — Lua 5.1 only, ASCII only, house tooltip and confirmation helpers instead of Blizzard defaults, two-slot W:DualRow options rows, and no code lifted from other addons (ElvUI, Plater, WeakAuras, Bartender4, and ~500 more from the CurseForge top list). Use this skill whenever finishing a change to the EllesmereUI/EUI addon suite, before committing or opening a PR, when the user says "check this before I PR it", "does this follow the style rules", "am I ready to push", when a change names or borrows from another addon, or after writing any options-page widget, tooltip, or confirmation dialog in this codebase. Also use when reviewing someone else's EllesmereUI diff. This is the ship gate, not a correctness review — to debug a reported bug use eui-addon-debug. For finding where code lives use ellesmereui-search; for Blizzard's own API use wow-api-search.
+description: Check EllesmereUI changes against the code style in .github/CONTRIBUTING.md before committing or opening a pull request — Lua 5.1 only, ASCII only, house tooltip and confirmation helpers instead of Blizzard defaults, two-slot W:DualRow options rows, a comment budget, and no code lifted from other addons (ElvUI, Plater, WeakAuras, Bartender4, and ~500 more from the CurseForge top list). Use this skill whenever finishing a change to the EllesmereUI/EUI addon suite, before committing or opening a PR, when the user says "check this before I PR it", "does this follow the style rules", "am I ready to push", "too many comments", when a change names or borrows from another addon, or after writing any options-page widget, tooltip, or confirmation dialog in this codebase. Also use when reviewing someone else's EllesmereUI diff. This is the ship gate, not a correctness review — to debug a reported bug use eui-addon-debug. For finding where code lives use ellesmereui-search; for Blizzard's own API use wow-api-search.
 ---
 
 # EllesmereUI PR Check
@@ -74,6 +74,7 @@ to touch it and prints the line to add by hand.
 | `popup` | error | Exact. `StaticPopup_Show`. |
 | `dualrow-nil` | error | Exact. Missing or `nil` right slot. |
 | `dualrow-left-gap` | error | Exact. Placeholder label in the left slot. |
+| `comment-budget` | error | Exact on the count. More than 8 comment lines in one block, or 30 in the file header. Counts only the lines your diff adds, so a long legacy block reports nothing until you extend it. Whether the prose earns its length is still your call — see below. |
 | `thirdparty-credit` | error | Exact on the words. A third-party addon named within 2 lines of unambiguous derivation language (`adapted from`, `taken from`, `credit to`, `ported from`). Zero such pairs exist in the tree, so a hit is new. Softer phrasing (`based on`, `derived from`, `inspired by`) is the same rule at warning severity — the tree has three, all about values rather than provenance. |
 | `thirdparty` | warning | Exact on the name. One of ~500 CurseForge addons named in code or a comment. A name is not an accusation: see below. |
 | `tooltip` | warning | Heuristic. A `GameTooltip` session (`SetOwner` → `Show`) that only ever gets `SetText`/`AddLine` with no data setter. A rich multi-line tooltip on a Blizzard frame looks identical, so read it before acting. |
@@ -88,10 +89,39 @@ local names = { "windrunner spire", "шпиль ветрокрылых" }  -- eu
 ```
 
 Rules take the ids above (`ascii`, `tooltip`, `lua51`, `popup`, `dualrow-nil`,
-`dualrow-left-gap`, `dualrow-empty`, `thirdparty`, `thirdparty-credit`,
-`thirdparty-maybe`). The comment goes on the offending line or the one above
-it. Suppressing `ascii` is legitimate for locale-matching data; suppressing it
-for punctuation is not — that is the corruption the rule exists to prevent.
+`dualrow-left-gap`, `dualrow-empty`, `comment-budget`, `thirdparty`,
+`thirdparty-credit`, `thirdparty-maybe`). For `comment-budget` the marker may
+sit anywhere inside the block; for the rest the comment goes on the offending
+line or the one above it. Suppressing `ascii` is legitimate for
+locale-matching data; suppressing it for punctuation is not — that is the
+corruption the rule exists to prevent.
+
+## When a comment block is over budget
+
+The finding says the block is long. It does not say the comment is wrong, and
+the fix is not always to delete: read the block and decide which it is.
+
+- **Prose that repeats the code.** Cut it. A comment that narrates what the
+  next five lines already say costs a reader time and goes stale on its own.
+- **Prose that records why.** Keep the reason, drop the retelling. Most
+  over-budget blocks reduce to two or three sentences of cause.
+- **Reference material** — a command list, a protocol someone must follow in
+  order, a findings log. It belongs in the file header or in `docs/`, not in
+  the middle of a function. Move it, or suppress with the reason if the block
+  is genuinely that reference and has to sit where it is.
+
+**Delegate the trim.** Shortening a comment block is summarisation against a
+line count, not design work, and it does not need the model that wrote the
+change. Hand each file to a subagent on a small model and give it the file, the
+reported lines, and the budget. In Claude Code that is the Agent tool with
+`subagent_type: mech-executor` and `model: "sonnet"` — or `"haiku"` when the
+block is plainly redundant narration. Reserve the expensive model for the
+judgment call above: decide the box each block falls into, then delegate the
+rewriting.
+
+Give the subagent the constraint, not just the goal: comments only, no code
+changes, keep every stated reason, and re-run `check_style.py --files <file>`
+until it is clean.
 
 ## When another addon is named
 

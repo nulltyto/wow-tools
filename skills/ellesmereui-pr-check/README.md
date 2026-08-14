@@ -49,6 +49,7 @@ existed, bypassed with `--no-verify`, or carried in by a rebase.
 | `popup` | error | `StaticPopup_Show`; confirmations use `EllesmereUI:ShowConfirmPopup`. |
 | `dualrow-nil` | error | Missing or `nil` right slot in `W:DualRow`. |
 | `dualrow-left-gap` | error | `{ type = "label", text = "" }` in the left slot — a gap that should be filled left to right. |
+| `comment-budget` | error | More than 8 comment lines in one block, or 30 in the file header. Counts only the lines the diff adds — see below. |
 | `thirdparty-credit` | error | A third-party addon named within 2 lines of unambiguous derivation language — `adapted from`, `taken from`, `copied from`, `ported from`, `credit to`, `courtesy of`. Softer wording (`based on`, `derived from`, `inspired by`) is the same rule at warning severity. |
 | `thirdparty` | warning | One of ~500 CurseForge addons named in code or a comment. |
 | `tooltip` | warning | A `GameTooltip` session (`SetOwner` → `Show`) that only ever receives `SetText`/`AddLine`, with no data setter such as `SetHyperlink` or `SetSpellByID`. Heuristic. |
@@ -90,6 +91,32 @@ tiers, because a flat list of 500 names is unusable against real source:
 Matching is case-sensitive and word-bounded. Case-insensitive matching on this
 list is unusable: it fires on every `local cell` and `atlas` in the tree, and
 on the French word *masque* throughout the locale files.
+
+## The comment budget
+
+A comment block is capped at 8 lines, and a file header at 30. The cap is on
+length alone, because length is the part a linter can measure: whether a
+comment earns its place is a judgment, whether it runs to half a screen is a
+fact. The header gets the larger budget because it is the one comment that
+reliably earns its length — it says what the file is and what its commands are.
+
+Blank lines do not reset a block. Two paragraphs split by whitespace are still
+one wall of text, and a rule that counted them separately would be satisfied by
+pressing Enter. A line of code does end a block.
+
+This rule is the one place the diff scope is load-bearing rather than merely
+convenient, so it does its own counting instead of being filtered like the
+others: only the comment lines a change **adds** count toward the budget.
+Editing one word inside a 40-line legacy block reports nothing; adding a new
+9-line block reports it. Without that, every touch of an old file would open
+with a demand to rewrite comments the change never touched.
+
+Long-bracket comments (`--[[ ]]`) count in full. Multi-line strings do not,
+even though masking blanks both — the masker records where the comments were.
+
+`SKILL.md` carries what to do with a finding, including handing the rewrite to
+a subagent on a smaller model: shortening a comment to a line count is
+summarisation, not design work.
 
 ## The rule that is not enforced
 

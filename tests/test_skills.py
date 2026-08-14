@@ -518,3 +518,92 @@ def test_bundled_index_carries_the_profiler_surface():
     # the only per-addon answer to "why are my 1% lows bad".
     assert "RecentAverageTime" in members
     assert {"CountTimeOver1Ms", "CountTimeOver5Ms", "CountTimeOver10Ms"} <= members, members
+
+
+def _style_checker():
+    """The EllesmereUI style checker, loaded from its script path."""
+    import importlib.util
+
+    path = REPO / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py"
+    spec = importlib.util.spec_from_file_location("eui_check_style", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _budget(text: str, scope=None):
+    """Run the comment budget over an in-memory Lua source."""
+    C = _style_checker()
+    src = C.Source(Path("Fake.lua"), "Fake.lua", text)
+    return list(C.check_comment_budget(src, scope))
+
+
+def _comment_lines(n: int, first: str = "local x = 1\n\n") -> str:
+    body = "".join(f"-- line {i}\n" for i in range(n))
+    return f"{first}{body}local y = 2\n"
+
+
+def test_comment_budget_caps_a_block():
+    """Over the cap reports; at the cap does not."""
+    C = _style_checker()
+    assert not _budget(_comment_lines(C.COMMENT_BUDGET))
+    findings = _budget(_comment_lines(C.COMMENT_BUDGET + 1))
+    assert len(findings) == 1
+    assert findings[0].rule == "comment-budget"
+    assert findings[0].severity == C.ERROR
+
+
+def test_comment_budget_allows_a_longer_file_header():
+    """A header is the comment that earns its length; a block under code is not.
+
+    Both blocks here are the same size. Only their position differs, which is
+    the whole of the distinction the rule draws.
+    """
+    C = _style_checker()
+    size = C.COMMENT_BUDGET + 1
+    assert not _budget(_comment_lines(size, first=""))
+    assert _budget(_comment_lines(size))
+    assert _budget(_comment_lines(C.HEADER_BUDGET + 1, first=""))
+
+
+def test_comment_budget_counts_changed_lines_only():
+    """Editing inside a legacy block is silent; adding a new one is not.
+
+    This is the rule's reason for taking `scope` itself rather than being
+    filtered by it, and the property that keeps old comments from failing CI.
+    """
+    C = _style_checker()
+    text = _comment_lines(C.COMMENT_BUDGET * 3)
+    assert not _budget(text, scope={4})
+    assert _budget(text, scope=set(range(1, 100)))
+
+
+def test_comment_budget_blank_lines_do_not_reset_a_block():
+    """Splitting a wall of text with whitespace leaves it a wall of text."""
+    C = _style_checker()
+    half = C.COMMENT_BUDGET // 2 + 1
+    text = "local x = 1\n\n" + ("-- a\n" * half) + "\n" + ("-- b\n" * half) + "local y = 2\n"
+    assert _budget(text)
+
+
+def test_comment_budget_reads_lua_comments_not_strings():
+    """A long-bracket comment counts; a long-bracket string does not."""
+    C = _style_checker()
+    body = "".join(f"text {i}\n" for i in range(C.COMMENT_BUDGET + 2))
+    assert _budget(f"local x = 1\n\n--[[\n{body}]]\nlocal y = 2\n")
+    assert not _budget(f"local x = [[\n{body}]]\nlocal y = 2\n")
+
+
+def test_comment_budget_respects_the_suppression_comment():
+    """Reference material that must stay long has the documented escape hatch."""
+    C = _style_checker()
+    text = _comment_lines(C.COMMENT_BUDGET + 1,
+                          first="local x = 1\n\n-- eui-style: allow comment-budget\n")
+    assert not _budget(text)
+
+
+def test_comment_budget_ignores_trailing_comments():
+    """A comment after code shares its line with code, so no block forms."""
+    C = _style_checker()
+    text = "".join(f"local v{i} = {i} -- note {i}\n" for i in range(C.COMMENT_BUDGET + 5))
+    assert not _budget(text)

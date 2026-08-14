@@ -66,7 +66,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      # The comment budget is scoped to the lines a change adds, so it needs
+      # the base commit present. A shallow clone has no merge base to diff.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
       - run: uv run ruff check .
+      - run: uv run python tools/lint/lua_comments.py
 

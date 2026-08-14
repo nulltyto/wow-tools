@@ -26,6 +26,11 @@ Rules, and how far each can be trusted:
   ascii            error   any non-ASCII byte. Exact. U+FFFD is called out
                            separately as already-corrupted text.
   popup            error   StaticPopup_Show. Exact.
+  comment-budget   error   more than 8 lines of comment in one block (30 for
+                           the file header). Counts changed lines only, so a
+                           legacy block reports nothing until you extend it.
+                           Exact on the count; whether the prose earns its
+                           length is for you to judge.
   dualrow-nil      error   missing or nil right slot. Exact.
   dualrow-left-gap error   placeholder label in the left slot. Exact.
   tooltip          warning plain-text GameTooltip session with no data setter.
@@ -83,8 +88,13 @@ def _long_bracket_len(text: str, i: int) -> int:
     return 0
 
 
-def mask_lua(text: str) -> str:
-    """Blank comment bodies and string contents, preserving length and offsets."""
+def mask_lua(text: str, comments: list[tuple[int, int]] | None = None) -> str:
+    """Blank comment bodies and string contents, preserving length and offsets.
+
+    Pass `comments` to also collect the (start, end) offsets of each comment.
+    Masking alone cannot tell one blanked region from another, and the comment
+    budget has to distinguish a comment from a multi-line string.
+    """
     out = list(text)
     n = len(text)
     i = 0
@@ -100,6 +110,8 @@ def mask_lua(text: str) -> str:
             else:
                 end = text.find("\n", i)
                 end = n if end == -1 else end
+            if comments is not None:
+                comments.append((i, end))
             for k in range(i, end):
                 if out[k] != "\n":
                     out[k] = " "
@@ -148,9 +160,12 @@ class Source:
         # on disk if the file was edited after `git add`.
         self.text = (text if text is not None
                      else path.read_text(encoding="utf-8", errors="replace"))
-        self.mask = mask_lua(self.text)
+        spans: list[tuple[int, int]] = []
+        self.mask = mask_lua(self.text, spans)
         self.lines = self.text.splitlines()
+        self.mask_lines = self.mask.splitlines()
         self._nl = [m.start() for m in re.finditer("\n", self.text)]
+        self._comment_spans = spans
 
     def line_of(self, offset: int) -> int:
         lo, hi = 0, len(self._nl)
@@ -164,6 +179,19 @@ class Source:
 
     def source_line(self, line: int) -> str:
         return self.lines[line - 1] if 0 < line <= len(self.lines) else ""
+
+    def comment_only_lines(self) -> set[int]:
+        """Line numbers that carry a comment and nothing else.
+
+        A trailing comment on a line of code is excluded: its line still has
+        content after masking. Both `--` runs and `--[[ ]]` blocks count.
+        """
+        out: set[int] = set()
+        for start, end in self._comment_spans:
+            for ln in range(self.line_of(start), self.line_of(max(start, end - 1)) + 1):
+                if 0 < ln <= len(self.mask_lines) and not self.mask_lines[ln - 1].strip():
+                    out.add(ln)
+        return out
 
 
 SUPPRESS = re.compile(r"--\s*eui-style:\s*allow\s+([\w, -]+)")
@@ -384,6 +412,79 @@ def check_dualrow(src: Source):
                 "analysis cannot tell where a section ends (if/else branches and "
                 "local helpers sit between rows), so this one is on you.",
             ), span
+
+
+# --------------------------------------------------------------------------
+#  Rule: comment budget
+# --------------------------------------------------------------------------
+# A comment block is capped at COMMENT_BUDGET lines. The cap is on length
+# alone, because length is the part a linter can measure: whether a comment
+# earns its place is a judgment, whether it runs to half a screen is a fact.
+#
+# The file header is the one comment that reliably earns its length -- it says
+# what the file is and what its commands are -- so the first block of a file
+# gets HEADER_BUDGET instead.
+#
+# Only changed lines count toward the budget. Editing one word inside a long
+# legacy block reports nothing; adding a new block over the cap reports it.
+
+COMMENT_BUDGET = 8
+HEADER_BUDGET = 30
+
+# A header may sit under a shebang or a blank line, but not below real code.
+HEADER_START = 3
+
+
+def _comment_blocks(src: Source):
+    """Yield (comment_line_numbers, is_header) for each run of comment-only lines.
+
+    A blank line continues a block without counting toward it: two paragraphs
+    split by whitespace are still one wall of text. A line of code ends it.
+
+    A block is the header only if nothing but blank lines comes before it. The
+    first block of a file is not the header when it sits under code.
+    """
+    comment = src.comment_only_lines()
+    block: list[int] = []
+    code_seen = False
+    for i, raw in enumerate(src.lines, 1):
+        if i in comment:
+            block.append(i)
+        elif raw.strip():
+            if block:
+                yield block, not code_seen
+            block = []
+            code_seen = True
+    if block:
+        yield block, not code_seen
+
+
+def check_comment_budget(src: Source, scope: set[int] | None):
+    """Flag a comment block longer than its budget.
+
+    Takes `scope` directly rather than yielding a span, because the budget is
+    counted over changed lines only -- a span rule would report the whole
+    legacy block the moment the diff touched one line of it.
+    """
+    for lines, is_header in _comment_blocks(src):
+        header = is_header and lines[0] <= HEADER_START
+        budget = HEADER_BUDGET if header else COMMENT_BUDGET
+
+        counted = lines if scope is None else [ln for ln in lines if ln in scope]
+        if len(counted) <= budget:
+            continue
+        if any(suppressed(src, ln, "comment-budget") for ln in [lines[0] - 1] + lines):
+            continue
+
+        where = "file header" if header else "comment block"
+        measured = "line(s)" if scope is None else "new line(s)"
+        yield Finding(
+            src.rel, counted[0], ERROR, "comment-budget",
+            f"{len(counted)} {measured} of comment in one {where} (budget {budget})",
+            "Cut it to what the next reader cannot infer from the code. "
+            "Reference material belongs in docs/ or the file header; if this "
+            "block is that reference, add: -- eui-style: allow comment-budget",
+        )
 
 
 # --------------------------------------------------------------------------
@@ -654,6 +755,9 @@ def check_file(src: Source, scope: set[int] | None) -> list[Finding]:
         for finding, span in rule(src):
             if scope is None or any(ln in scope for ln in range(span[0], span[1] + 1)):
                 out.append(finding)
+
+    # Counts changed lines itself rather than being filtered by them.
+    out.extend(check_comment_budget(src, scope))
 
     return sorted(out, key=lambda f: (f.line, f.rule))
 

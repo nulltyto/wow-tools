@@ -41,7 +41,10 @@ line-length = 100
 extend-exclude = ["skills/*/references"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4"]
+# ERA catches commented-out code, which is the one kind of excessive comment
+# a Python linter can judge on its own. Block length is judged separately, by
+# tools/lint/lua_comments.py.
+select = ["E", "F", "W", "I", "UP", "B", "C4", "ERA"]
 ignore = [
     # The skill scripts are written to be read as prose by an agent; long
     # explanatory strings and regexes are not worth wrapping.
