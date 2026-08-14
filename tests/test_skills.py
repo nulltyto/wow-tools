@@ -645,3 +645,315 @@ def test_comment_budget_ignores_trailing_comments():
     C = _style_checker()
     text = "".join(f"local v{i} = {i} -- note {i}\n" for i in range(C.COMMENT_BUDGET + 5))
     assert not _budget(text)
+
+
+# --------------------------------------------------------------------------
+#  Lua masking
+# --------------------------------------------------------------------------
+# Every structural pass in both extractors runs against the masked copy, so a
+# masking bug does not fail loudly -- it silently moves or drops records. The
+# scan was rewritten to jump between the four characters that can open a masked
+# region instead of visiting every character, which is the kind of change that
+# keeps the common cases working and breaks an edge nobody has in the tree yet.
+
+
+def _mask_fns():
+    """Both copies of `mask_lua`. They are separate files and drift apart."""
+    return (("build_index", _eui_builder().mask_lua),
+            ("check_style", _style_checker().mask_lua))
+
+
+def _blanked(text: str, *fragments: str) -> str:
+    """`text` with each fragment replaced by spaces, newlines left in place.
+
+    Spelling the expectation as "this substring disappears" keeps the test
+    readable and stops it from asserting a hand-counted run of spaces.
+    """
+    out = text
+    for frag in fragments:
+        assert frag in out, frag
+        out = out.replace(frag, re.sub(r"[^\n]", " ", frag), 1)
+    return out
+
+
+def test_mask_blanks_comments_and_string_bodies():
+    for name, mask_lua in _mask_fns():
+        text = 'local s = "hi" -- note\n'
+        assert mask_lua(text) == _blanked(text, "hi", "-- note"), name
+
+
+def test_mask_handles_long_brackets_and_nested_quotes():
+    """Braces and quotes inside these must not reach a structural pass."""
+    for name, mask_lua in _mask_fns():
+        # A long string keeps its brackets and loses its body.
+        text = "x = [[a{b}c]]\n"
+        assert mask_lua(text) == _blanked(text, "a{b}c"), name
+        # The body of a [==[ ]==] string may contain ]] without ending it.
+        text = "x = [==[a]]b]==]\n"
+        assert mask_lua(text) == _blanked(text, "a]]b"), name
+        # A long comment goes entirely, brackets included.
+        text = "--[[ {x} ]]\ny = 1\n"
+        assert mask_lua(text) == _blanked(text, "--[[ {x} ]]"), name
+        # A quote of the other kind inside a string is body, not a delimiter.
+        text = """x = "a'b" .. 'c"d'\n"""
+        assert mask_lua(text) == _blanked(text, "a'b", 'c"d'), name
+
+
+def test_mask_preserves_length_and_every_newline():
+    """Offsets are read back against the original text, and lines are zipped.
+
+    `check_style.comment_only_lines` compares `mask.splitlines()` against the
+    source lines, so a newline lost inside a masked region shifts every later
+    line of that file. The per-character version dropped one: a backslash
+    escaping a newline inside a short string was overwritten with a space.
+    """
+    sources = [
+        'x = "a\\\nb"\ny = 1\n',          # escaped newline inside a string
+        "--[[\nmulti\nline\n]]\nz = 2\n",  # newline inside a long comment
+        "s = [[\nraw\n]]\n",               # newline inside a long string
+        "t = 'unterminated\nu = 3\n",      # a string that never closes
+        "-- trailing comment with no newline",
+        "",
+    ]
+    for name, mask_lua in _mask_fns():
+        for text in sources:
+            got = mask_lua(text)
+            assert len(got) == len(text), (name, repr(text))
+            assert [i for i, c in enumerate(got) if c == "\n"] == [
+                i for i, c in enumerate(text) if c == "\n"
+            ], (name, repr(text))
+
+
+def test_mask_never_moves_a_newline_on_arbitrary_input():
+    """The invariant above, fuzzed over the characters that drive the scanner.
+
+    Length and newline placement are what every offset and line number in both
+    indexes depend on. A property test states that once instead of guessing
+    which literal will regress next.
+    """
+    import random
+
+    rand = random.Random(1979)
+    alphabet = "-[]=\"'\\\nabc "
+    cases = [
+        "".join(rand.choice(alphabet) for _ in range(rand.randint(0, 60)))
+        for _ in range(3000)
+    ]
+    for name, mask_lua in _mask_fns():
+        for text in cases:
+            got = mask_lua(text)
+            assert len(got) == len(text), (name, repr(text))
+            assert [i for i, c in enumerate(got) if c == "\n"] == [
+                i for i, c in enumerate(text) if c == "\n"
+            ], (name, repr(text))
+            # Masking only ever blanks: a non-space in the output is untouched.
+            for i, c in enumerate(got):
+                assert c == " " or c == text[i], (name, repr(text), i)
+
+
+# --------------------------------------------------------------------------
+#  Renamed receivers
+# --------------------------------------------------------------------------
+# Attribution follows the receiver, which is why `SetPoint` does not report
+# every Blizzard frame the addon positions. The cost of that rule is every call
+# through a receiver spelled differently from the recorded owner, which was
+# 639 call sites -- `PP.ToPixels` read zero callers against a true eight.
+
+
+def test_a_table_reached_through_a_local_alias_is_still_credited():
+    """`local PPc = EllesmereUI and EllesmereUI.PP` is how a module borrows one.
+
+    The guard is the house idiom for reaching another module's table, so the
+    binding almost never appears as a bare `local PPc = PP`.
+    """
+    rows = _callers({
+        "shared.lua": (
+            "local PP = {}\n"
+            "EllesmereUI.PP = PP\n"
+            "function PP.ToPixels(x)\n"
+            "end\n"
+        ),
+        "ModA/a.lua": (
+            "local PPc = EllesmereUI and EllesmereUI.PP\n"
+            "PPc.ToPixels(1)\n"
+        ),
+    })
+    row = rows[("shared.lua", "PP.ToPixels")]
+    assert "ModA/a.lua:2" in row["callers"], row
+    assert "PPc.ToPixels" in (row.get("aliases") or []), row
+
+
+def test_a_definition_written_on_a_local_alias_is_called_by_the_shared_name():
+    """The same binding read backwards.
+
+    A file opens `local EUI = _G.EllesmereUI or {}` and declares
+    `function EUI.Foo()`, so the definition is recorded under the short name
+    while the rest of the suite calls it `EllesmereUI.Foo(`.
+    """
+    rows = _callers({
+        "shared.lua": (
+            "function EllesmereUI.Anchor()\n"
+            "end\n"
+        ),
+        "ModB/b.lua": (
+            "local EUI = _G.EllesmereUI or {}\n"
+            "function EUI.Refresh()\n"
+            "end\n"
+        ),
+        "ModA/a.lua": "EllesmereUI.Refresh()\n",
+    })
+    row = rows[("ModB/b.lua", "EUI.Refresh")]
+    assert row["callers"] == ["ModA/a.lua:1"], row
+    assert "EllesmereUI.Refresh" in (row.get("aliases") or []), row
+
+
+def test_a_local_alias_does_not_reach_past_the_file_that_binds_it():
+    """`PPc` is a local. Another file's `PPc` is another table."""
+    rows = _callers({
+        "shared.lua": (
+            "local PP = {}\n"
+            "EllesmereUI.PP = PP\n"
+            "function PP.ToPixels(x)\n"
+            "end\n"
+        ),
+        "ModA/a.lua": (
+            "local PPc = EllesmereUI and EllesmereUI.PP\n"
+            "PPc.ToPixels(1)\n"
+        ),
+        "ModB/b.lua": (
+            "local PPc = SomethingElse\n"
+            "PPc.ToPixels(2)\n"
+        ),
+    })
+    row = rows[("shared.lua", "PP.ToPixels")]
+    assert row["callers"] == ["ModA/a.lua:2"], row
+
+
+def test_a_table_that_is_rebound_at_runtime_credits_no_alias():
+    """`EllesmereUI.Widgets` really is three tables.
+
+    A search feature swaps it for an absorber and swaps it back, so the path
+    names no single table. Picking one would invent calls into a widget
+    factory that was not installed at the time.
+    """
+    rows = _callers({
+        "shared.lua": (
+            "local WidgetFactory = {}\n"
+            "local AbsorberW = {}\n"
+            "EllesmereUI.Widgets = WidgetFactory\n"
+            "EllesmereUI.Widgets = AbsorberW\n"
+            "function WidgetFactory.DualRow(a)\n"
+            "end\n"
+            "function AbsorberW.Row(a)\n"
+            "end\n"
+        ),
+        "ModA/a.lua": (
+            "local W = EllesmereUI and EllesmereUI.Widgets\n"
+            "W.DualRow(1)\n"
+        ),
+    })
+    row = rows[("shared.lua", "WidgetFactory.DualRow")]
+    assert row["callers"] == [], row
+
+
+def test_an_or_between_two_named_tables_is_not_an_alias():
+    """Two candidate receivers is not a rename, it is a choice made at runtime."""
+    rows = _callers({
+        "shared.lua": (
+            "local PP = {}\n"
+            "EllesmereUI.PP = PP\n"
+            "function PP.ToPixels(x)\n"
+            "end\n"
+        ),
+        "ModA/a.lua": (
+            "local PPc = EllesmereUI.PanelPP or EllesmereUI.PP\n"
+            "PPc.ToPixels(1)\n"
+        ),
+    })
+    row = rows[("shared.lua", "PP.ToPixels")]
+    assert row["callers"] == [], row
+
+
+def test_a_local_bound_to_a_non_table_creates_no_alias():
+    """`local n = count` must not make every `n.foo(` in the file a call.
+
+    The right-hand side has to name something this index already knows owns a
+    definition, or an alias pass turns arithmetic into call edges.
+    """
+    rows = _callers({
+        "shared.lua": (
+            "local PP = {}\n"
+            "EllesmereUI.PP = PP\n"
+            "function PP.ToPixels(x)\n"
+            "end\n"
+        ),
+        "ModA/a.lua": (
+            "local count = 3\n"
+            "local n = count\n"
+            "n.ToPixels(1)\n"
+        ),
+    })
+    row = rows[("shared.lua", "PP.ToPixels")]
+    assert row["callers"] == [], row
+
+
+# --------------------------------------------------------------------------
+#  SavedVariables keys
+# --------------------------------------------------------------------------
+
+
+def _sv_rows(files: dict[str, str], sv_names: dict[str, str], modules=("ModA", "ModB")):
+    B = _eui_builder()
+    sources = [B.Source(rel, text) for rel, text in files.items()]
+    rows = B.extract_saved_variable_keys(sources, sv_names, list(modules))
+    return {(r["store"], r["key"]): r for r in rows}
+
+
+def test_saved_variable_keys_are_found_in_both_access_forms():
+    """`DB.key` and `DB["key"]` are the same setting.
+
+    The bracket form is matched against the raw text rather than the mask --
+    the key is inside a string literal, which the mask has blanked -- so the
+    two forms run through different code and only one of them would notice a
+    capture group renumbered by mistake.
+    """
+    rows = _sv_rows(
+        {"ModA/a.lua": 'EllesmereUIDB.alpha = 1\nEllesmereUIDB["beta"] = 2\n'},
+        {"EllesmereUIDB": "ModA"},
+    )
+    assert set(rows) == {("EllesmereUIDB", "alpha"), ("EllesmereUIDB", "beta")}, rows
+    assert rows[("EllesmereUIDB", "beta")]["refs"] == ["ModA/a.lua:2"], rows
+
+
+def test_a_saved_variable_name_that_prefixes_another_keeps_its_own_keys():
+    """One alternation over all forty names replaced one pass per name.
+
+    `EllesmereUIDB` is a prefix of `EllesmereUIDBExtra`, so an alternation that
+    let the shorter branch win would file every `EllesmereUIDBExtra` key under
+    the wrong store, and the count would still look right.
+    """
+    rows = _sv_rows(
+        {"ModA/a.lua": "EllesmereUIDBExtra.alpha = 1\nEllesmereUIDB.beta = 2\n"},
+        {"EllesmereUIDB": "ModA", "EllesmereUIDBExtra": "ModB"},
+    )
+    assert set(rows) == {
+        ("EllesmereUIDBExtra", "alpha"),
+        ("EllesmereUIDB", "beta"),
+    }, rows
+
+
+def test_every_saved_variable_name_is_still_scanned():
+    """The single pass must not quietly cover only the first few names."""
+    names = {f"Store{i}DB": "ModA" for i in range(12)}
+    text = "".join(f"Store{i}DB.key{i} = {i}\n" for i in range(12))
+    rows = _sv_rows({"ModA/a.lua": text}, names)
+    assert set(rows) == {(f"Store{i}DB", f"key{i}") for i in range(12)}, sorted(rows)
+
+
+def test_a_key_named_only_inside_a_comment_is_not_a_setting():
+    """The attribute form runs against the mask, so commented code stays out."""
+    rows = _sv_rows(
+        {"ModA/a.lua": "-- EllesmereUIDB.ghost = 1\nEllesmereUIDB.real = 2\n"},
+        {"EllesmereUIDB": "ModA"},
+    )
+    assert set(rows) == {("EllesmereUIDB", "real")}, rows
