@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a navigation index for the EllesmereUI World of Warcraft addon suite.
 
-The addon is ~137 Lua files / ~400k lines with single files over 1 MB, so plain
+The addon is ~148 Lua files / ~447k lines with single files over 1 MB, so plain
 grep is a poor first move. This produces greppable JSONL indexes -- one complete
 record per line -- covering modules, symbol definitions, settings keys (with
 cross-references), locale keys, events, and slash commands.
@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 6
+BUILDER_VERSION = 9
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -37,8 +37,18 @@ INDEX_DIR = SKILL_DIR / "references" / "index"
 # Directories never worth indexing: vendored libraries, the packager's output
 # copy of the whole tree, and the per-locale translation tables (bulk data --
 # the canonical key list lives in Locales/_keys.txt).
-EXCLUDE_DIRS = {".git", ".release", ".github", ".kiro", ".vscode", ".claude", "Libs", "media", "patches"}
+#
+# Every dotted directory goes too, rather than the six that were listed by
+# name. Those hold tooling, not shipped code, and an offline helper that
+# happens to share a function name with the addon costs a real caller list:
+# three files under `.tools/` claimed 40 symbols and pushed 14 of
+# EllesmereUIQuickdraw's functions to `caller_ambiguity` with no list at all.
+EXCLUDE_DIRS = {"Libs", "media", "patches"}
 EXCLUDE_REL_PREFIXES = ("Locales/",)
+
+
+def skip_dir(name: str) -> bool:
+    return name.startswith(".") or name in EXCLUDE_DIRS
 
 
 # --------------------------------------------------------------------------
@@ -144,10 +154,30 @@ def mask_lua(text: str) -> str:
     return "".join(out)
 
 
+# A chunk-scope declaration: `local a, b, c` or `local function Foo`, both at
+# column 0. The second alternative matters for shadowing -- a file-scope
+# `local function Foo` hides a global `Foo` for the rest of the chunk.
+FILE_LOCAL = re.compile(
+    r"^local[ \t]+(?:function[ \t]+([A-Za-z_]\w*)|([A-Za-z_][\w, \t]*))", re.M
+)
+
+# The same declaration at any indent. This one is not evidence of chunk scope,
+# so it does not shadow anything -- it is only evidence that a bare assignment
+# to that name later in the file is not creating a global. The big options
+# files declare three builders on one indented `local` line and fill each body
+# thousands of lines below; read as globals, those definitions collect bare
+# calls from the whole tree instead of from their own file. 50 of the 120 rows
+# that once claimed `global` were this shape. See `classify`.
+BLOCK_LOCAL = re.compile(
+    r"^[ \t]+local[ \t]+(?:function[ \t]+([A-Za-z_]\w*)|([A-Za-z_][\w, \t]*))", re.M
+)
+
+
 class Source:
     """One Lua file: original text, masked text, and line-number lookup."""
 
-    __slots__ = ("rel", "text", "mask", "_nl")
+    __slots__ = ("rel", "text", "mask", "_nl", "_brace_at", "_brace_depth",
+                 "file_locals", "declared_locals")
 
     def __init__(self, rel: str, text: str):
         self.rel = rel
@@ -155,8 +185,47 @@ class Source:
         self.mask = mask_lua(text)
         self._nl = [m.start() for m in re.finditer("\n", text)]
 
+        # Running table-constructor depth, so any offset can be asked whether
+        # it sits inside a `{ ... }`. Counted once here rather than per symbol:
+        # `mask.count("{", 0, offset)` for each of 17k definitions would read
+        # the whole tree 17k times.
+        at, depth, d = [], [], 0
+        for m in re.finditer(r"[{}]", self.mask):
+            d += 1 if m.group() == "{" else -1
+            at.append(m.start())
+            depth.append(d)
+        self._brace_at, self._brace_depth = at, depth
+
+        self.file_locals = self._scan_locals(FILE_LOCAL)
+        # Every `local` declaration in the file, at any indent. Used only to
+        # deny globalness, never to shadow -- see BLOCK_LOCAL.
+        self.declared_locals = self.file_locals | self._scan_locals(BLOCK_LOCAL)
+
+    def _scan_locals(self, rx) -> set:
+        """The names declared `local` by every match of `rx`.
+
+        With FILE_LOCAL this is chunk scope, column 0: the whole file, so those
+        names shadow a global of the same name everywhere below. Indented
+        declarations are kept apart in `declared_locals` because they do not
+        prove chunk scope -- they belong to a block this pass cannot delimit,
+        and treating one as file-scope for shadowing would drop real call
+        edges.
+        """
+        names = set()
+        for m in rx.finditer(self.mask):
+            for part in (m.group(1) or m.group(2)).split(","):
+                part = part.strip()
+                if IDENT.match(part):
+                    names.add(part)
+        return names
+
     def line(self, offset: int) -> int:
         return bisect.bisect_right(self._nl, offset) + 1
+
+    def table_depth(self, offset: int) -> int:
+        """How many table constructors are open at `offset`."""
+        i = bisect.bisect_left(self._brace_at, offset)
+        return self._brace_depth[i - 1] if i else 0
 
     @property
     def n_lines(self) -> int:
@@ -180,15 +249,43 @@ FUNC_ASSIGN = re.compile(
 )
 
 
-def classify(name: str, is_local: bool) -> tuple[str, str, str]:
-    """Return (kind, owner, short_name) for a definition name."""
+def classify(
+    name: str, is_local: bool, in_table: bool = False, is_file_local: bool = False
+) -> tuple[str, str, str]:
+    """Return (kind, owner, short_name) for a definition name.
+
+    A bare name is not automatically a global. `Name = function()` is also how
+    a table constructor holds a handler and how a forward-declared local gets
+    its body, and calling all three "global" was wrong for 7,234 of the 7,265
+    rows that claimed it. The three are told apart by where the definition
+    sits: inside an open `{` it is a table field, and outside one it is the
+    local of that name if the file declares one.
+
+    Position decides before the name does, and only that order is safe. A key
+    written inside a constructor is a field of that table whatever else the
+    file calls `local`:
+
+        local Refresh                 -- a forward declaration
+        local handlers = {
+            Refresh = function() end, -- a key in `handlers`, not that local
+        }
+
+    Reading the second as the local's body claims the local's call sites for a
+    function nothing calls by that bare name -- 334 rows in this tree.
+    """
     if ":" in name:
         owner, short = name.rsplit(":", 1)
         return "method", owner, short
     if "." in name:
         owner, short = name.rsplit(".", 1)
         return "field", owner, short
-    return ("local" if is_local else "global"), "", name
+    if is_local:
+        return "local", "", name
+    if in_table:
+        return "tablefield", "", name
+    if is_file_local:
+        return "local", "", name
+    return "global", "", name
 
 
 def extract_symbols(src: Source, module: str) -> list[dict]:
@@ -202,7 +299,12 @@ def extract_symbols(src: Source, module: str) -> list[dict]:
                 continue
             seen.add((name, line))
             is_local = bool(m.group(2))
-            kind, owner, short = classify(name, is_local)
+            # Only an assignment can land inside a table constructor; a
+            # `function Foo()` statement cannot.
+            in_table = rx is FUNC_ASSIGN and src.table_depth(m.start()) > 0
+            kind, owner, short = classify(
+                name, is_local, in_table, name in src.declared_locals
+            )
             params = " ".join(m.group(4).split())
             rows.append(
                 {
@@ -465,7 +567,7 @@ def extract_saved_variable_keys(
                 (mod, f"{src.rel}:{src.line(m.start())}")
             )
         for m in sub.finditer(src.text):
-            if src.mask[m.start(2)] != " ":
+            if src.mask[m.start(2)] != " " or src.mask[m.start()] == " ":
                 continue
             hits.setdefault((m.group(1), m.group(2)), set()).add(
                 (mod, f"{src.rel}:{src.line(m.start())}")
@@ -529,7 +631,12 @@ def collect_refs(
         for m in STR_REF.finditer(src.text):
             # Validate it is a real string literal, not code that merely looks
             # like one: masked text blanks string bodies to spaces.
-            if src.mask[m.start(1)] != " ":
+            #
+            # A blanked body alone does not prove it: a comment is blanked
+            # whole, so prose like `-- changedAxis: "width", "height"` read as
+            # a reference to the `width` setting. A real string keeps its
+            # opening quote, because masking starts one byte after it.
+            if src.mask[m.start(1)] != " " or src.mask[m.start()] == " ":
                 continue
             add(m.group(1), src, m.start())
     return refs
@@ -864,6 +971,14 @@ def collect_callers(
     for row in symbols:
         if row["kind"] == "local":
             shadowed.setdefault(row["name"], set()).add(row["file"])
+    # Most file-scope locals are not function definitions, so the rows above
+    # miss them. EllesmereUINameplates opens `local StartButtonGlow =
+    # _G_Glows.StartButtonGlow`; its calls belong to that binding, not to the
+    # same-named local in EllesmereUIAuraBuffReminders, which is what the
+    # index credited them to.
+    for src in sources:
+        for name in src.file_locals:
+            shadowed.setdefault(name, set()).add(src.rel)
 
     qualified: dict[tuple, list[tuple[str, int]]] = {}
     plain: dict[str, list[tuple[str, int]]] = {}
@@ -946,6 +1061,19 @@ def collect_callers(
                         s for s in alias_sites if module_by_file.get(s[0]) == home
                     ]
                 sites += alias_sites
+        elif kind == "tablefield":
+            # The table this was written into is reached under whatever name
+            # holds it, which the definition site does not give. Bare `name(`
+            # is not that call, so claiming those sites would be a false edge.
+            #
+            # No list, and no count either -- the same exit `caller_ambiguity`
+            # takes. `caller_count: 0` is the index's word for "nothing calls
+            # this", and writing it here would say that about the 85 rows that
+            # reach this branch, whose callers were never looked for. The other
+            # 6,866 table fields never arrive: they share a name with another
+            # definition and the ambiguity check above claims them first.
+            row["caller_unresolved"] = "table field"
+            continue
         else:
             skip = shadowed.get(row["name"], ())
             sites = [s for s in plain.get(row["name"], []) if s[0] not in skip]
@@ -995,7 +1123,7 @@ def discover(root: Path) -> list[tuple[str, Path]]:
     if core.exists():
         mods.append(("EllesmereUI", core))
     for child in sorted(root.iterdir()):
-        if not child.is_dir() or child.name in EXCLUDE_DIRS:
+        if not child.is_dir() or skip_dir(child.name):
             continue
         toc = child / f"{child.name}.toc"
         if toc.exists():
@@ -1008,13 +1136,57 @@ def module_of(rel: str, module_names: list[str]) -> str:
     return head if head in module_names else "EllesmereUI"
 
 
+# The options pages do not live with the module they configure. They are one
+# separate addon, EllesmereUIOptions, whose files are named after the module
+# each one builds pages for. Attributing a reference by folder alone therefore
+# credits every options row to EllesmereUIOptions, which puts it in a different
+# module from the key it reads -- and "where is this setting's control built"
+# then answers zero for every child module in the suite.
+OPTIONS_PAGE = re.compile(r"^EUI_(.+?)_(?:Options|ManagerPages)\.lua$")
+
+
+def options_page_module(rel: str, module_names: list[str]) -> str | None:
+    """Which module's settings an options file builds controls for.
+
+    Returns None for a file that is not an options page, and for the shared
+    widget library, which belongs to no single module.
+    """
+    parts = rel.split("/")
+    if len(parts) != 2 or parts[0] != "EllesmereUIOptions":
+        return None
+    fn = parts[1]
+
+    m = OPTIONS_PAGE.match(fn)
+    if m:
+        stem = m.group(1)
+        if stem.startswith("_"):  # EUI__General_Options.lua -- the suite's own page
+            return "EllesmereUI"
+        # EUI_QoL_RaidTools_Options.lua and EUI_QoL_Options.lua both configure
+        # EllesmereUIQoL, so the longest module name that matches the head of
+        # the stem wins over a literal join.
+        candidates = [n for n in module_names if ("EllesmereUI" + stem.replace("_", "")) == n]
+        if candidates:
+            return candidates[0]
+        head = stem.split("_", 1)[0]
+        for name in sorted(module_names, key=len, reverse=True):
+            if name == "EllesmereUI" + head:
+                return name
+        return None
+
+    # EllesmereUIDataBars_Options.lua -- named for the module outright.
+    if fn.endswith("_Options.lua"):
+        stem = fn[: -len("_Options.lua")]
+        return stem if stem in module_names else None
+    return None
+
+
 # --------------------------------------------------------------------------
 #  Source collection + fingerprinting
 # --------------------------------------------------------------------------
 
 def iter_lua(root: Path):
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in EXCLUDE_DIRS)
+        dirnames[:] = sorted(d for d in dirnames if not skip_dir(d))
         for fn in sorted(filenames):
             if not fn.endswith(".lua"):
                 continue
@@ -1065,17 +1237,24 @@ def valid_root(p: Path) -> bool:
     return (p / "EllesmereUI.toc").is_file()
 
 
-def resolve_root(explicit: str | None) -> Path:
-    candidates: list[Path] = []
+def root_candidates(explicit: str | None):
+    """Yield candidate roots cheapest first, so the search can stop early.
+
+    Yielded rather than collected because the wildcard sweep below costs 0.35 s
+    -- 84% of a no-op `--ensure`, and the skill runs one before every lookup.
+    An explicit path, the environment, and the previous build's root each name
+    the answer outright for one stat, so the sweep should only run when none of
+    them did.
+    """
     if explicit:
-        candidates.append(Path(explicit).expanduser())
+        yield Path(explicit).expanduser()
     if os.environ.get("ELLESMEREUI_ROOT"):
-        candidates.append(Path(os.environ["ELLESMEREUI_ROOT"]).expanduser())
+        yield Path(os.environ["ELLESMEREUI_ROOT"]).expanduser()
 
     meta_path = INDEX_DIR / "meta.json"
     if meta_path.is_file():
         try:
-            candidates.append(Path(json.loads(meta_path.read_text())["addon_root"]))
+            yield Path(json.loads(meta_path.read_text())["addon_root"])
         except Exception:
             pass
 
@@ -1090,15 +1269,17 @@ def resolve_root(explicit: str | None) -> Path:
             continue
         for depth in range(6):
             try:
-                candidates.extend(sorted(base.glob("*/" * depth + tail)))
+                yield from sorted(base.glob("*/" * depth + tail))
             except OSError:
                 continue
 
     for base in (home / "Repos", home / "repos", home / "src", home / "code", home):
         if base.is_dir():
-            candidates.extend(sorted(base.glob("EllesmereUI*")))
+            yield from sorted(base.glob("EllesmereUI*"))
 
-    for c in candidates:
+
+def resolve_root(explicit: str | None) -> Path:
+    for c in root_candidates(explicit):
         try:
             if valid_root(c):
                 return c.resolve()
@@ -1178,24 +1359,43 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
     keyset = {row["key"] for row in settings}
     refs = collect_refs(sources, keyset, module_names)
     defined_at = {f"{row['file']}:{row['line']}" for row in settings}
+    page_owner = {}
+    for src in sources:
+        owner = options_page_module(src.rel, module_names)
+        if owner:
+            page_owner[src.rel] = owner
+
+    def in_scope(mod: str, site: str, module: str) -> bool:
+        if mod == module:
+            return True
+        # An options page counts for the module it configures, not the one its
+        # file sits in. Scoping stays exact: a "size" row inside
+        # EUI_Nameplates_Options.lua credits Nameplates and nothing else.
+        return page_owner.get(site.rsplit(":", 1)[0]) == module
+
     for row in settings:
         hits = refs.get(row["key"], set())
         sites = sorted(
-            s for mod, s in hits if mod == row["module"] and s not in defined_at
+            s for mod, s in hits
+            if in_scope(mod, s, row["module"]) and s not in defined_at
         )
         row["refs"] = sites[:60]
         row["ref_count"] = len(sites)
-        options = [s for s in sites if "_Options.lua" in s]
+        # Membership of page_owner, not the file suffix: the RaidFrames and
+        # PlayerAuraBars managers are options pages named _ManagerPages.lua.
+        options = [s for s in sites if s.rsplit(":", 1)[0] in page_owner]
         row["options_refs"] = options[:10]
         # Every capped list carries its true length. Without this the caller
-        # cannot tell ten references from ten of ninety, and a third of these
-        # rows sit exactly at the cap -- a silent truncation reads as a
-        # complete answer to "where is this setting's control built".
+        # cannot tell ten references from ten of ninety -- and a silent
+        # truncation reads as a complete answer to "where is this setting's
+        # control built".
         row["options_ref_count"] = len(options)
-        # Same short name defined/read in other modules -- grep globally if the
-        # in-module references do not explain the behaviour you are chasing.
-        row["refs_other_modules"] = len(hits) - len(
-            [s for mod, s in hits if mod == row["module"]]
+        # Same short name declared and read in a module this key has nothing to
+        # do with -- grep globally if the in-scope references do not explain the
+        # behaviour you are chasing. An options page for this module is in
+        # scope, so it is not counted here.
+        row["refs_other_modules"] = len(
+            [s for mod, s in hits if not in_scope(mod, s, row["module"])]
         )
         row["used_by"] = [row["module"]]
 

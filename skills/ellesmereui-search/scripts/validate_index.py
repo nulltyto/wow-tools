@@ -218,18 +218,23 @@ def main() -> int:
         c.report(f"{fname} {field}", len(rows), bad)
 
     # Callers are capped the same way, and carry one extra invariant: a symbol
-    # states either a caller list or the number of definitions it could not be
-    # told apart from -- never both, and never neither. A row with no caller
-    # field at all would read as "nothing calls this", which is a different
-    # claim from "this name is ambiguous".
+    # states exactly one of three things -- the call sites, the number of
+    # definitions it could not be told apart from, or that its callers cannot
+    # be resolved at all. Never two, and never none. A row with no caller field
+    # would read as "nothing calls this", which is a different claim from
+    # either "this name is ambiguous" or "this is reached through a table".
+    #
+    # Two of these being present at once is the failure worth naming: a
+    # `tablefield` that also carried `caller_count: 0` satisfied a check for
+    # "has a list" while telling every reader that 6,951 functions were dead.
     bad = []
     for r in symbols:
-        has_list = "callers" in r
-        has_amb = "caller_ambiguity" in r
-        if has_list == has_amb:
-            bad.append(f"{r['file']}:{r['line']} {r['full']}: "
-                       f"callers={has_list} caller_ambiguity={has_amb}")
-        elif has_list:
+        states = [k for k in ("callers", "caller_ambiguity", "caller_unresolved") if k in r]
+        if len(states) != 1:
+            bad.append(f"{r['file']}:{r['line']} {r['full']}: states {states or 'nothing'}")
+            continue
+        state = states[0]
+        if state == "callers":
             if "caller_count" not in r:
                 bad.append(f"{r['file']}:{r['line']} {r['full']}: no caller_count")
             elif len(r["callers"]) > 40:
@@ -238,9 +243,13 @@ def main() -> int:
             elif r["caller_count"] < len(r["callers"]):
                 bad.append(f"{r['file']}:{r['line']} {r['full']}: caller_count="
                            f"{r['caller_count']} < {len(r['callers'])} listed")
-        elif r["caller_ambiguity"] < 2:
+        elif state == "caller_ambiguity":
+            if r["caller_ambiguity"] < 2:
+                bad.append(f"{r['file']}:{r['line']} {r['full']}: "
+                           f"caller_ambiguity={r['caller_ambiguity']} is not ambiguous")
+        elif "caller_count" in r:
             bad.append(f"{r['file']}:{r['line']} {r['full']}: "
-                       f"caller_ambiguity={r['caller_ambiguity']} is not ambiguous")
+                       f"caller_unresolved with a caller_count of {r['caller_count']}")
     c.report("symbols.jsonl callers", len(symbols), bad)
 
     print("\nRECALL -- every named declaration has a record")

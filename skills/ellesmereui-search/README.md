@@ -4,7 +4,7 @@ A [Claude Code](https://claude.com/claude-code) skill for navigating the
 [EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI) World of Warcraft
 addon suite.
 
-EllesmereUI is ~137 Lua files and ~400k lines across 20 addon modules, with several
+EllesmereUI is ~148 Lua files and ~447k lines across 21 addon modules, with several
 single files over 1 MB. Asking Claude "where is `ApplyCastBarTexture` defined",
 "what's the default for `absorbCleanAlpha` and which module owns it", or "where does
 the options UI for that setting live" means grepping a megabyte of Lua and reading
@@ -34,6 +34,24 @@ profile keys come from a `defaults` table and carry a literal default. Suite-wid
 default anywhere — the `store` field distinguishes them, and `used_by` lists every
 module that touches the key.
 
+## Asking it something
+
+One subcommand per question, and the freshness check runs inside each one:
+
+```bash
+python3 scripts/query.py def SpecIndexFor            # where a symbol is defined
+python3 scripts/query.py callers ApplyCastBarTexture # what breaks if I change it
+python3 scripts/query.py setting hideUnusable        # default, declaration, UI control
+python3 scripts/query.py label "Hide Unusable"       # bug-report wording -> setting key
+python3 scripts/query.py event UNIT_HEALTH           # every registration, suite-wide
+python3 scripts/query.py grep Quickdraw              # when the right file is unclear
+```
+
+The output states what each answer cannot carry: a list that is capped, a
+caller count scoped to one receiver, a match that was a substring rather than
+the name asked for. Grepping the JSONL directly still works and returns whole
+records.
+
 ## Install
 
 See the [repo README](../../README.md). If your addon checkout isn't in a standard
@@ -52,7 +70,7 @@ python3 scripts/build_index.py --ensure
 ```
 
 `--ensure` hashes the content of every indexed file and rebuilds only when something
-actually changed, so it is a no-op when current and ~12 seconds when not. It detects
+actually changed, so it is a no-op when current and ~7.5 seconds when not. It detects
 uncommitted working-tree edits, not just commits — which matters, since you are
 usually asking about code you just wrote.
 
@@ -88,6 +106,32 @@ records keyed `r`, `g` and `b`, so nothing answered `castbarFillColor`, and each
 inherited the references of a one-letter identifier — 787 records, 19% of the index,
 every one unfindable and carrying refs belonging to some other `b`.
 
+A bare `Name = function()` is not a global. It is also how a table constructor
+holds a handler and how a forward-declared local gets its body, and calling all
+three `global` was wrong for 7,243 of the 7,265 records that claimed it. They are
+told apart by where the definition sits: inside an open `{` it is a `tablefield`,
+and outside one it is the `local` of that name when the file declares one at any
+indent — the options files forward-declare inside a builder block and fill the
+body thousands of lines below. Position decides before the name does, since a key
+inside a constructor is a field of that table whether or not the file also
+declares that local. That leaves `global` meaning global — 22 records rather than
+7,265, four of which are assignments to a function parameter — which
+is what makes the field worth filtering on. A `tablefield` is invoked through
+whatever table holds it, a name its definition site does not carry, so those
+records say `caller_unresolved` instead of claiming the bare `Name(` calls
+elsewhere in the tree.
+
+That reclassification has a price, paid in the one place a declaration and its
+body are written apart: `local function CloseSnapMenu() end` up top and
+`CloseSnapMenu = function()` further down are one variable, but they are two
+records keyed the same way, so the pair reads as two definitions competing for
+one name and both say `caller_ambiguity: 2`. 483 records are suppressed this
+way, two of which held a correct list before. Collapsing same-name locals per
+file is not the fix — `EUI_Quickdraw_Options.lua` declares two genuinely
+unrelated nested locals called `Add`, and merging those handed each the other's
+callers. Separating the two cases needs block scope, which this builder does
+not track.
+
 Call sites are matched on the whole call expression, not the bare name. A method
 counts only `owner:Name(`, a field only `owner.Name(`, and a local only calls in
 its own file, since one Lua file is one chunk. Bare-name matching would report
@@ -110,8 +154,21 @@ is not, because the count stays plausible. The row now carries an `aliases`
 field naming the other call expressions, so the number can be checked instead
 of believed. An alias claimed by two definitions is dropped rather than guessed.
 
+A name is only global where nothing shadows it. A file-scope `local X` hides a
+global `X` for the rest of that chunk, and most such bindings are not function
+definitions — `local StartButtonGlow = _G_Glows.StartButtonGlow` opens
+EllesmereUINameplates, so the calls below it belong to that and not to the
+same-named local in EllesmereUIAuraBuffReminders, which is where they were being
+credited. Reading every file's chunk-scope declarations, rather than only the
+ones that define a function, removes that class of false edge.
+
+Only shipped code is indexed. Any dotted directory is skipped, not a list of the
+ones seen so far: three files under `.tools/` were offline helpers in no TOC, and
+their 40 symbols collided by name with EllesmereUIQuickdraw's, pushing 14 real
+functions to `caller_ambiguity` with no list at all.
+
 Where a definition cannot be told apart from others called the same way, the
-record says so — `caller_ambiguity: N` — and gives no list. That covers 46% of
+record says so — `caller_ambiguity: N` — and gives no list. That covers 44% of
 definitions, nearly all of them AceConfig option callbacks: 1402 functions named
 `getValue`, invoked by the config library rather than by name. A caller list
 averaged over 1402 candidates would read like an answer while being noise.
@@ -122,7 +179,7 @@ what it claims — a wrong line number is worse than no index), **caps** (every 
 list carries its true length, so a sample can never be mistaken for a complete answer),
 and **recall** (every named function declaration has a record, and every defaults table
 in the source produced records — which is how you notice an extractor regex silently
-losing coverage after the codebase adopts a new idiom). A clean run asserts 120,000+
+losing coverage after the codebase adopts a new idiom). A clean run asserts 137,000+
 record-to-source checks with zero declarations missed.
 
 Recall is the axis that earns its keep, because losing coverage is invisible from the

@@ -24,6 +24,20 @@ Function entries include Blizzard's `SecretArguments` taint annotations (`NotAll
 
 Indexed from wow-ui-source `12.0.5`. The index records its own `source_version`, `generated_on` date, and a content fingerprint of the export it was built from, so staleness is always detectable.
 
+## Asking it something
+
+```bash
+python3 scripts/query.py func SetSpecialization      # signature, taint marking, note
+python3 scripts/query.py event SPELL_UPDATE_COOLDOWN # the whole payload, numbered
+python3 scripts/query.py table AddOnProfilerMetric   # enum members and their values
+python3 scripts/query.py search Specialization       # substring across every section
+python3 scripts/query.py status                      # which index is loaded
+```
+
+It prefers `api_index.local.json` when that exists, since it is the same data
+with Blizzard's notes. Grepping the JSON directly still works — one entry per
+line means one exact-name grep returns everything.
+
 ## Blizzard's prose notes are not in the bundled index
 
 The export carries a `Documentation` note on 1,307 entries and fields — one or two sentences of Blizzard's own writing, saying what a nil means or which event a field may be trusted after. The bundled index leaves them out, and its header says so: `"documentation": "omitted"`, with `source_documented` recording how many the export holds.

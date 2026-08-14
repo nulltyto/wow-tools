@@ -205,7 +205,76 @@ The remaining constructs a grammar would reach:
 | Receiver arriving as a parameter | 192 missed | `barCtx.X()` for `ctx.X()`. Real dataflow; nothing syntactic links them. |
 | Definitions suppressed as ambiguous | 7,547 | Mostly the AceConfig `get = function(info)` idiom, where the missing list costs nothing. |
 | `hooksecurefunc` targets | 392 | The hooked name is an argument, often a variable; resolving it means following the binding. |
-| Functions in table fields | 7,103 | Table-driven config and anonymous handlers, which no definition regex names. |
+| Functions in table fields | 7,103 | Named by `FUNC_ASSIGN` already -- see the correction below. What a grammar would add is the table each one belongs to. |
+
+## Correction, 14 August 2026
+
+The "functions in table fields" row above was wrong, and it was the strongest
+remaining argument on this page for adopting a grammar. `FUNC_ASSIGN` matches
+`^name = function(` wherever it appears, so 6,951 of those definitions were in
+`symbols.jsonl` the whole time. What was missing was not the record but the
+*kind*: they were labelled `global`, along with every forward-declared local.
+
+| `kind` before | Rows | What they actually were |
+|---|---|---|
+| `global` | 7,265 | 6,951 table fields, 292 forward-declared locals, **22 globals** |
+
+The builder now separates the three by where the definition sits -- inside an
+open `{` it is a `tablefield`, outside one it is that file's `local` when the
+file declares the name -- and `global` means global. This is a classification
+fix, not a recall fix, and it needed no grammar: the brace depth and the
+declarations are both already in the masked text.
+
+Two orderings in that rule are load-bearing, and the first pass got both wrong.
+The declaration counts at **any** indent, because the options files
+forward-declare inside a builder block and fill the body thousands of lines
+below; restricting it to column 0 left 50 of 120 `global` rows that were really
+locals, two of which collected cross-file call sites belonging to an unrelated
+function of the same name. But **position is checked before the name**: a key
+inside a constructor is a field of that table even when the file declares a
+local of the same spelling, and letting the declaration win instead moved 334
+table fields into `local` and handed them the local's callers.
+
+What is left is 4 rows of the 22: a bare assignment to a function parameter,
+which needs parameter scope this builder does not track. All four are ambiguous
+by name and carry no caller list, so the cost is the label rather than an edge.
+
+The other residual costs a list. A forward declaration and its body are one
+variable with two definition sites (`local function CloseSnapMenu() end` up
+top, `CloseSnapMenu = function()` further down), and once both are `local` they
+key the same way and the pair reads as two definitions competing for one name.
+483 records are suppressed as `caller_ambiguity: 2` by this; two of them,
+`CloseSnapMenu` and `RefreshAllImportVisuals`, held a correct list before the
+reclassification. That is the honest price of the fix -- it removed 3 false
+cross-file edges and cost 7 true same-file ones, which is the trade this index
+makes everywhere.
+
+It cannot be fixed by collapsing same-name locals per file. That was tried:
+`EUI_Quickdraw_Options.lua` declares two genuinely unrelated nested locals
+named `Add`, and merging them handed each the other's call sites -- 431
+validator failures. Telling a declaration-plus-body pair from two nested
+functions needs block scope, which is the same boundary the parameter case sits
+on. **This is the strongest remaining candidate on this page for a grammar**:
+unlike method dispatch it is not a type-inference problem, it is a scope
+problem, and a grammar hands you scope for free.
+
+Three smaller things went with it, all measured against the same tree:
+
+- **Shadowing.** A file-scope `local X` bound from anything other than a
+  function definition was invisible to the caller pass, so 10 cross-file edges
+  were credited to a same-named local in another addon. Reading every file's
+  chunk-scope declarations removes them.
+- **`.tools/`.** Three offline helper scripts in no TOC contributed 40 symbols
+  and pushed 14 real EllesmereUIQuickdraw functions to `caller_ambiguity`.
+  Excluded now by a dotted-directory rule rather than a list of known names.
+- **Comment prose as a reference.** Masking blanks a comment whole, so
+  `-- changedAxis: "width", "height"` read as a reference to the `width`
+  setting -- 264 of them across 14 records. A real string keeps its opening
+  quote and a comment does not, which separates the two exactly.
+
+None of this moves the recommendation. It moves the *reason*: the gap this page
+attributed to the regexes was mostly a gap in what the records said about
+themselves.
 
 ## Recommendation
 
@@ -272,3 +341,18 @@ The four checks worth repeating after any grammar or extractor change:
    that says you did not. Expect some listed callers to disappear without a
    regression, since `CALLER_CAP` shows only the first 40 and `caller_count`
    carries the truth.
+
+6. For every bare-name edge, check that the calling file does not declare its
+   own chunk-scope `local` of that name above the call line. If it does, the
+   call reaches that local and the edge is false. `validate_index.py` cannot
+   find these: precision there asks whether the cited line mentions the name,
+   and a shadowed call mentions it perfectly. Exclude same-file callers before
+   counting, or the forward-declaration idiom
+   (`local function Build() end` up top, `Build = function()` below) reads as
+   hundreds of false hits when every one of them is correct.
+
+   Note also that ambiguity hides coverage from check 1 of the recall set: a
+   row suppressed as `caller_ambiguity` carries no `callers`, so the exact
+   per-file count simply skips it. A change that quietly pushes rows into
+   ambiguity looks like a clean run with a smaller denominator. Watch the
+   denominator.

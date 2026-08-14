@@ -9,6 +9,7 @@ caught by nothing else.
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -43,10 +44,30 @@ def test_scripts_named_in_skill_md_exist(skill_dir: Path):
 
     A skill whose instructions point at a renamed script fails only at the
     moment an agent tries to follow them, which is the worst time to find out.
+
+    A reference may name another skill -- `<ellesmereui-search>/scripts/x.py`,
+    the routing the orchestrator skills are made of -- and that is resolved
+    against the skill it names. Routing is the whole value of those skills, so
+    a script that moves out from under one breaks it completely while leaving
+    every other check green.
     """
     text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
-    referenced = set(re.findall(r"scripts/([A-Za-z0-9_.-]+\.py)", text))
-    missing = [s for s in sorted(referenced) if not (skill_dir / "scripts" / s).is_file()]
+    known = {p.name for p in SKILL_DIRS}
+    missing = []
+    for prefix, script in re.findall(r"<([a-z0-9-]+)>/scripts/([A-Za-z0-9_.-]+\.py)", text):
+        if prefix in ("skill", skill_dir.name):
+            owner = skill_dir
+        elif prefix in known:
+            owner = skill_dir.parent / prefix
+        else:
+            missing.append(f"{prefix} (no such skill)")
+            continue
+        if not (owner / "scripts" / script).is_file():
+            missing.append(f"{prefix}/scripts/{script}")
+
+    unqualified = re.findall(r"(?<![>/\w])scripts/([A-Za-z0-9_.-]+\.py)", text)
+    missing += [f"scripts/{s}" for s in sorted(set(unqualified))
+                if not (skill_dir / "scripts" / s).is_file()]
     assert not missing, f"SKILL.md references missing scripts: {missing}"
 
 
@@ -472,6 +493,393 @@ def test_an_addon_private_table_does_not_export_across_modules():
     })
     row = rows[("ModA/a.lua", "Refresh")]
     assert row["callers"] == ["ModA/a.lua:5"], row["callers"]
+
+
+# --- `Name = function()` is three different things ---------------------------
+#
+# A bare assignment is a table field inside a constructor, the body of a
+# forward-declared local outside one, and a global only when it is neither.
+# Calling all three `global` was wrong for 7,234 of the 7,265 rows that claimed
+# it, and the caller pass reads `kind` to decide whether a bare `Name(`
+# anywhere in the tree is a call to this definition.
+
+
+def test_a_handler_in_a_table_constructor_is_not_a_global():
+    """It is reached through the table, whose name the definition site lacks.
+
+    Claiming the bare `Name(` calls elsewhere in the tree would be a false
+    edge, so the row says so instead of guessing.
+    """
+    rows = _callers({
+        "ModA/a.lua": (
+            "local handlers = {\n"
+            "    Refresh = function() end,\n"
+            "}\n"
+        ),
+        "ModB/b.lua": "Refresh()\n",
+    })
+    row = rows[("ModA/a.lua", "Refresh")]
+    assert row["kind"] == "tablefield"
+    assert row["caller_unresolved"] == "table field"
+    assert "callers" not in row and "caller_count" not in row
+
+
+def test_a_forward_declared_local_is_not_a_global_at_any_indent():
+    """The big options files declare inside a block and fill the body far below.
+
+    `local BuildBossOptions` sits indented in a builder, and the body lands
+    thousands of lines later as a bare assignment. Read as a global, that
+    definition collects bare calls from the whole tree; read as a local, it
+    collects its own file's, which is where they are. 50 of the 120 rows that
+    claimed `global` were this, and two of them took cross-file call sites
+    belonging to an unrelated function of the same name.
+    """
+    rows = _callers({
+        "ModA/a.lua": (
+            "do\n"
+            "    local BuildBossOptions\n"
+            "    BuildBossOptions = function(y) end\n"
+            "    BuildBossOptions(1)\n"
+            "end\n"
+        ),
+        "ModB/b.lua": "BuildBossOptions(2)\n",
+    })
+    row = rows[("ModA/a.lua", "BuildBossOptions")]
+    assert row["kind"] == "local", "an indented declaration still declares a local"
+    assert row["callers"] == ["ModA/a.lua:4"], row["callers"]
+
+
+def test_a_constructor_key_beats_a_local_of_the_same_name():
+    """Position decides before the name does, and only that order is safe.
+
+    A file that forward-declares `local Refresh` and also writes `Refresh =`
+    as a key inside a table is writing two unrelated things. Letting the
+    declaration win hands the local's call sites to a function nothing calls
+    by that bare name -- 334 rows in this tree.
+    """
+    rows = _callers({
+        "ModA/a.lua": (
+            "local Refresh\n"
+            "local handlers = {\n"
+            "    Refresh = function() end,\n"
+            "}\n"
+            "Refresh()\n"
+        ),
+    })
+    row = rows[("ModA/a.lua", "Refresh")]
+    assert row["kind"] == "tablefield", "a key in a constructor is a field of that table"
+
+
+def test_a_real_global_is_still_a_global():
+    """The denial rules must not swallow the class they are narrowing.
+
+    22 of these survive in the tree -- the macro-callable entry points, named
+    `EllesmereUI_StartPartyMode` and the like -- and they are the reason the
+    field is worth filtering on at all.
+    """
+    rows = _callers({
+        "ModA/a.lua": "EllesmereUI_StartPartyMode = function() end\n",
+        "ModB/b.lua": "EllesmereUI_StartPartyMode()\n",
+    })
+    row = rows[("ModA/a.lua", "EllesmereUI_StartPartyMode")]
+    assert row["kind"] == "global"
+    assert row["callers"] == ["ModB/b.lua:1"], "a global is callable from anywhere"
+
+
+def test_a_dotted_directory_is_not_indexed(tmp_path):
+    """Offline tooling is not shipped code, and it costs real caller lists.
+
+    Three files under `.tools/` contributed 40 symbols and pushed 14 real
+    EllesmereUIQuickdraw functions to `caller_ambiguity` with no list at all,
+    because an offline helper happened to reuse their names.
+    """
+    B = _eui_builder()
+    for name in (".tools", ".git", ".release", ".github", "Libs", "media"):
+        assert B.skip_dir(name), name
+    assert not B.skip_dir("EllesmereUIQuickdraw")
+
+    root = tmp_path / "addons"
+    (root / ".tools").mkdir(parents=True)
+    (root / "ModA").mkdir()
+    (root / ".tools" / "helper.lua").write_text("local function Refresh() end\n")
+    (root / "ModA" / "a.lua").write_text("local function Refresh() end\n")
+    found = {rel for rel, _ in B.iter_lua(root)}
+    assert found == {"ModA/a.lua"}, found
+
+
+def test_prose_that_names_a_setting_key_is_not_a_reference_to_it():
+    """A comment is blanked whole, so its offsets look like a blanked string.
+
+    `-- changedAxis: "width", "height"` read as a reference to the `width`
+    setting. A real string literal keeps its opening quote, because masking
+    starts one byte after it -- which is what tells the two apart.
+    """
+    B = _eui_builder()
+    src = B.Source("ModA/a.lua", (
+        '-- changedAxis: "width", "height"\n'
+        'local v = p["width"]\n'
+    ))
+    refs = B.collect_refs([src], {"width", "height"}, ["ModA"])
+    assert "height" not in refs, "the comment must not count as a reference"
+    assert sorted(s for _, s in refs["width"]) == ["ModA/a.lua:2"]
+
+
+# --- Options pages are in a different addon from the settings they build -----
+
+
+def test_an_options_file_is_attributed_to_the_module_it_configures():
+    """The file name is the only link between a page and its module."""
+    B = _eui_builder()
+    mods = ["EllesmereUIQuickdraw", "EllesmereUIRaidFrames", "EllesmereUIQoL",
+            "EllesmereUIDataBars", "EllesmereUIOptions"]
+    page = lambda rel: B.options_page_module(rel, mods)  # noqa: E731
+
+    assert page("EllesmereUIOptions/EUI_Quickdraw_Options.lua") == "EllesmereUIQuickdraw"
+    assert page("EllesmereUIOptions/EUI_RaidFrames_ManagerPages.lua") == "EllesmereUIRaidFrames"
+    assert page("EllesmereUIOptions/EUI_QoL_RaidTools_Options.lua") == "EllesmereUIQoL"
+    assert page("EllesmereUIOptions/EllesmereUIDataBars_Options.lua") == "EllesmereUIDataBars"
+    assert page("EllesmereUIOptions/EUI__General_Options.lua") == "EllesmereUI"
+
+    # The shared widget library configures nothing, and a module's own file is
+    # already attributed by its folder.
+    assert page("EllesmereUIOptions/EllesmereUI_Widgets.lua") is None
+    assert page("EllesmereUIQuickdraw/EllesmereUIQuickdraw.lua") is None
+    assert page("EllesmereUIOptions/EUI_Unknown_Options.lua") is None
+
+
+def _build_tree(tmp_path, files: dict[str, str]):
+    """Run the real builder over a fabricated checkout, into a temp index."""
+    B = _eui_builder()
+    root = tmp_path / "addons"
+    for rel, text in files.items():
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    out = tmp_path / "index"
+    out.mkdir()
+    B.INDEX_DIR = out
+    fp, n_files, n_bytes = B.fingerprint(root)
+    B.build(root, fp, n_files, n_bytes)
+    import json as _json
+    return [_json.loads(line) for line in (out / "settings.jsonl").read_text().splitlines() if line]
+
+
+_SUITE_TOC = "## Title: EllesmereUI\n## SavedVariables: EllesmereUIDB\nEllesmereUI.lua\n"
+
+
+def test_a_settings_key_finds_its_control_in_the_options_addon(tmp_path):
+    """`options_refs` is the answer to "where is this setting's control built".
+
+    Every options page lives in the separate EllesmereUIOptions addon, so
+    attributing a reference by its folder put the page in a different module
+    from the key it reads and dropped it. The field then answered zero for
+    every child module in the suite -- 92% of all settings -- while reading
+    like a finding.
+    """
+    rows = _build_tree(tmp_path, {
+        "EllesmereUI.toc": _SUITE_TOC,
+        "EllesmereUI.lua": "local EllesmereUI = {}\n",
+        "EllesmereUIQuickdraw/EllesmereUIQuickdraw.toc": "## Title: Q\nEllesmereUIQuickdraw.lua\n",
+        "EllesmereUIQuickdraw/EllesmereUIQuickdraw.lua":
+            "local DB_DEFAULTS = { profile = { hideUnusable = true } }\n"
+            "local function Use() return p.hideUnusable end\n",
+        "EllesmereUIOptions/EllesmereUIOptions.toc": "## Title: O\nEUI_Quickdraw_Options.lua\n",
+        "EllesmereUIOptions/EUI_Quickdraw_Options.lua":
+            'local row = { text="Hide Unusable", getValue=function() return ACfg("hideUnusable") end }\n',
+    })
+    row = next(r for r in rows if r["key"] == "hideUnusable")
+    assert row["module"] == "EllesmereUIQuickdraw"
+    assert row["options_ref_count"] == 1, row
+    assert row["options_refs"] == ["EllesmereUIOptions/EUI_Quickdraw_Options.lua:1"]
+    # The page is in scope now, so it is not also reported as a foreign module.
+    assert row["refs_other_modules"] == 0, row
+
+
+def test_an_options_page_credits_only_the_module_it_configures(tmp_path):
+    """Short key names repeat across modules; the page name keeps them apart.
+
+    `size` is declared independently in most modules. Counting any reference
+    from the options addon would credit a Nameplates row to Quickdraw's key
+    and back again, which is the false positive the folder scoping existed to
+    prevent in the first place.
+    """
+    rows = _build_tree(tmp_path, {
+        "EllesmereUI.toc": _SUITE_TOC,
+        "EllesmereUI.lua": "local EllesmereUI = {}\n",
+        "EllesmereUIQuickdraw/EllesmereUIQuickdraw.toc": "## Title: Q\nEllesmereUIQuickdraw.lua\n",
+        "EllesmereUIQuickdraw/EllesmereUIQuickdraw.lua":
+            "local DB_DEFAULTS = { profile = { size = 24 } }\n",
+        "EllesmereUINameplates/EllesmereUINameplates.toc": "## Title: N\nEllesmereUINameplates.lua\n",
+        "EllesmereUINameplates/EllesmereUINameplates.lua":
+            "local DB_DEFAULTS = { profile = { size = 12 } }\n",
+        "EllesmereUIOptions/EllesmereUIOptions.toc": "## Title: O\nEUI_Nameplates_Options.lua\n",
+        "EllesmereUIOptions/EUI_Nameplates_Options.lua":
+            'local row = { getValue=function() return SGet("size") end }\n',
+    })
+    by_module = {r["module"]: r for r in rows if r["key"] == "size"}
+    assert by_module["EllesmereUINameplates"]["options_ref_count"] == 1
+    assert by_module["EllesmereUIQuickdraw"]["options_ref_count"] == 0, \
+        "a Nameplates page must not build a Quickdraw control"
+
+
+# --- The index query CLI -----------------------------------------------------
+#
+# The index was current and unread through two whole sessions because a lookup
+# written by hand cost more than the grep of the source it replaced. These
+# check the parts of query.py that decide whether an answer can be over-read.
+
+
+def _query_module():
+    import importlib.util
+
+    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "query.py"
+    spec = importlib.util.spec_from_file_location("eui_query", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("skill,before,after", [
+    ("ellesmereui-search", ["--no-ensure", "--limit", "3", "status"],
+     ["--no-ensure", "status", "--limit", "3"]),
+    ("wow-api-search", ["--limit", "3", "search", "Specialization"],
+     ["search", "Specialization", "--limit", "3"]),
+])
+def test_a_flag_works_on_either_side_of_the_subcommand(skill, before, after):
+    """Both orderings parse, and both mean the same thing.
+
+    Two separate argparse traps live here. Flags declared only on the main
+    parser reject `... status --limit 3` outright; flags declared on both
+    through `parents=` parse `--limit 3 status` and then quietly overwrite it
+    with the subparser's default, so the flag does nothing and says nothing.
+    The second is worse: a --limit that is ignored looks like an index that has
+    no more records.
+    """
+    script = str(REPO / "skills" / skill / "scripts" / "query.py")
+    runs = [subprocess.run([sys.executable, script] + argv,
+                           capture_output=True, text=True, timeout=180)
+            for argv in (before, after)]
+    for proc, argv in zip(runs, (before, after)):
+        assert "unrecognized arguments" not in proc.stderr, (argv, proc.stderr)
+        assert proc.returncode == 0, (argv, proc.stderr)
+    assert runs[0].stdout == runs[1].stdout, "flag position changed the answer"
+
+
+def test_query_says_when_a_list_is_a_sample_rather_than_an_answer(capsys):
+    """Both truncations are stated: the CLI's --limit and the index's own cap."""
+    Q = _query_module()
+    Q.show_list(["a:1", "b:2", "c:3"], 40, 2, label="callers")
+    out = capsys.readouterr().out
+    assert "showing 2 of 3 callers" in out, out
+    assert "true count is 40" in out, out
+
+    Q.show_list(["a:1", "b:2"], 2, 20)
+    assert "true count" not in capsys.readouterr().out
+
+
+def test_query_marks_a_receiver_scoped_caller_count_as_a_floor(capsys):
+    """A field or method is credited only through its own receiver.
+
+    A count of 1 on one of those is unproven, and the difference between a
+    blast radius of one line and one nobody has seen is exactly what a
+    signature change turns on. A local has no receiver to rename, so its count
+    is the complete answer and carries no caveat.
+    """
+    Q = _query_module()
+    assert "floor" in Q.caller_caveat({"kind": "field", "name": "SpecPositionName", "caller_count": 1})
+    assert "floor" in Q.caller_caveat({"kind": "method", "name": "Update", "caller_count": 0})
+    assert Q.caller_caveat({"kind": "local", "name": "SpecIndexFor", "caller_count": 1}) == ""
+    assert Q.caller_caveat({"kind": "field", "name": "Wide", "caller_count": 40}) == ""
+
+
+def test_query_labels_a_substring_match_as_one(capsys):
+    """`alwaysShow` and `alwaysShowButtons` are different settings."""
+    Q = _query_module()
+    Q.fuzzy_note(False, "alwaysShow", "key")
+    assert "no exact key match" in capsys.readouterr().out
+    Q.fuzzy_note(True, "alwaysShowButtons", "key")
+    assert capsys.readouterr().out == ""
+
+
+# --- The API query CLI -------------------------------------------------------
+
+
+def _api_query_module():
+    import importlib.util
+
+    path = REPO / "skills" / "wow-api-search" / "scripts" / "query.py"
+    spec = importlib.util.spec_from_file_location("api_query", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_api_query_renders_the_taint_marking_with_the_signature(capsys):
+    """`secret_arguments` is the field a combat-path change turns on.
+
+    A PR in this addon answered its taint checklist line without a lookup,
+    while the index carried the marking all along. Printing it beside the
+    signature is what makes the cheap answer the one in front of you.
+    """
+    Q = _api_query_module()
+    Q.render_function("SetSpecialization", {
+        "qualified_name": "C_SpecializationInfo.SetSpecialization",
+        "system": "SpecializationInfo", "file": "SpecializationInfoDocumentation.lua",
+        "arguments": [{"name": "specIndex", "type": "luaIndex", "nilable": False}],
+        "returns": [{"name": "success", "type": "bool", "nilable": False}],
+        "secret_arguments": "AllowedWhenUntainted",
+    }, {"documentation": "included"})
+    out = capsys.readouterr().out
+    assert "C_SpecializationInfo.SetSpecialization(specIndex: luaIndex)  ->  success: bool" in out
+    assert "AllowedWhenUntainted" in out
+    assert "note: Blizzard records none" in out, "an absent note is a fact worth stating"
+
+
+def test_api_query_numbers_every_payload_argument(capsys):
+    """A handler that binds fewer args than the event sends drops the discriminator.
+
+    SPELL_UPDATE_COOLDOWN's fourth argument is how Blizzard tells a global
+    cooldown from a spell cooldown, and a session reconstructed that
+    distinction by hand after reading only the first.
+    """
+    Q = _api_query_module()
+    Q.render_event("SPELL_UPDATE_COOLDOWN", {
+        "literal_name": "SPELL_UPDATE_COOLDOWN", "name": "SpellUpdateCooldown",
+        "system": "SpellBook", "file": "SpellBookDocumentation.lua",
+        "payload": [{"name": "spellID", "type": "number", "nilable": True},
+                    {"name": "baseSpellID", "type": "number", "nilable": True},
+                    {"name": "category", "type": "number", "nilable": True},
+                    {"name": "startRecoveryCategory", "type": "number", "nilable": True}],
+    }, {"documentation": "included"})
+    out = capsys.readouterr().out
+    assert "payload (4 args" in out
+    assert "4. startRecoveryCategory: number?" in out
+
+
+def test_api_query_says_when_the_index_is_the_one_without_prose(capsys):
+    """Silence from the bundled index means the copy, not the entry."""
+    Q = _api_query_module()
+    Q.render_doc({"file": "SpellDocumentation.lua"},
+                 {"documentation": "omitted", "source_documented": 1307})
+    out = capsys.readouterr().out
+    assert "the bundled copy omits" in out and "1307" in out
+
+
+def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys):
+    """Events are keyed by literal AND camelCase name; a search must not double."""
+    Q = _api_query_module()
+    index = {"events": {
+        "ACTIVE_PLAYER_SPECIALIZATION_CHANGED": {
+            "literal_name": "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "system": "Unit"},
+        "ActivePlayerSpecializationChanged": {
+            "literal_name": "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "system": "Unit"},
+    }}
+    args = argparse.Namespace(pattern="Specialization", limit=25, index=None, json=False)
+    Q.load_index = lambda explicit=None: (index, Path("fake.json"))
+    Q.cmd_search(args)
+    out = capsys.readouterr().out
+    assert out.count("ACTIVE_PLAYER_SPECIALIZATION_CHANGED") == 1, out
+    assert "== events (1)" in out, out
 
 
 # --- The skills point at things that exist -----------------------------------

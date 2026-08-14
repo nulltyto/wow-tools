@@ -12,16 +12,21 @@ and reads like a fact to the next person.
 
 This skill is the order to work in. Follow it top to bottom.
 
-## If the report is "slow", not "wrong", use `eui-perf`
+## If the report is not "wrong", this is the wrong loop
 
-This loop is for a behaviour that is incorrect. A request to make something
-cheaper — "find optimization opportunities", "why do I drop frames", "audit this
-module for hot paths", anything arriving with fps numbers attached — inverts the
-first step: there, the measurement comes before the code, because the module's
-share of the frame decides whether the audit is worth running at all.
+This one is for a behaviour that is incorrect.
 
-Load `eui-perf` for that and come back here only if the profiling turns up a
-behaviour that is wrong rather than slow.
+A request to make something cheaper — "find optimization opportunities", "why do
+I drop frames", "audit this module for hot paths", anything arriving with fps
+numbers attached — inverts the first step: there, the measurement comes before
+the code, because the module's share of the frame decides whether the audit is
+worth running at all. Load `eui-perf`, and come back here only if the profiling
+turns up a behaviour that is wrong rather than slow.
+
+A request for something that does not exist yet — "can we add", "is it possible
+to", "do it like that other thing" — is `eui-addon-feature`. Its middle steps
+differ: find the sibling the request names and match every dispatch site it
+has, and decide what a stored value resolves against before writing any of it.
 
 ## Correctness first, cost a close second
 
@@ -128,10 +133,11 @@ actually implements, the evidence, and what the reporter believed instead. Then
 offer the options — do nothing, change the default, add an opt-in — and let the
 user pick. Do not start building the one you prefer.
 
-When the user picks one, the work is now a feature rather than a fix, and the
-loop still applies: steps 4 through 7 are about the change, not about the bug.
-This is where they get skipped, because "yes, do it" reads like permission to
-edit. It is not; it is the start of step 4.
+When the user picks one, the work is now a feature rather than a fix: load
+`eui-addon-feature` and follow it from its step 2. "Yes, do it" reads like
+permission to edit, which is where the design steps get skipped -- and a
+feature has failure modes this loop does not cover, chiefly a value that
+resolves correctly on the character that wrote it and on no other.
 
 ### 4. Design for correctness, and name the failure direction
 

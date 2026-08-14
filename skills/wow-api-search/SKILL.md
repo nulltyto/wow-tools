@@ -34,7 +34,27 @@ Always search before reading. Start narrow, broaden only if needed.
 
 ### For signatures, event payloads, enums, structures — use the index first
 
-The index stores one complete entry per line, so a single exact-name Grep returns everything — no context flags needed:
+```bash
+python3 <skill>/scripts/query.py func SetSpecialization
+python3 <skill>/scripts/query.py event SPELL_UPDATE_COOLDOWN
+python3 <skill>/scripts/query.py table AddOnProfilerMetric
+python3 <skill>/scripts/query.py search Specialization
+python3 <skill>/scripts/query.py system SpecializationInfo
+```
+
+`query.py` picks the local index over the bundled one automatically, renders
+the entry with its taint marking and Blizzard's note attached, and says so when
+a note is absent rather than leaving silence to be read as "no caveat".
+`--json` gives the raw entry, `--limit` widens a field list, `--index` points
+at a specific file, and `status` reports which index is loaded.
+
+**This is the step that gets skipped.** Two sessions in the EllesmereUI addon
+hand-grepped a `wow-ui-source` clone five times between them and never opened
+this index, which had the signature, the payload, and the
+`secret_arguments` marking that answered the PR's taint checklist. A grep of
+the clone finds the declaration and leaves the caveats behind.
+
+The index also stores one complete entry per line, so a single exact-name Grep still returns everything — no context flags needed:
 
 ```
 Grep pattern="\"GetMapInfo\":" path="<index_path>" output_mode="content"

@@ -1,32 +1,53 @@
 ---
 name: ellesmereui-search
-description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use it whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, and the EllesmereUI* child addons). Triggers on "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "what reads this profile key", "which files handle event E", "what calls this function and what breaks if I change it", "audit this module for hot paths", or any navigation or survey task in this addon. Reach for it first when a bug report or a performance question arrives, before grepping the tree by hand. This indexes EllesmereUI's own code — for Blizzard's API, use wow-api-search.
+description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use it whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, and the EllesmereUI* child addons). Triggers on "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "which files handle event E", "what calls this function and what breaks if I change it", or any navigation or survey task in this addon. Reach for it first when a bug report, a feature request, or a performance question arrives, before grepping by hand — including when adding something, since a new variant must be wired everywhere the existing one is. This indexes EllesmereUI's own code — for Blizzard's API, use wow-api-search.
 ---
 
 # EllesmereUI Search
 
-EllesmereUI is ~137 Lua files and ~400k lines across 20 addon modules, with single
+EllesmereUI is ~148 Lua files and ~447k lines across 21 addon modules, with single
 files over 1 MB (`EUI_CooldownManager_Options.lua`, `EUI_UnitFrames_Options.lua`).
 Grepping that raw is slow and noisy. This skill maintains a greppable index of
 definitions, settings keys, locale strings, events, and slash commands.
 
 ## First move, every time
 
+Ask the index the question directly:
+
 ```bash
-python3 <skill>/scripts/build_index.py --ensure
+python3 <skill>/scripts/query.py def SpecIndexFor
+python3 <skill>/scripts/query.py callers ApplyCastBarTexture
+python3 <skill>/scripts/query.py setting hideUnusable
+python3 <skill>/scripts/query.py label "Hide Unusable Entries"
+python3 <skill>/scripts/query.py event UNIT_HEALTH
+python3 <skill>/scripts/query.py module EllesmereUIQuickdraw
 ```
 
 `<skill>` is this skill's own directory — the one holding this file. Use
 `python` instead of `python3` on Windows; the scripts need only the standard
 library and Python 3.9+.
 
-It rebuilds only when the source actually changed (content hash of every indexed
-file, so it catches uncommitted edits too) and takes ~12 seconds from cold. Running
-it costs nothing when the index is current, and skipping it risks acting on stale
-line numbers — this codebase changes fast.
+`query.py` checks index freshness on every run (~0.4s) and rebuilds if the
+source moved, so there is no separate build step to remember and no way to
+answer from a stale line number. `--json` prints the raw records, `--limit N`
+widens a list, `--root` points at a specific checkout. `query.py grep PATTERN`
+searches every record file when the right one is not obvious, and
+`query.py status` says what the current index was built from.
 
-The script finds the addon root via `--root`, `$ELLESMEREUI_ROOT`, the path recorded
-in the last build, then common WoW install locations.
+**Reach for it before grepping the addon tree.** Two full sessions in this
+codebase ran 31 and 55 raw greps against the source with the index sitting
+current and unread beside them, because a lookup written by hand cost more
+than the grep it replaced. A subcommand costs one line.
+
+The output states the caveat that belongs with each record — that a list is
+capped, that a receiver-scoped caller count is a floor rather than an answer,
+that a match was a substring rather than the key you named. Read those lines:
+they are the difference between a finding and a guess.
+
+`build_index.py` is still there for the index itself: `--ensure` (rebuild if
+stale), `--check` (report FRESH/STALE, exit 1 if stale), `--force`. It finds
+the addon root via `--root`, `$ELLESMEREUI_ROOT`, the path recorded in the last
+build, then common WoW install locations. A cold build takes ~7.5 seconds.
 
 ## The index
 
@@ -36,7 +57,7 @@ current counts, the git commit it was built from, and the addon root path.
 
 | File | Grep for | Record fields |
 |---|---|---|
-| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `aliases` `callers` `caller_count` *or* `caller_ambiguity` |
+| `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `aliases` `callers` `caller_count` *or* `caller_ambiguity` *or* `caller_unresolved` |
 | `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by` |
 | `locale.jsonl` | `"key":"Enable Nameplates"` | `key` `count` `sites` |
 | `events.jsonl` | `"event":"UNIT_HEALTH"` | `event` `count` `sites` |
@@ -44,20 +65,74 @@ current counts, the git commit it was built from, and the addon root path.
 | `modules.jsonl` | `"module":"EllesmereUINameplates"` | `module` `folder` `toc` `title` `saved_variables` `load_order` `lua_files` `lines` `slash_commands` |
 
 Look up symbols by their **unqualified** name — `ApplyCastBarTexture`, not
-`ns.ApplyCastBarTexture`. `kind` is `field` (`ns.Foo`, `EllesmereUI.Foo`), `method`
-(`obj:Foo`), `local`, or `global`; `owner` holds the qualifier. The same name is
+`ns.ApplyCastBarTexture`. `owner` holds the qualifier. The same name is
 often defined in several modules — check `module` before opening a file.
+
+`kind` is one of five, and the last two are worth reading before you trust a
+caller list:
+
+| `kind` | What it is | Rows |
+|---|---|---|
+| `field` | `ns.Foo`, `EllesmereUI.Foo` | 2,282 |
+| `method` | `obj:Foo` | 470 |
+| `local` | a local, whether `local function Foo` or a forward-declared `Foo = function()` filled in later | 7,250 |
+| `tablefield` | `Foo = function()` written inside a `{ ... }` constructor | 6,951 |
+| `global` | a real global — nothing declares it `local` and it is not in a table | 22 |
+
+`tablefield` is the option-table and handler idiom, and it is the largest class
+in the index. Such a function is invoked through whatever table holds it, which
+its definition site does not name, so those rows carry
+`caller_unresolved: "table field"` and no list rather than claiming the bare
+`Foo(` calls elsewhere in the tree. Grep the table for the key.
+
+`global` means what it says, and the class is small because `Foo = function()`
+is usually the body of a forward-declared local (`local Build, Rebuild` up top)
+rather than a new global. The declaration counts wherever it sits: the big
+options files declare inside a builder block and fill the body thousands of
+lines below, and reading that as a global would collect bare `Foo(` calls from
+the whole tree instead of from its own file.
+
+Position still decides first. A key written inside a `{ ... }` constructor is a
+field of that table even when the file also declares a local of that name --
+they are two unrelated things that happen to share a spelling.
+
+One case is left, and it is 4 of the 22: a bare assignment to a **function
+parameter** (`setValue = function(...)` inside a builder that takes
+`setValue`). Telling that apart needs parameter scope, which this builder does
+not track. All four are ambiguous by name and so carry no caller list, but read
+`global` as "not declared local at file or block level" rather than as proof.
+
+A second case costs a caller list rather than a label. A **forward declaration
+and its body are one variable but two definition sites**:
+
+```lua
+local function CloseSnapMenu() end   -- the declaration
+CloseSnapMenu = function() ... end   -- the body, 300 lines later
+```
+
+Both records are `local`, both key on the same file and name, so the pair reads
+as two definitions competing for one name and each says `caller_ambiguity: 2`.
+Nothing distinguishes it from the case that genuinely is two functions —
+`EUI_Quickdraw_Options.lua` declares two unrelated nested locals called `Add` —
+without tracking block scope, which this builder does not do. 483 records are
+suppressed this way. Two of them, `CloseSnapMenu` and
+`RefreshAllImportVisuals`, would otherwise carry a correct list. When a name you
+expect to be answered says `caller_ambiguity: 2`, check whether the two sites
+are a declaration and its body before treating the answer as unknowable.
 
 ## Who calls this — `callers`
 
 Each symbol carries the sites that call it, so "what breaks if I change this
-signature" is one grep, not a tree-wide search. A record states **one of two
-things, never both**:
+signature" is one grep, not a tree-wide search. A record states **one of three
+things, never more than one**:
 
 - **`callers` + `caller_count`** — the call sites, as `file:line`. Capped at 40;
   compare the count against the list, as everywhere else in this index.
 - **`caller_ambiguity: N`** — this definition could not be told apart from N−1
   others called the same way, so no list is given. Grep instead.
+- **`caller_unresolved: "table field"`** — a `tablefield` row. It is reached
+  through the table that holds it, and the definition site does not name that
+  table, so no list is given. Grep the key.
 
 `caller_count: 0` with an empty `callers` means nothing calls it under any name
 the index resolves. Before calling it dead, remember what the index cannot see
@@ -102,7 +177,7 @@ other than the record's `owner` is a caller the count is missing.
 **`local` and `global` records do not have this problem** — there is no
 receiver to rename, and a small count there is the complete answer, as below.
 
-About 46% of definitions are ambiguous, and that is mostly one idiom: the options
+About 44% of definitions are ambiguous, and that is mostly one idiom: the options
 files declare thousands of `get = function(info)` / `getValue = function(info)`
 callbacks, 1402 sharing a single name. AceConfig invokes those, never addon code,
 so the missing list costs nothing.
@@ -138,8 +213,10 @@ the same index read breadth-first, and it is cheaper than the greps it replaces:
 - `modules.jsonl` gives load order and line counts, which is how you tell a
   1 MB options file apart from the runtime file worth reading.
 
-Subagents dispatched to audit a file cannot call this skill. Give them the
-index paths in their prompt, or they will each grep the megabyte again.
+Subagents dispatched to audit a file cannot call this skill. Put the absolute
+path of `query.py` in their prompt with two example subcommands, or they will
+each grep the megabyte again — a review subagent on this codebase spent 50
+shell calls and nine minutes re-deriving what `callers` answers in one.
 
 ## Second names — `aliases`
 
@@ -195,14 +272,23 @@ point at the first reference rather than a declaration.
 
 Shared by both:
 
-- `refs` / `ref_count` — read sites; `options_refs` is the subset in `_Options.lua`,
-  i.e. where the UI control lives
+- `refs` / `ref_count` — read sites; `options_refs` is the subset that builds
+  the UI control
 - `used_by` — modules that touch the key. Profile keys are module-scoped;
   `EllesmereUIDB` keys are commonly read from several modules at once
 - `refs_other_modules` — for profile keys, how many same-named keys exist elsewhere.
   Short names like `enabled` or `size` are declared independently in many modules;
   when this is non-zero and the in-module refs don't explain the behaviour, grep
   globally.
+
+**The options pages are a separate addon.** `EllesmereUIOptions` holds every
+`EUI_*_Options.lua` and `EUI_*_ManagerPages.lua`, and each file is named for the
+module it configures rather than living beside it. References from a page are
+credited to that module, so `options_refs` on a Quickdraw key names lines in
+`EUI_Quickdraw_Options.lua`. Attribution stays exact in both directions: a
+`size` row inside `EUI_Nameplates_Options.lua` credits Nameplates and nothing
+else, which matters because most short key names are declared independently in
+half the suite.
 
 ## Lists are capped — read the count, not the list
 
@@ -218,9 +304,10 @@ answering "where is this used".** A list at its cap is a sample, not an answer.
 | `events.sites` | 40 | `count` |
 | `locale.sites` | 40 | `count` |
 
-About a third of settings keys sit at the `options_refs` cap, so this matters
-most for "which control builds this setting". When the count exceeds the list,
-Grep the module's `_Options.lua` for the key rather than trusting the sample.
+About 17% of settings keys sit at the `options_refs` cap, so this matters most
+for "which control builds this setting". When the count exceeds the list, grep
+the module's options page for the key rather than trusting the sample.
+`query.py` prints both numbers whenever it shows a list.
 
 `symbols.jsonl` and `slash.jsonl` are never truncated.
 
@@ -231,16 +318,19 @@ is keyed by `alwaysShowButtons`. `locale.jsonl` does **not** bridge the two: it
 records `EllesmereUI.L()` call sites, and option labels are plain `text=`
 fields in a table-driven options row, so a label lookup there returns nothing.
 
-Grep the owning module's `_Options.lua` for the quoted label instead. The row
-that carries the label also carries the key, a couple of lines below it:
+`query.py label` bridges the two. It scans the options pages for the label and
+reports the setting keys within ten lines of it, which is where the row that
+carries a label also carries its key:
 
-```lua
-{ type="toggle", text="Always Show Buttons",
-  getValue=function()
-      local v = SGet("alwaysShowButtons")
+```
+$ python3 <skill>/scripts/query.py label "Hide Unusable Entries"
+EllesmereUIOptions/EUI_Quickdraw_Options.lua:3626  { type="toggle", text="Hide Unusable Entries", noCapture=true,
+  keys nearby: hideUnusable
+  -> query.py setting hideUnusable
 ```
 
-One grep, and the report is now a key the index can answer. Do this first.
+The report is now a key the index can answer. Do this first. A row with no key
+within ten lines is reported as such rather than guessed at — read that row.
 
 ## What has no record at all
 
@@ -258,14 +348,14 @@ name matches the wrong one confidently. Grep the exact `"key":"<name>"`.
 
 ## Reading a record
 
-Grep returns whole lines, so read them as they come. Do **not** pipe Grep into
-a JSON parser — a shell wrapper that annotates grep output turns every line
-into invalid JSON, and the decode error looks like a corrupt index. When a
-record is too wide to read comfortably, parse the file directly instead:
+`query.py` is the way to read one: it prints the fields in a fixed order with
+the caveats attached, and `--json` gives the raw record when you want every
+field. Both avoid the trap below.
 
-```bash
-python3 -c 'import json;[print(json.dumps(json.loads(l),indent=1)) for l in open("<index>/settings.jsonl") if "\"key\":\"alwaysShowButtons\"" in l]'
-```
+Grepping the JSONL by hand still works, and returns whole lines — read them as
+they come. Do **not** pipe Grep into a JSON parser: a shell wrapper that
+annotates grep output turns every line into invalid JSON, and the decode error
+looks like a corrupt index.
 
 ## Falling back to Grep
 
