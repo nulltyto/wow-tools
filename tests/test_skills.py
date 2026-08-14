@@ -754,6 +754,16 @@ def test_a_flag_works_on_either_side_of_the_subcommand(skill, before, after):
     with the subparser's default, so the flag does nothing and says nothing.
     The second is worse: a --limit that is ignored looks like an index that has
     no more records.
+
+    What is asserted is that the two orderings agree, not that either
+    succeeds. `ellesmereui-search` builds its index from a local addon
+    checkout, so on a machine without one -- CI, or a fresh clone -- every
+    subcommand exits 1 with "no index built yet". Requiring exit 0 tested for
+    that checkout rather than for the parser. Agreement still catches both
+    traps: argparse rejecting `status --limit 3` outright moves one exit code
+    and not the other, and a silently discarded --limit changes one stdout and
+    not the other. `wow-api-search` ships its index in the repo, so that
+    parametrization exercises the same parser against real records.
     """
     script = str(REPO / "skills" / skill / "scripts" / "query.py")
     runs = [subprocess.run([sys.executable, script] + argv,
@@ -761,7 +771,10 @@ def test_a_flag_works_on_either_side_of_the_subcommand(skill, before, after):
             for argv in (before, after)]
     for proc, argv in zip(runs, (before, after)):
         assert "unrecognized arguments" not in proc.stderr, (argv, proc.stderr)
-        assert proc.returncode == 0, (argv, proc.stderr)
+        assert proc.returncode != 2, (argv, proc.stderr)  # argparse usage error
+    assert runs[0].returncode == runs[1].returncode, (
+        f"flag position changed the exit code: "
+        f"{runs[0].returncode} vs {runs[1].returncode}")
     assert runs[0].stdout == runs[1].stdout, "flag position changed the answer"
 
 
