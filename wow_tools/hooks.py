@@ -34,12 +34,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # and uninstall, can tell our file from one somebody wrote.
 MARKER = "wow-tools:{name}"
 
+# Paths are quoted and written with forward slashes. A hook is a /bin/sh
+# script even on Windows, where git runs it through its bundled shell -- and
+# there a native path arrives with backslashes, which sh reads as escapes.
+# Python accepts forward slashes on every platform, so this costs nothing.
 TEMPLATE = """#!/bin/sh
 # {marker} -- installed by wow-tools. Remove with:
 #   python -m wow_tools uninstall --hooks {name} --repo .
 # Skip once with `git commit --no-verify`.
-exec {python} {script} {args}
+exec "{python}" "{script}" {args}
 """
+
+
+def _sh_path(path) -> str:
+    return str(path).replace("\\", "/")
 
 
 def interpreter() -> str:
@@ -90,8 +98,8 @@ class Hook:
         return TEMPLATE.format(
             marker=self.marker(),
             name=self.name,
-            python=interpreter(),
-            script=self.script,
+            python=_sh_path(interpreter()),
+            script=_sh_path(self.script),
             args=self.args,
         )
 

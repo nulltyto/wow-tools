@@ -135,6 +135,8 @@ def test_a_file_we_did_not_write_is_left_alone(tmp_path):
 
 
 def test_a_symlink_survives_a_second_install(tmp_path):
+    if not engine.symlinks_available(tmp_path):
+        pytest.skip("symlinks unavailable on this filesystem")
     rule = rules_mod.discover()[0][0]
     first = engine.install_rule(rule, tmp_path, engine.Method.SYMLINK)
     assert first.outcome is engine.Outcome.LINKED

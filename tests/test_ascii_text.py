@@ -162,8 +162,8 @@ def test_body_file_is_not_read_as_text(at):
 
 def _run(*args, stdin: str = ""):
     return subprocess.run(
-        ["python3", str(REPO / "tools" / "lint" / "ascii_text.py"), *args],
-        input=stdin, capture_output=True, text=True,
+        [sys.executable, str(REPO / "tools" / "lint" / "ascii_text.py"), *args],
+        input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
 
 
@@ -188,6 +188,7 @@ def test_hook_json_ignores_other_tools():
     assert proc.returncode == 0
 
 
+@pytest.mark.skipif(not Path("/bin/bash").is_file(), reason="needs bash for PIPESTATUS")
 def test_a_truncated_report_still_fails():
     """`... | head` must not turn the check into one that always passes.
 
@@ -195,17 +196,13 @@ def test_a_truncated_report_still_fails():
     BrokenPipeError midway through printing. Exiting 0 from that handler is the
     quiet failure this asserts against.
     """
-    proc = subprocess.run(
-        f'python3 "{REPO / "tools" / "lint" / "ascii_text.py"}" '
-        '--text "bad — dash" 2>&1 | head -2',
-        shell=True, capture_output=True, text=True,
-    )
+    script = str(REPO / "tools" / "lint" / "ascii_text.py").replace("\\", "/")
     codes = subprocess.run(
-        f'python3 "{REPO / "tools" / "lint" / "ascii_text.py"}" '
-        '--text "bad — dash" 2>&1 | head -2 >/dev/null; echo ${PIPESTATUS[0]}',
-        shell=True, capture_output=True, text=True, executable="/bin/bash",
+        f'"{sys.executable}" "{script}" --text "bad — dash" 2>&1 '
+        '| head -2 >/dev/null; echo ${PIPESTATUS[0]}',
+        shell=True, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", executable="/bin/bash",
     )
-    assert proc.returncode == 0, "the pipeline's own status comes from head"
     assert codes.stdout.strip() == "1", "the checker must still report failure"
 
 
@@ -229,9 +226,18 @@ def repo(tmp_path):
 
 
 def _commit(repo: Path, message: str, *extra: str):
+    """Commit `message`, passed through a UTF-8 file rather than argv.
+
+    `git commit -m` sends the message through the process command line, which
+    Windows re-encodes in the active code page -- so an em dash written here
+    is not necessarily the em dash git stores, and a test asserting that the
+    gate rejects one would fail for a reason unrelated to the gate.
+    """
+    path = repo / ".git" / "TEST_MSG"
+    path.write_text(message, encoding="utf-8")
     return subprocess.run(
-        ["git", "-C", str(repo), "commit", "-m", message, *extra],
-        capture_output=True, text=True,
+        ["git", "-C", str(repo), "commit", "-F", str(path), *extra],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
 
 
@@ -285,6 +291,6 @@ def test_range_mode_reads_every_message_in_the_range(repo):
 def _log(repo: Path) -> list:
     out = subprocess.run(
         ["git", "-C", str(repo), "log", "--format=%s"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     ).stdout.strip()
     return out.splitlines() if out else []
