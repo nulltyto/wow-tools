@@ -42,6 +42,30 @@ exec {python} {script} {args}
 """
 
 
+def interpreter() -> str:
+    """A python the hook can still find in a year.
+
+    `sys.executable` is the obvious answer and the wrong one. Installing
+    through `uv run` makes it this repo's `.venv/bin/python3`, and a hook
+    baked to a virtualenv stops working the moment that virtualenv is removed
+    or rebuilt somewhere else -- which would block every commit in the addon
+    repo, for a reason that has nothing to do with the addon repo.
+
+    Everything a hook runs is stdlib-only by design, so a plain system python
+    is enough. Falls back to sys.executable when there is no other.
+    """
+    here = Path(sys.executable).resolve()
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    if not in_venv:
+        return str(here)
+    for candidate in ("/usr/bin/python3", "/usr/local/bin/python3"):
+        if Path(candidate).is_file():
+            return candidate
+    # A base prefix exists even in a venv, and its python outlives the venv.
+    base = Path(sys.base_prefix) / "bin" / "python3"
+    return str(base) if base.is_file() else str(here)
+
+
 @dataclass(frozen=True)
 class Hook:
     name: str
@@ -66,7 +90,7 @@ class Hook:
         return TEMPLATE.format(
             marker=self.marker(),
             name=self.name,
-            python=sys.executable,
+            python=interpreter(),
             script=self.script,
             args=self.args,
         )
@@ -163,7 +187,7 @@ def install(hook: Hook, repo: Path, *, force: bool = False, dry_run: bool = Fals
             return ("blocked", target,
                     f"a {hook.event} hook is already here and is not this one; "
                     "--force replaces it. To keep both, add this line to it:\n"
-                    f"             {sys.executable} {hook.script} {hook.args}")
+                    f"             {interpreter()} {hook.script} {hook.args}")
 
     if dry_run:
         return "planned", target, "would install"

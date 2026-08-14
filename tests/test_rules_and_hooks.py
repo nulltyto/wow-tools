@@ -164,6 +164,25 @@ def test_every_hook_points_at_a_script_that_exists():
         assert hook.script.is_file(), f"{hook.name} runs a script that is not here"
 
 
+def test_the_hook_interpreter_is_not_a_virtualenv(tmp_path):
+    """A hook baked to a venv breaks every commit once that venv is gone.
+
+    The test suite runs under `uv run`, so sys.executable here IS a virtualenv
+    python -- which makes this the exact condition the helper exists to avoid.
+    """
+    chosen = Path(hooks_mod.interpreter())
+    assert chosen.is_file(), f"{chosen} is not there to run"
+    assert ".venv" not in chosen.parts, f"{chosen} would die with the virtualenv"
+
+
+def test_hook_body_runs_the_chosen_interpreter(repo):
+    hook = hooks_mod.HOOK_BY_NAME["ascii-git-text"]
+    hooks_mod.install(hook, repo)
+    body = (repo / ".git" / "hooks" / hook.event).read_text()
+    assert hooks_mod.interpreter() in body
+    assert ".venv" not in body
+
+
 def test_hook_round_trips(repo):
     hook = hooks_mod.HOOK_BY_NAME["ascii-git-text"]
     outcome, target, _ = hooks_mod.install(hook, repo)
