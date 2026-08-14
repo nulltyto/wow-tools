@@ -75,3 +75,40 @@ jobs:
       - run: uv run ruff check .
       - run: uv run python tools/lint/lua_comments.py
 
+  # Commit messages and pull request text cannot be linted after the fact: a
+  # published commit message is immutable, so the only useful time to check is
+  # before it merges. This job is the backstop for the hooks, which live in
+  # .git/hooks and therefore are not guaranteed to be installed in any clone.
+  ascii-git-text:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit messages
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # A first push to a branch reports an all-zero "before" commit, and a
+          # range starting there is not a range git can walk.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base commit to compare against; checking HEAD only."
+            git log -1 --format=%B > "$RUNNER_TEMP/msg"
+            python3 tools/lint/ascii_text.py --stdin --label "HEAD commit message" < "$RUNNER_TEMP/msg"
+          else
+            python3 tools/lint/ascii_text.py --range "$BASE..HEAD"
+          fi
+
+      # Passed through a file rather than interpolated into the shell: a title
+      # is attacker-controlled text on a fork PR, and ${{ }} would paste it
+      # straight into the script.
+      - name: Pull request title and body
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_TITLE" | python3 tools/lint/ascii_text.py --stdin --label "PR title"
+          printf '%s' "$PR_BODY" | python3 tools/lint/ascii_text.py --stdin --label "PR body"
+

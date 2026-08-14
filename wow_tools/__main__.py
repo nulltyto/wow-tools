@@ -1,15 +1,22 @@
-"""wow-tools installer: put this repo's skills and addons where they get read.
+"""wow-tools installer: put this repo's skills, rules, addons and hooks where they get read.
 
     python -m wow_tools install                 pick interactively
     python -m wow_tools install --harness claude-code --skills all --yes
+    python -m wow_tools install --harness claude-code --rules all --yes
     python -m wow_tools install --addons all --yes
+    python -m wow_tools install --hooks all --repo ../EllesmereUI
     python -m wow_tools list                    what is available and what is detected
     python -m wow_tools status                  what is installed right now
     python -m wow_tools uninstall --harness codex
 
-Two kinds of thing get installed, to two very different places. Skills go to an
-agent harness's skills directory, which is a known path per harness. Addons go
-to the WoW client's AddOns folder, which has to be found -- see `wow.py`.
+Four kinds of thing get installed, to four different places.
+
+Skills go to an agent harness's skills directory, a known path per harness.
+Rules go to a harness's *rules* directory, which is a different path, exists
+for far fewer harnesses, and wants a different file extension from each one --
+see the `rules_*` fields in `registry.py`. Addons go to the WoW client's AddOns
+folder, which has to be found (`wow.py`). Hooks go into another repository's
+`.git/hooks`, which is why they are the one thing never installed by default.
 
 Runs on Windows, macOS, and Linux with the standard library only, so it works
 from a bare clone before anything is set up.
@@ -24,8 +31,10 @@ from collections import OrderedDict
 from pathlib import Path
 
 from . import addons as addons_mod
+from . import hooks as hooks_mod
 from . import install as engine
 from . import registry, wow
+from . import rules as rules_mod
 from . import skills as skills_mod
 from .install import Method, Outcome
 
@@ -133,6 +142,37 @@ def choose_addons(available: list[addons_mod.Addon]) -> list[addons_mod.Addon]:
         return [available[n - 1] for n in idx]
 
 
+def choose_rules(available: list[rules_mod.Rule]) -> list[rules_mod.Rule]:
+    """Rules default to none, the way addons do.
+
+    A rule is loaded into every session a harness runs, in every repository on
+    the machine. That is a larger claim on somebody's setup than a skill, which
+    costs nothing until the model decides it is relevant, so it is asked for
+    rather than assumed.
+    """
+    print("\nWhich rules? These load in every session, for every project.\n")
+    for i, r in enumerate(available, 1):
+        print(f"   {i:>2}. {r.name}\n       {r.summary()}")
+    print("\n  Enter numbers separated by spaces or commas, 'all', or 'none'.")
+
+    while True:
+        raw = _ask("\nRules [none]: ") or "none"
+        low = raw.lower()
+        if low == "none":
+            return []
+        if low == "all":
+            return list(available)
+        try:
+            idx = [int(tok) for tok in raw.replace(",", " ").split()]
+        except ValueError:
+            print("  Enter numbers, 'all', or 'none'.")
+            continue
+        if any(n < 1 or n > len(available) for n in idx):
+            print(f"  Numbers must be between 1 and {len(available)}.")
+            continue
+        return [available[n - 1] for n in idx]
+
+
 def choose_addons_dir(explicit) -> Path | None:
     """Settle on one AddOns folder, or explain why we cannot.
 
@@ -204,6 +244,25 @@ def plan(harnesses, scope: str, project_root: Path | None):
     return groups, skipped
 
 
+def plan_rules(harnesses, scope: str, project_root: Path | None):
+    """Group harnesses by the (directory, extension) a rule would install as.
+
+    Keyed on the extension as well as the path because that is what makes a
+    rule install different from a skill install: the same file becomes
+    `x.md` for Claude Code, `x.mdc` for Cursor, and `x.instructions.md` for
+    Copilot, so two harnesses only share an install when both agree.
+    """
+    groups: OrderedDict = OrderedDict()
+    skipped: list[registry.Harness] = []
+    for h in harnesses:
+        directory = engine.resolve_directory(h, scope, project_root, kind="rules")
+        if directory is None:
+            skipped.append(h)
+            continue
+        groups.setdefault((directory, h.rules_ext), []).append(h)
+    return groups, skipped
+
+
 # --------------------------------------------------------------------------
 #  Commands
 # --------------------------------------------------------------------------
@@ -213,6 +272,17 @@ def cmd_list(args) -> int:
     print("Skills in this repository:\n")
     for s in found:
         print(f"  {s.name}\n      {s.summary()}")
+
+    house_rules, rule_problems = rules_mod.discover()
+    problems = problems + rule_problems
+    if house_rules:
+        print("\nRules in this repository (loaded in every session):\n")
+        for r in house_rules:
+            print(f"  {r.name}\n      {r.summary()}")
+
+    print("\nGit hooks this installer can place (needs --repo):\n")
+    for hook in hooks_mod.HOOKS:
+        print(f"  {hook.name:<16} {hook.event:<12} {hook.summary}")
 
     game_addons, addon_problems = addons_mod.discover()
     problems = problems + addon_problems
@@ -244,6 +314,12 @@ def cmd_list(args) -> int:
         print(f" {mark} {h.key:<16} {h.name:<{width}}  user: {user:<26} project: {proj}")
         if args.verbose and h.note:
             print(f"   {' ' * width}  {h.note}")
+        if args.verbose and h.takes_rules:
+            r_user = f"~/{h.rules_user[0]}" if h.rules_user else "-"
+            r_proj = h.rules_project[0] if h.rules_project else "-"
+            print(f"   {' ' * width}  rules: user: {r_user}  project: {r_proj}  as *{h.rules_ext}")
+            if h.rules_note:
+                print(f"   {' ' * width}  {h.rules_note}")
     print("\n  * = detected in your home directory")
     if not args.verbose:
         print("  Pass --verbose for the per-harness notes and caveats.")
@@ -271,6 +347,25 @@ def _present(directory: Path, items) -> list[str]:
     return out
 
 
+def _present_rules(directory: Path, ext: str, items) -> list[str]:
+    """How each rule stands in `directory`, under the name that harness wants."""
+    out = []
+    for r in items:
+        t = directory / r.filename(ext)
+        if not t.is_symlink() and not t.exists():
+            continue
+        if t.is_symlink():
+            if Path(os.readlink(t)).resolve() == r.path.resolve():
+                out.append(f"{t.name} (link)")
+            else:
+                out.append(f"{t.name} (link elsewhere -> {t.resolve()})")
+        elif r.marker() in t.read_text(encoding="utf-8", errors="replace"):
+            out.append(f"{t.name} (copy)")
+        else:
+            out.append(f"{t.name} (not ours)")
+    return out
+
+
 def cmd_status(args) -> int:
     found, _ = skills_mod.discover()
     any_installed = False
@@ -294,6 +389,39 @@ def cmd_status(args) -> int:
         print(f"  read by: {', '.join(users)}")
         for p in present:
             print(f"    {p}")
+
+    house_rules, _ = rules_mod.discover()
+    if house_rules:
+        # Keyed by (directory, extension) for the same reason the install is:
+        # the file has a different name in each harness's directory.
+        rule_dirs: dict = OrderedDict()
+        for h in registry.HARNESSES:
+            if not h.takes_rules:
+                continue
+            for scope in ("user", "project"):
+                directory = engine.resolve_directory(h, scope, args.project_root, kind="rules")
+                if directory is None or not directory.is_dir():
+                    continue
+                rule_dirs.setdefault((directory, h.rules_ext), []).append(f"{h.name} [{scope}]")
+
+        for (directory, ext), users in rule_dirs.items():
+            present = _present_rules(directory, ext, house_rules)
+            if not present:
+                continue
+            any_installed = True
+            print(f"\n{directory}")
+            print(f"  read by: {', '.join(users)}")
+            for p in present:
+                print(f"    {p}")
+
+    if getattr(args, "repo", None):
+        repo = Path(args.repo).expanduser().resolve()
+        print(f"\n{repo}")
+        print("  git hooks:")
+        for hook, state in hooks_mod.status(repo):
+            print(f"    {hook.event:<12} {hook.name:<16} {state}")
+            if state == "installed":
+                any_installed = True
 
     game_addons, _ = addons_mod.discover()
     if game_addons:
@@ -378,17 +506,22 @@ def cmd_doctor(args) -> int:
 
 
 def _run(args, uninstalling: bool) -> int:
-    """Skills and addons are independent halves; either can be asked for alone."""
+    """The four halves are independent; any one can be asked for alone."""
+    rules_wanted = bool(args.rules)
+    hooks_wanted = bool(args.hooks or args.repo)
+    # --harness selects a directory for skills *and* rules, so on its own it
+    # cannot mean rules: that would install an always-on rule into every
+    # session for anyone who asked for skills.
     skills_wanted = bool(args.harness or args.skills)
     addons_wanted = bool(args.addons or args.wow_addons)
-    explicit = skills_wanted or addons_wanted
+    explicit = skills_wanted or addons_wanted or rules_wanted or hooks_wanted
     interactive = _interactive_available()
 
     if not explicit and not interactive:
         print(
             "error: nothing selected and this is not an interactive terminal.\n"
-            "Pass --harness (for skills) or --addons (for WoW addons); "
-            "see `python -m wow_tools list`.",
+            "Pass --harness (for skills), --rules, --addons (for WoW addons), "
+            "or --hooks; see `python -m wow_tools list`.",
             file=sys.stderr,
         )
         return 2
@@ -396,9 +529,167 @@ def _run(args, uninstalling: bool) -> int:
     rc = 0
     if skills_wanted or not explicit:
         rc |= _run_skills(args, uninstalling)
+    if rules_wanted or not explicit:
+        rc |= _run_rules(args, uninstalling)
     if addons_wanted or not explicit:
         rc |= _run_addons(args, uninstalling)
+    # Hooks stay out of the default run. They write into a repository the user
+    # named, and there is no sensible guess for which one.
+    if hooks_wanted:
+        rc |= _run_hooks(args, uninstalling)
     return rc
+
+
+def _run_rules(args, uninstalling: bool) -> int:
+    found, problems = rules_mod.discover()
+    if problems:
+        print("Rule validation problems:", file=sys.stderr)
+        for p in problems:
+            print(f"  ! {p}", file=sys.stderr)
+    if not found:
+        return 0
+
+    if args.rules:
+        specs = [s for spec in args.rules for s in spec.replace(",", " ").split()]
+        try:
+            chosen = rules_mod.resolve_names(specs, found)
+        except KeyError as e:
+            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+            return 2
+    elif _interactive_available():
+        chosen = choose_rules(found)
+    else:
+        chosen = []
+
+    if not chosen:
+        return 0
+
+    if args.harness:
+        keys = [k for spec in args.harness for k in spec.replace(",", " ").split()]
+        try:
+            harnesses = [registry.get(k) for k in keys]
+        except KeyError as e:
+            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+            return 2
+    else:
+        harnesses = [h for h in registry.HARNESSES if h.takes_rules]
+
+    groups, skipped = plan_rules(harnesses, args.scope, args.project_root)
+
+    # Being skipped is the normal outcome here, not an edge case: most
+    # harnesses keep their instructions in a single file the user owns, and
+    # this installer will not write into one of those.
+    for h in skipped:
+        if h.takes_rules:
+            print(f"\n{h.name}: no rules directory for {args.scope} scope.")
+        else:
+            print(f"\n{h.name}: no rules directory to install into.")
+        if h.rules_note:
+            print(f"  {h.rules_note}")
+        _print_manual_rule_line(h, chosen)
+
+    if not groups:
+        return 0
+
+    print()
+    verb = "Uninstalling" if uninstalling else "Installing"
+    print(f"{verb} {len(chosen)} rule(s) into {len(groups)} "
+          f"director{'y' if len(groups) == 1 else 'ies'} ({args.scope} scope):")
+
+    methods = {}
+    for (directory, ext), hs in groups.items():
+        method, method_note = _method_for(directory, args, uninstalling)
+        methods[directory, ext] = method
+        print(f"\n{directory}  (as *{ext}){method_note}")
+        print(f"  for: {', '.join(h.name for h in hs)}")
+
+    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+        if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
+            print("Aborted.")
+            return 1
+
+    failed = False
+    for (directory, ext) in groups:
+        print()
+        if len(groups) > 1:
+            print(f"{directory}")
+        for r in chosen:
+            name = r.filename(ext)
+            if uninstalling:
+                res = engine.uninstall_rule(r, directory, filename=name, dry_run=args.dry_run)
+            else:
+                res = engine.install_rule(
+                    r, directory, methods[directory, ext],
+                    filename=name, force=args.force, dry_run=args.dry_run,
+                )
+            print(res)
+            failed = failed or not res.outcome.ok
+
+    if failed:
+        print("\nSome entries were left alone. Re-run with --force to replace them.")
+        return 1
+    return 0
+
+
+def _print_manual_rule_line(harness, chosen) -> None:
+    """Tell someone how to do by hand what we declined to do for them.
+
+    The harnesses reached here keep their instructions in one file that the
+    user wrote. Appending to it is the kind of edit that should be a decision,
+    so this prints the paste and stops.
+    """
+    single = {
+        "codex": "~/.codex/AGENTS.md",
+        "gemini-cli": "~/.gemini/GEMINI.md",
+        "antigravity": "~/.gemini/GEMINI.md",
+    }.get(harness.key)
+    if not single:
+        return
+    names = ", ".join(str(r.path) for r in chosen)
+    print(f"  To apply it there, append the body of {names} to {single} by hand.")
+
+
+def _run_hooks(args, uninstalling: bool) -> int:
+    if not args.repo:
+        print("error: --hooks needs --repo, the repository to install into.\n"
+              "  A hook lives in .git/hooks, which is per clone and never pushed.",
+              file=sys.stderr)
+        return 2
+
+    specs = [h for spec in (args.hooks or ["all"]) for h in spec.replace(",", " ").split()]
+    try:
+        chosen = hooks_mod.resolve_names(specs)
+    except KeyError as e:
+        print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+        return 2
+    if not chosen:
+        return 0
+
+    repo = Path(args.repo).expanduser().resolve()
+    verb = "Uninstalling" if uninstalling else "Installing"
+    print(f"\n{verb} {len(chosen)} hook(s) in {repo}:")
+
+    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+        if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
+            print("Aborted.")
+            return 1
+
+    failed = False
+    for hook in chosen:
+        if uninstalling:
+            outcome, target, detail = hooks_mod.uninstall(hook, repo, dry_run=args.dry_run)
+        else:
+            outcome, target, detail = hooks_mod.install(
+                hook, repo, force=args.force, dry_run=args.dry_run)
+        print(f"  {outcome:<10} {hook.event:<12} {target}")
+        if detail:
+            print(f"             {detail}")
+        failed = failed or outcome == "blocked"
+
+    if failed:
+        print("\nSome hooks were left alone. Re-run with --force to replace them.")
+        return 1
+    return 0
 
 
 def _method_for(directory: Path, args, uninstalling: bool):
@@ -655,8 +946,14 @@ def build_parser() -> argparse.ArgumentParser:
                        help="harness key(s), comma- or space-separated; repeatable")
         p.add_argument("--skills", action="append", metavar="NAME",
                        help="skill name(s), or 'all'/'none'; repeatable")
+        p.add_argument("--rules", action="append", metavar="NAME",
+                       help="always-on rule name(s), or 'all'/'none'; repeatable")
         p.add_argument("--addons", action="append", metavar="NAME",
                        help="WoW addon name(s), or 'all'/'none'; repeatable")
+        p.add_argument("--hooks", action="append", metavar="NAME",
+                       help="git hook name(s), or 'all'/'none'; needs --repo")
+        p.add_argument("--repo", metavar="PATH", default=None,
+                       help="the git repository to install hooks into")
         p.add_argument("--wow-addons", metavar="PATH", default=None,
                        help="the WoW AddOns folder to install addons into "
                             "(default: found automatically; $WOW_ADDONS_DIR)")
@@ -686,6 +983,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = sub.add_parser("status", help="show what is installed where")
     p_status.add_argument("--project-root", type=Path, default=None)
     p_status.add_argument("--wow-addons", metavar="PATH", default=None)
+    p_status.add_argument("--repo", metavar="PATH", default=None,
+                          help="also report the git hooks installed in this repository")
     p_status.set_defaults(func=cmd_status)
 
     p_doctor = sub.add_parser(

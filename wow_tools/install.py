@@ -23,10 +23,13 @@ from typing import Union
 
 from .addons import Addon
 from .registry import Harness
+from .rules import Rule
 from .skills import Skill
 
-# What the engine can place. Both carry `name`, `path`, and `signature`.
-Item = Union[Skill, Addon]
+# What the engine can place. Skills and addons are directories carrying `name`,
+# `path`, and `signature`; a rule is a single file and takes the pair of
+# functions at the bottom of this module instead.
+Item = Union[Skill, Addon, Rule]
 
 
 class Method(Enum):
@@ -87,9 +90,22 @@ def symlinks_available(probe_dir: Path) -> bool:
             pass
 
 
-def resolve_directory(harness: Harness, scope: str, project_root: Path | None = None) -> Path | None:
-    """The directory this harness would be installed into, or None."""
-    candidates = harness.skills_user if scope == "user" else harness.skills_project
+def resolve_directory(
+    harness: Harness,
+    scope: str,
+    project_root: Path | None = None,
+    kind: str = "skills",
+) -> Path | None:
+    """The directory this harness would be installed into, or None.
+
+    `kind` picks between the skills directory and the rules directory. They are
+    different paths for every harness that has both, and plenty of harnesses
+    have one and not the other.
+    """
+    if kind == "rules":
+        candidates = harness.rules_user if scope == "user" else harness.rules_project
+    else:
+        candidates = harness.skills_user if scope == "user" else harness.skills_project
     if not candidates:
         return None
     base = Path.home() if scope == "user" else (project_root or Path.cwd())
@@ -191,6 +207,96 @@ def uninstall_item(item: Item, directory: Path, *, dry_run: bool = False) -> Res
 # The names the CLI and the tests used before addons existed.
 install_skill = install_item
 uninstall_skill = uninstall_item
+
+
+# --------------------------------------------------------------------------
+#  Rules: the same problem, one file at a time
+# --------------------------------------------------------------------------
+# A rule is a file, not a directory, so it needs its own pair of functions
+# rather than a flag on the ones above. Two things follow from being a file.
+#
+# The name changes per harness: Cursor ignores a plain .md and VS Code matches
+# *.instructions.md, so `filename` is passed in rather than taken from the
+# source. A symlink renames happily, which is why this still works as a link.
+#
+# And there is no directory to drop a `.wow-tools-install` marker into, so a
+# copy is identified by a marker inside the file itself.
+
+
+def install_rule(
+    rule,
+    directory: Path,
+    method: Method,
+    *,
+    filename: str | None = None,
+    force: bool = False,
+    dry_run: bool = False,
+) -> Result:
+    target = directory / (filename or rule.filename())
+
+    if target.is_symlink():
+        if _is_our_link(target, rule.path) and method is Method.SYMLINK:
+            return Result(rule, target, Outcome.CURRENT, "already linked here")
+        if not force:
+            try:
+                dest = os.readlink(target)
+            except OSError:
+                dest = "?"
+            return Result(
+                rule, target, Outcome.BLOCKED,
+                f"a symlink to {dest} is already here; --force replaces it",
+            )
+    elif target.exists():
+        if not _has_marker(target, rule.marker()) and not force:
+            return Result(
+                rule, target, Outcome.BLOCKED,
+                "a file is already here and was not installed by wow-tools; --force replaces it",
+            )
+
+    if dry_run:
+        return Result(rule, target, Outcome.PLANNED, f"would {method.value}")
+
+    directory.mkdir(parents=True, exist_ok=True)
+    existed = target.is_symlink() or target.exists()
+    _remove(target)
+
+    if method is Method.SYMLINK:
+        os.symlink(rule.path, target)
+        return Result(rule, target, Outcome.UPDATED if existed else Outcome.LINKED)
+
+    shutil.copyfile(rule.path, target)
+    return Result(rule, target, Outcome.UPDATED if existed else Outcome.COPIED)
+
+
+def uninstall_rule(
+    rule, directory: Path, *, filename: str | None = None, dry_run: bool = False
+) -> Result:
+    target = directory / (filename or rule.filename())
+    if not target.is_symlink() and not target.exists():
+        return Result(rule, target, Outcome.ABSENT)
+
+    if target.is_symlink():
+        if not _is_our_link(target, rule.path):
+            return Result(
+                rule, target, Outcome.BLOCKED, "symlink points somewhere else; left alone"
+            )
+    elif not _has_marker(target, rule.marker()):
+        return Result(
+            rule, target, Outcome.BLOCKED,
+            "file was not installed by wow-tools; left alone",
+        )
+
+    if dry_run:
+        return Result(rule, target, Outcome.PLANNED, "would remove")
+    _remove(target)
+    return Result(rule, target, Outcome.REMOVED)
+
+
+def _has_marker(target: Path, marker: str) -> bool:
+    try:
+        return marker in target.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
 
 
 def _remove(target: Path) -> None:

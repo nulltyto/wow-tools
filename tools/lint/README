@@ -1,0 +1,65 @@
+tools/lint — checks this repo runs on itself
+
+Two linters, both stdlib-only, both wired into CI. Neither is about the game:
+they are about what this repository writes down, in Lua and in git.
+
+
+lua_comments.py — the comment budget
+
+    lua_comments.py                 comment lines your branch adds
+    lua_comments.py --base <ref>    pick the base ref explicitly
+    lua_comments.py --all           every file (expect legacy findings)
+    lua_comments.py --files a.lua   just these files, whole file
+
+Caps a comment block at 8 lines and a file header at 30. The rule itself lives
+in skills/ellesmereui-pr-check/scripts/check_style.py and is imported from
+there rather than copied, so the addon gate and this one cannot disagree.
+
+Diff-scoped by default: only the comment lines a change adds count toward the
+budget. Editing one word inside a 40-line legacy block reports nothing. Without
+that, every touch of an old file would open with a demand to rewrite comments
+the change never made.
+
+
+ascii_text.py — ASCII in commit messages and pull request text
+
+    ascii_text.py --commit-msg .git/COMMIT_EDITMSG   one message, from a file
+    ascii_text.py --range main..HEAD                 every message in a range
+    ascii_text.py --stdin --label "PR body"          text on standard input
+    ascii_text.py --command 'gh pr create -b "..."'  a shell command line
+    ascii_text.py --hook-json                        a PreToolUse event, on stdin
+    ascii_text.py --install-hook [repo]              install the commit-msg hook
+
+Source files get linted, reviewed, and fixed. This text does not. It goes
+straight into a place where it is quoted, re-encoded, and read back for years
+by terminals, mail gateways, and changelog tooling that do not agree on an
+encoding, and by the time a curly quote surfaces as mojibake the commit is
+immutable.
+
+Three call sites, one rule:
+
+    commit-msg hook   every commit, per clone
+                      python -m wow_tools install --hooks ascii-git-text --repo .
+    PreToolUse hook   gh pr create / comment / review, before the call goes out
+                      wired up in .claude/settings.json
+    CI                the commit range, plus the PR title and body
+
+The command modes are the interesting half. A pull request body never touches
+git, so the only place to catch it is the command about to create it. Rather
+than scanning the whole command line, --command and --hook-json pull out only
+the parts that are prose: the values of -m, --message, --title, --body,
+--notes, and any heredoc. A non-ASCII character in a path, a branch name, or an
+unrelated command is ignored. That precision is the point -- a gate that fires
+on filenames gets switched off within a day.
+
+--body-file and -F are deliberately not read. They name a file, and a file on
+disk gets linted as a file.
+
+Exit status is 1 when anything is non-ASCII and 2 when the arguments are wrong,
+except in --hook-json, where 2 is what PreToolUse reads as "block this call".
+
+The replacement table is duplicated from check_style.py rather than imported,
+because this script runs as a git hook inside a *different* repository and a
+hook that fails because another checkout moved would block every commit there.
+tests/test_ascii_text.py asserts the two tables agree wherever they overlap, so
+the duplication cannot drift in silence.

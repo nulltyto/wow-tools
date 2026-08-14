@@ -31,9 +31,21 @@ AGENTS_USER = ".agents/skills"
 AGENTS_PROJECT = ".agents/skills"
 
 
+# Rules have no equivalent of AGENTS_USER, and that absence is the whole story
+# of the `rules_*` fields below. The AGENTS.md standard is defined only at a
+# repository root, so it says nothing about a user-scope location; every
+# harness that offers one invented its own path and its own file extension.
+#
+# Only a harness that reads a *directory* of rule files appears here. Several
+# read a single file instead -- ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md,
+# ~/.claude/CLAUDE.md -- and those are left alone on purpose: writing to them
+# means editing a file the user wrote, which is not a thing an installer should
+# do behind somebody's back. The CLI prints the line to add by hand instead.
+
+
 @dataclass(frozen=True)
 class Harness:
-    """One agent harness and the directories it reads skills from."""
+    """One agent harness and the directories it reads skills and rules from."""
 
     key: str
     name: str
@@ -41,6 +53,14 @@ class Harness:
     # harness has no directory of that scope.
     skills_user: tuple[str, ...] = ()
     skills_project: tuple[str, ...] = ()
+    # Directories of always-on rule files. Empty means this harness has no
+    # rules directory of that scope -- which is the common case.
+    rules_user: tuple[str, ...] = ()
+    rules_project: tuple[str, ...] = ()
+    # What this harness insists a rule file be called. Cursor ignores a plain
+    # .md in its rules directory, and VS Code matches *.instructions.md, so the
+    # same rule installs under three different names.
+    rules_ext: str = ".md"
     # Home-relative paths whose existence suggests the harness is installed.
     # Only ever used to order and annotate the menu, never to block an install:
     # plenty of people install skills before the harness, or use a harness
@@ -48,10 +68,15 @@ class Harness:
     detect: tuple[str, ...] = ()
     docs: str = ""
     note: str = ""
+    rules_note: str = ""
 
     @property
     def installable(self) -> bool:
         return bool(self.skills_user or self.skills_project)
+
+    @property
+    def takes_rules(self) -> bool:
+        return bool(self.rules_user or self.rules_project)
 
 
 # --------------------------------------------------------------------------
@@ -66,9 +91,12 @@ HARNESSES: tuple[Harness, ...] = (
         name="Claude Code",
         skills_user=(".claude/skills",),
         skills_project=(".claude/skills",),
+        rules_user=(".claude/rules",),
+        rules_project=(".claude/rules",),
         detect=(".claude",),
         docs="https://code.claude.com/docs/en/skills",
         note="Native Agent Skills. Does not read ~/.agents/skills, so it gets its own link.",
+        rules_note="Reads every .md under the rules directory. A rule with no `paths` field loads every session.",
     ),
     Harness(
         key="codex",
@@ -84,9 +112,15 @@ HARNESSES: tuple[Harness, ...] = (
         name="Cursor",
         skills_user=(AGENTS_USER, ".cursor/skills"),
         skills_project=(AGENTS_PROJECT, ".cursor/skills"),
+        rules_project=(".cursor/rules",),
+        rules_ext=".mdc",
         detect=(".cursor",),
         docs="https://cursor.com/docs/context/skills",
         note="Reads ~/.agents/skills, and for compatibility ~/.claude/skills and ~/.codex/skills too.",
+        rules_note=(
+            "Project scope only: Cursor's global rules live in its Customize UI, not on disk. "
+            "A plain .md in .cursor/rules is ignored, so the rule installs as .mdc."
+        ),
     ),
     Harness(
         key="gemini-cli",
@@ -102,18 +136,29 @@ HARNESSES: tuple[Harness, ...] = (
         name="VS Code (GitHub Copilot)",
         skills_user=(AGENTS_USER, ".copilot/skills"),
         skills_project=(".github/skills", AGENTS_PROJECT),
+        rules_user=(".copilot/instructions",),
+        rules_project=(".github/instructions",),
+        rules_ext=".instructions.md",
         detect=(".copilot", ".vscode"),
         docs="https://code.visualstudio.com/docs/copilot/customization/agent-skills",
         note="Project scope prefers .github/skills, which is the path VS Code documents first.",
+        rules_note=(
+            "Matches *.instructions.md, and needs `applyTo: \"**\"` to apply everywhere rather "
+            "than to one glob. Also reads .claude/rules, so a Claude Code install covers it twice."
+        ),
     ),
     Harness(
         key="copilot-cli",
         name="GitHub Copilot CLI",
         skills_user=(AGENTS_USER, ".copilot/skills"),
         skills_project=(".github/skills", AGENTS_PROJECT),
+        rules_user=(".copilot/instructions",),
+        rules_project=(".github/instructions",),
+        rules_ext=".instructions.md",
         detect=(".copilot",),
         docs="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills",
         note="Run /skills reload in an open session to pick up a new install.",
+        rules_note="Same instruction directories as the VS Code extension; installing for either covers both.",
     ),
     Harness(
         key="opencode",
@@ -129,9 +174,15 @@ HARNESSES: tuple[Harness, ...] = (
         name="Kiro",
         skills_user=(".kiro/skills",),
         skills_project=(".kiro/skills",),
+        rules_user=(".kiro/steering",),
+        rules_project=(".kiro/steering",),
         detect=(".kiro",),
         docs="https://kiro.dev/docs/skills/",
         note="Documents no .agents/skills alias, so this one needs its own link.",
+        rules_note=(
+            "Kiro calls these steering files. `inclusion: always` in the frontmatter is what "
+            "loads one every session. Nested subdirectories are not documented, so rules go in flat."
+        ),
     ),
     Harness(
         key="qwen-code",

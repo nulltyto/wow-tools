@@ -41,18 +41,20 @@ opt-in — the interactive installer defaults to no addons, since putting a
 diagnostics addon into somebody's game is not a side effect of installing a
 search skill.
 
-Three offline tools go with it, and stay in this repo rather than in the game:
+Four offline tools go with it, and stay in this repo rather than in the game:
 
 | Tool | What it does |
 |---|---|
 | [`tools/diag/harness.lua`](tools/diag/) | Loads all five addon files under a stubbed WoW API and dispatches every `/euidiag` command. Catches load-order faults, registration errors, and dispatch bugs that a syntax check cannot see. Runs in CI. |
 | [`tools/perf/euidiag-perf.py`](tools/perf/) | Turns `/euidiag rec` recordings into per-module statistics, CSV, a shareable JSON summary, and an optional plot. |
 | [`tools/lint/lua_comments.py`](tools/lint/) | Caps how long a comment block may run in this repo's own Lua, using the rule the `ellesmereui-pr-check` skill applies to the addon. Diff-scoped, so only the comment lines a change adds count. Runs in CI. |
+| [`tools/lint/ascii_text.py`](tools/lint/) | Keeps commit messages and pull request text to ASCII. Runs as a `commit-msg` hook, as a Claude Code `PreToolUse` hook over `gh` commands, and in CI. See [Keeping git text to ASCII](#keeping-git-text-to-ascii). |
 
 ```bash
 cd tools/diag && lua5.1 harness.lua        # smoke test, exit 0 means clean
 ./tools/perf/euidiag-perf.py               # summarise the newest recording
 ./tools/lint/lua_comments.py               # comment budget over the diff
+./tools/lint/ascii_text.py --range main..HEAD   # ASCII over this branch's messages
 ```
 
 `euidiag-perf.py` finds the SavedVariables file by locating the game the same
@@ -82,10 +84,16 @@ Non-interactive:
 ./install.sh --harness claude-code --scope project --project-root ~/Repos/my-addon --yes
 ./install.sh --addons all --yes                        # addons only
 ./install.sh --addons EllesmereUISecretsDiag --wow-addons "/path/to/Interface/AddOns" --yes
+./install.sh --harness claude-code --rules all --yes   # rules only
+./install.sh --hooks all --repo /path/to/EllesmereUI   # hooks, into another repo
 ```
 
-Skills and addons are independent halves. Passing `--harness` runs only the
-skills half, `--addons` only the addons half, and neither runs both.
+Skills, rules, addons, and hooks are independent quarters, and each flag runs
+only its own. `--harness` runs the skills half; `--rules` the rules half;
+`--addons` the addons half; `--hooks` the hooks half. `--harness` on its own
+never installs rules, because asking for skills is not asking for an
+instruction in every future session. Hooks are never part of a default run at
+all: they write into a repository you have to name.
 
 | | |
 |---|---|
@@ -108,26 +116,112 @@ normal case rather than the strange one.
 
 ### Git hooks
 
-The installer places skills and addons. It does not place hooks, and this repo
-ships no harness configuration — no `settings.json`, no `CLAUDE.md`, nothing
-that changes how an agent behaves outside the skills themselves.
-
-One hook is installed separately, and into a different repo. `ellesmereui-pr-
-check` can install itself as a `pre-commit` hook in an **EllesmereUI addon
-checkout**, so a style violation never reaches a commit:
+Hooks are the one thing installed into **another repository** — the addon
+checkout you are about to commit to, not this one and not your home directory.
+That is why `--repo` is required and why nothing is installed by default:
 
 ```bash
-cd /path/to/EllesmereUI
-python3 ~/.claude/skills/ellesmereui-pr-check/scripts/check_style.py --install-hook
+python -m wow_tools install --hooks all --repo /path/to/EllesmereUI
+python -m wow_tools status  --repo /path/to/EllesmereUI
+python -m wow_tools uninstall --hooks all --repo /path/to/EllesmereUI
 ```
 
-It runs the staged half of the same check, reading the indexed blob rather than
-the file on disk. Errors block the commit; warnings and notes print and let it
-through. `git commit --no-verify` skips it, and an existing hook that is not
-this one is never overwritten. That skill's README covers the rest.
+| Hook | Event | What it does |
+|---|---|---|
+| `ascii-git-text` | `commit-msg` | Rejects a commit message containing a non-ASCII character. |
+| `eui-style` | `pre-commit` | Runs the `ellesmereui-pr-check` style check over the staged lines. Errors block the commit; warnings and notes print and let it through. |
 
-This repo runs its own checks in CI rather than in a hook: `ruff`, the Lua
-comment budget, the addon harness, and the installer end to end.
+A hook that cannot do its job in the target repo is skipped rather than
+installed, because a hook that fails does not fail quietly — it fails the
+commit. `eui-style` needs an `EllesmereUI.toc`, so pointing `--hooks all` at an
+unrelated checkout installs the ASCII hook and skips the other one, instead of
+blocking every commit there with an error about a `.toc` nobody was looking for.
+
+`git commit --no-verify` skips both. An existing hook that is not ours is never
+overwritten: `.git/hooks` is not tracked and not pushed, so whatever an
+overwrite destroyed would be unrecoverable. The installer prints the line to
+add by hand instead.
+
+`check_style.py --install-hook` still works and does the same thing for the
+style check alone. `--repo` is the route that also gives you `status` and
+`uninstall`.
+
+### Keeping git text to ASCII
+
+Source files get linted, reviewed, and fixed. Commit messages and pull request
+text do not — they go straight into a place where they are quoted, re-encoded,
+and read back for years by tooling that does not agree on an encoding. By the
+time a curly quote surfaces as mojibake in someone's `git log`, the commit is
+immutable, and rewriting published history to correct punctuation is not worth
+doing. So the character has to not be written in the first place.
+
+Three layers enforce it, because each one catches what the others cannot:
+
+| Layer | Covers | Where |
+|---|---|---|
+| `commit-msg` hook | Commit messages, before they exist | Per clone, via `--hooks` above |
+| `PreToolUse` hook | `gh pr create`, `gh pr comment`, `gh issue create`, `gh release create` | [`.claude/settings.json`](.claude/settings.json) |
+| CI | Every commit message in the range, plus the PR title and body | [`ci.yml`](.github/workflows/ci.yml) |
+
+The `PreToolUse` layer is the only one that reaches pull request text, since a
+PR body never touches git. It reads the command an agent is about to run,
+pulls out just the parts that are prose — the values of `-m`, `--title`,
+`--body`, `--notes`, and any heredoc — and blocks the call if any of them is
+non-ASCII. A non-ASCII character in a path, a branch name, or an unrelated
+command is ignored, which is what keeps the gate switched on.
+
+The rule itself is written down in [`rules/ascii-git-text.md`](rules/), and
+[installed as a rule](#rules) so an agent knows about it before it is stopped.
+Rules explain; hooks enforce. Claude Code's own documentation is explicit that
+instruction files "shape Claude's behavior but are not a hard enforcement
+layer", and that anything which must run before every commit belongs in a hook.
+
+### Rules
+
+A rule is one always-on instruction file, loaded into every session a harness
+runs. Unlike skills, rules have no cross-agent standard to install into:
+[AGENTS.md](https://agents.md/) is defined only at a repository root, so it says
+nothing about a user-scope location, and every harness that offers one invented
+its own path, its own file extension, and its own frontmatter key.
+
+```bash
+python -m wow_tools install --harness claude-code --rules all --yes
+python -m wow_tools install --harness claude-code --rules all --scope project \
+    --project-root ~/Repos/my-addon --yes
+```
+
+The same file installs under a different name for each reader:
+
+| Harness | User scope | Project scope | Installed as |
+|---|---|---|---|
+| Claude Code | `~/.claude/rules/` | `.claude/rules/` | `*.md` |
+| GitHub Copilot | `~/.copilot/instructions/` | `.github/instructions/` | `*.instructions.md` |
+| Kiro | `~/.kiro/steering/` | `.kiro/steering/` | `*.md` |
+| Cursor | — | `.cursor/rules/` | `*.mdc` |
+
+Cursor has no on-disk global rules directory — its user rules live in the
+Customize UI — and a plain `.md` in `.cursor/rules` is ignored, which is why
+the extension differs. One file serves all four because each reader ignores the
+frontmatter keys it does not know, so `inclusion`, `alwaysApply`, and `applyTo`
+sit side by side.
+
+**Harnesses whose instructions are a single file are deliberately skipped.**
+`~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, and `~/.claude/CLAUDE.md` are files
+you wrote. Appending to one is not a side effect an installer should have, so
+the installer prints the paste and stops. Passing `--harness` alone never
+installs rules either — asking for skills is not asking for an instruction in
+every future session.
+
+### Harness configuration in this repo
+
+This repo ships one piece of harness configuration, and only one:
+[`.claude/settings.json`](.claude/settings.json), holding the `PreToolUse` hook
+above. It applies to agents working *in this repo*; the installer does not put
+it anywhere, and there is still no `CLAUDE.md` here.
+
+Everything else this repo checks about itself runs in CI rather than in a hook:
+`ruff`, the Lua comment budget, the ASCII gate, the addon harness, and the
+installer end to end.
 
 ### Finding the game
 
@@ -247,11 +341,13 @@ the index deliberately does not attempt.
 
 ```
 skills/            One directory per Agent Skill, each self-contained
+rules/             One file per always-on rule, installed into a harness rules directory
 addons/            One directory per WoW addon, installed into the game
 tools/             Offline tools that stay here rather than shipping in-game
 wow_tools/         The installer: harness registry, game discovery, link/copy engine, CLI
-tests/             Hookup, addon, and installer tests
+tests/             Hookup, addon, rule, hook, and installer tests
 docs/              Design notes and evaluations
+.claude/           This repo's own harness config: the PreToolUse ASCII hook
 install.sh         Bootstrap (POSIX)
 install.ps1        Bootstrap (Windows)
 ```
