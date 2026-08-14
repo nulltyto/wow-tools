@@ -66,12 +66,25 @@ def interpreter() -> str:
     in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
     if not in_venv:
         return str(here)
-    for candidate in ("/usr/bin/python3", "/usr/local/bin/python3"):
-        if Path(candidate).is_file():
-            return candidate
-    # A base prefix exists even in a venv, and its python outlives the venv.
-    base = Path(sys.base_prefix) / "bin" / "python3"
-    return str(base) if base.is_file() else str(here)
+
+    # The interpreter the virtualenv was built from outlives the virtualenv.
+    # Its layout differs per platform: Scripts\python.exe on Windows,
+    # bin/python3 everywhere else.
+    # The OS interpreter first. A base prefix under a version manager's store
+    # is durable enough for today but can be garbage-collected out from under
+    # the hook; /usr/bin/python3 outlives every tool that put it there.
+    base = Path(sys.base_prefix)
+    candidates = [
+        Path("/usr/bin/python3"), Path("/usr/local/bin/python3"),
+        base / "python.exe", base / "Scripts" / "python.exe",
+        base / "bin" / "python3", base / "bin" / "python",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    # No interpreter outside the virtualenv to point at. The hook still works
+    # today; it just does not survive the virtualenv being removed.
+    return str(here)
 
 
 @dataclass(frozen=True)

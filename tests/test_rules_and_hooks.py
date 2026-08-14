@@ -166,23 +166,41 @@ def test_every_hook_points_at_a_script_that_exists():
         assert hook.script.is_file(), f"{hook.name} runs a script that is not here"
 
 
+def _python_outside_the_venv() -> bool:
+    """Whether this machine has an interpreter the virtualenv does not own."""
+    base = Path(sys.base_prefix)
+    return any(
+        p.is_file() for p in (
+            base / "python.exe", base / "Scripts" / "python.exe",
+            base / "bin" / "python3", base / "bin" / "python",
+            Path("/usr/bin/python3"), Path("/usr/local/bin/python3"),
+        )
+    )
+
+
 def test_the_hook_interpreter_is_not_a_virtualenv(tmp_path):
     """A hook baked to a venv breaks every commit once that venv is gone.
 
-    The test suite runs under `uv run`, so sys.executable here IS a virtualenv
-    python -- which makes this the exact condition the helper exists to avoid.
+    The suite runs under `uv run`, so sys.executable here IS a virtualenv
+    python -- the exact condition the helper exists to avoid. Where no
+    interpreter outside the virtualenv exists the helper falls back to that
+    one by design, so the guarantee is conditional and so is the assertion.
     """
     chosen = Path(hooks_mod.interpreter())
     assert chosen.is_file(), f"{chosen} is not there to run"
-    assert ".venv" not in chosen.parts, f"{chosen} would die with the virtualenv"
+    if _python_outside_the_venv():
+        assert ".venv" not in chosen.parts, f"{chosen} would die with the virtualenv"
 
 
-def test_hook_body_runs_the_chosen_interpreter(repo):
+def test_hook_body_quotes_its_paths_with_forward_slashes(repo):
+    """A hook is /bin/sh even on Windows, where a backslash is an escape."""
     hook = hooks_mod.HOOK_BY_NAME["ascii-git-text"]
     hooks_mod.install(hook, repo)
     body = (repo / ".git" / "hooks" / hook.event).read_text()
-    assert hooks_mod.interpreter() in body
-    assert ".venv" not in body
+    exec_line = [ln for ln in body.splitlines() if ln.startswith("exec ")][0]
+    assert "\\" not in exec_line, f"a backslash would be eaten by sh: {exec_line}"
+    assert exec_line.count('"') >= 4, "both paths must be quoted"
+    assert hooks_mod.interpreter().replace("\\", "/") in exec_line
 
 
 def test_hook_round_trips(repo):

@@ -118,10 +118,19 @@ def commit_body(text: str) -> str:
     return "\n".join(lines)
 
 
+# git stores messages as UTF-8 regardless of the machine's locale, so every
+# read here says so. Left to `text=True` alone, Python decodes with the
+# preferred encoding -- cp1252 on a default Windows install -- and an em dash
+# arrives as the two characters its UTF-8 bytes happen to mean there. The
+# check still fires, but it names the wrong character and offers a repair that
+# would not help.
+ENCODING = "utf-8"
+
+
 def git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(root), *args],
-        capture_output=True, text=True, errors="replace",
+        capture_output=True, text=True, encoding=ENCODING, errors="replace",
     ).stdout.strip()
 
 
@@ -134,7 +143,7 @@ def messages_in_range(root: Path, rev_range: str) -> list[tuple[str, str]]:
     sep = "\x1e"
     raw = subprocess.run(
         ["git", "-C", str(root), "log", "--no-merges", f"--format=%H%x1f%B{sep}", rev_range],
-        capture_output=True, text=True, errors="replace",
+        capture_output=True, text=True, encoding=ENCODING, errors="replace",
     )
     if raw.returncode != 0:
         sys.exit(f"git log failed for {rev_range!r}: {raw.stderr.strip()}")
@@ -266,11 +275,20 @@ def report(parts: list[tuple[str, str]], *, stream=sys.stderr) -> int:
 
 HOOK_MARKER = "wow-tools-ascii-text"
 
+# Paths are quoted and written with forward slashes. A hook is a /bin/sh
+# script even on Windows, where git runs it through its bundled shell, and a
+# native path arrives with backslashes that sh reads as escapes -- turning
+# D:\a\x\.venv\Scripts\python.exe into D:axvenvScriptspython.exe. Python
+# accepts forward slashes on every platform.
 HOOK_TEMPLATE = """#!/bin/sh
 # {marker}: reject a commit message containing non-ASCII characters.
 # Skip once with `git commit --no-verify`.
-exec {python} {script} --commit-msg "$1"
+exec "{python}" "{script}" --commit-msg "$1"
 """
+
+
+def _sh_path(path) -> str:
+    return str(path).replace("\\", "/")
 
 
 def install_hook(root: Path) -> int:
@@ -280,16 +298,16 @@ def install_hook(root: Path) -> int:
     hooks.mkdir(parents=True, exist_ok=True)
     hook = hooks / "commit-msg"
 
-    line = (f'{sys.executable} {Path(__file__).resolve()} --commit-msg "$1"')
+    python = _sh_path(sys.executable)
+    script = _sh_path(Path(__file__).resolve())
+    line = f'"{python}" "{script}" --commit-msg "$1"'
     if hook.exists() and HOOK_MARKER not in hook.read_text(encoding="utf-8", errors="replace"):
         print(f"{hook} already exists and is not ours -- leaving it alone.\n"
               f"Add this line to it instead:\n\n  {line}\n")
         return 1
 
     hook.write_text(HOOK_TEMPLATE.format(
-        marker=HOOK_MARKER,
-        python=sys.executable,
-        script=Path(__file__).resolve(),
+        marker=HOOK_MARKER, python=python, script=script,
     ), encoding="utf-8")
     hook.chmod(0o755)
     print(f"Installed {hook}\n"
@@ -302,7 +320,24 @@ def install_hook(root: Path) -> int:
 #  Driver
 # --------------------------------------------------------------------------
 
+def _use_utf8() -> None:
+    """Read and write UTF-8 whatever the machine's locale says.
+
+    Both directions matter. Input, because the text being judged is UTF-8 --
+    a PR body piped in by CI, a PreToolUse event. Output, because the report
+    quotes the offending character back, and a console encoding that cannot
+    represent an em dash would turn this check into a crash on exactly the
+    input it exists to catch.
+    """
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding=ENCODING, errors="replace")
+        except (AttributeError, ValueError):
+            pass  # already detached, or not a text stream
+
+
 def main(argv: list[str] | None = None) -> int:
+    _use_utf8()
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = ap.add_mutually_exclusive_group(required=True)

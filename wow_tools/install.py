@@ -113,10 +113,18 @@ def resolve_directory(
 
 
 def _is_our_link(target: Path, source: Path) -> bool:
+    """Whether `target` is a link this installer made to `source`.
+
+    Both sides go through realpath rather than being compared as text.
+    Windows returns a link's destination in extended-length form
+    (`\\\\?\\D:\\...`), which never compares equal to the same path written
+    normally -- so a second install read its own link as a stranger's and
+    refused to touch it, and uninstall left it behind.
+    """
     if not target.is_symlink():
         return False
     try:
-        return Path(os.readlink(target)).resolve() == source.resolve()
+        return os.path.realpath(target) == os.path.realpath(source)
     except OSError:
         return False
 
