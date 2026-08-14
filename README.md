@@ -357,7 +357,11 @@ install.ps1        Bootstrap (Windows)
 World of Warcraft is a trademark of Blizzard Entertainment, Inc. The
 `wow-api-search` index is generated from Blizzard's exported interface code,
 sourced via [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source);
-that underlying game data belongs to Blizzard. EllesmereUI is by Ellesmere
+that underlying game data belongs to Blizzard. The committed index carries the
+facts about the interface -- names, signatures, payloads, enum members, secret
+markers -- and not the prose notes Blizzard writes on them, which stay in the
+export; `generate_index.py --with-docs` builds a local index that includes
+them. EllesmereUI is by Ellesmere
 Gaming; `ellesmereui-search` contains no addon code, only tooling that builds
 an index from a local checkout. `EllesmereUISecretsDiag` is a development-only
 diagnostics addon that measures that suite and follows its conventions; it is

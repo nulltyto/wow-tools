@@ -174,9 +174,7 @@ def main():
         sys.exit(f"No index at {args.index}. Run generate_index.py first.")
     index = json.loads(args.index.read_text(encoding="utf-8"))
 
-    docs_dir = args.docs_dir or Path(index.get("generated_from", ""))
-    if not docs_dir.is_dir():
-        docs_dir = find_docs_dir()
+    docs_dir = args.docs_dir or find_docs_dir()
     if docs_dir is None or not docs_dir.is_dir():
         sys.exit("Could not locate the docs export. Pass --docs-dir "
                  f"<clone>/{DOCS_SUBPATH}.")
@@ -302,11 +300,25 @@ def main():
                 idx_field[entry["file"]] += sum(
                     1 for f in entry.get(mkey, []) if f.get("documentation"))
 
-    for label, src, idx in (("entry notes", src_entry, idx_entry),
-                            ("field notes", src_field, idx_field)):
-        bad = sorted(f"{f}: source {src[f]}, index {idx[f]}"
-                     for f in src if src[f] != idx[f])
-        r.report(label, sum(src.values()), bad)
+    if index.get("documentation") == "omitted":
+        # This index deliberately carries no notes, so the check reverses: the
+        # count that must match is zero, and any note that came through is a
+        # strip that missed a place Blizzard's prose is stored.
+        print(f"           (index built without notes; {sum(src_entry.values())} entry "
+              f"and {sum(src_field.values())} field notes left in the export)")
+        # Counted per file, like every other check on this page, so a partial
+        # strip reads as the number of files it left behind.
+        for label, idx in (("entry notes absent", idx_entry),
+                           ("field notes absent", idx_field)):
+            bad = sorted(f"{f}: {idx[f]} note(s) still in the index"
+                         for f in idx if idx[f])
+            r.report(label, len(idx), bad)
+    else:
+        for label, src, idx in (("entry notes", src_entry, idx_entry),
+                                ("field notes", src_field, idx_field)):
+            bad = sorted(f"{f}: source {src[f]}, index {idx[f]}"
+                         for f in src if src[f] != idx[f])
+            r.report(label, sum(src.values()), bad)
 
     print("\nHEADER -- recorded totals match the entries present")
     for label, key, idx in (("functions", "total_functions", idx_functions),

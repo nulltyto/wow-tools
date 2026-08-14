@@ -15,11 +15,16 @@ library and Python 3.9+.
 
 **Index** (bundled, works standalone): `references/api_index.json` under this skill's base directory. It answers signature/payload/enum questions without any other setup.
 
+If `references/api_index.local.json` exists, grep that one instead. It is the same index rebuilt locally with Blizzard's prose notes, which the bundled copy leaves out (see **Prose notes** below); everything else in the two files is identical.
+
 **Source code** (optional, needed only for implementation details): a clone of [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source). Resolve the base path in this order:
 
 1. `$WOW_UI_SOURCE` environment variable
 2. Common locations: `~/Repos/wow-ui-source`, `~/repos/…`, `~/src/…`, `~/code/…`, `~/Projects/…`, `~/projects/…`, `~/dev/…`, `~/wow-ui-source`
-3. The `generated_from` field at the top of the index (the path used at index build time)
+
+The index records which export it was built from — `source_version` and
+`source_fingerprint` at the top of the file — but not where that clone sat, so
+the path has to be resolved rather than read.
 
 The interface code lives at `<clone>/Interface/AddOns/` — 300+ `Blizzard_*` addon folders. If no clone exists and the question needs implementation code, offer to clone it: `git clone --depth 1 https://github.com/Gethe/wow-ui-source` (the `live` branch tracks retail; `ptr`/`beta` branches exist too).
 
@@ -44,14 +49,28 @@ Entry structure:
 - **Functions**: `{ system, namespace, qualified_name, file, arguments: [{name, type, nilable, default?}], returns: [...], documentation?, secret_arguments?, returns_never_secret?, preconditions? }`
 - **Events**: `{ system, file, literal_name, name, payload: [{name, type, nilable}], documentation? }`
 - **Tables**: `{ system, file, type: Structure|Enumeration|Constants, fields: [{name, type, nilable?, enum_value?, value?, never_secret?, documentation?}] }` — `enum_value` on an Enumeration member, `value` on a Constants member
+- **Predicates**: `{ system, file, failure_mode }` — under the `predicates` section
 
 `documentation` is Blizzard's own prose note, carried on the entry and on
-individual fields. Read it — it holds semantics no signature can, and the
-caveats are the expensive part to rediscover. `SpellCooldownInfo.isOnGCD` says
-"do not trust this field unless responding to a SPELL_UPDATE_COOLDOWN event";
-`GetSpellCharges` says it "may return nil if spell is not found or is not
-charge-based". Quote the note when it changes how the API has to be called.
-- **Predicates**: `{ system, file, failure_mode }` — under the `predicates` section
+individual fields. Read it when it is there — it holds semantics no signature
+can, and the caveats are the expensive part to rediscover.
+`SpellCooldownInfo.isOnGCD` says "do not trust this field unless responding to
+a SPELL_UPDATE_COOLDOWN event"; `GetSpellCharges` says it "may return nil if
+spell is not found or is not charge-based". Quote the note when it changes how
+the API has to be called.
+
+**Prose notes and which index carries them.** The header field `documentation`
+says `included` or `omitted`. The bundled index says `omitted`: it carries the
+facts about the interface, and leaves Blizzard's writing in the export it came
+from. `source_documented` is how many notes that export holds.
+
+When the note is absent, do not infer the semantics from the name. Either read
+the entry's own `file` in the docs export, under
+`<clone>/Interface/AddOns/Blizzard_APIDocumentationGenerated/`, where the note
+sits one grep from the entry name — or say that the index carries no note for
+this entry, and that `scripts/generate_index.py --with-docs` builds one that
+does. Reporting a signature without its caveat, as though there were no
+caveat, is the failure this paragraph exists to prevent.
 
 When the same unqualified name exists in several namespaces (`GetName`, `IsEnabled`, ...), the value is an **array** of entries instead of a single object — check `namespace`/`qualified_name` to pick the right one. The one-grep-returns-everything property still holds.
 

@@ -1,6 +1,12 @@
 # Build artifact — regenerate with skills/ellesmereui-search/scripts/build_index.py --ensure
 skills/ellesmereui-search/references/index/
 
+# Local API index carrying Blizzard's prose notes, built with
+# skills/wow-api-search/scripts/generate_index.py --with-docs. The committed
+# index leaves the notes in the export they came from; this one does not, so
+# it stays out of the repository.
+skills/wow-api-search/references/api_index.local.json
+
 # Written by tools/diag/harness.lua on every run, and read by euidiag-perf.py
 tools/diag/harness-sv.lua
 

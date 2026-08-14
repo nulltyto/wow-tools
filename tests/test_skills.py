@@ -107,6 +107,44 @@ def test_bundled_api_index_is_internally_consistent():
         )
 
 
+def test_bundled_api_index_carries_no_blizzard_prose():
+    """The committed index ships interface facts, never Blizzard's writing.
+
+    Signatures, payloads and enum members are facts about an interface and are
+    this repository's to publish. The `Documentation` notes in the export are
+    Blizzard's own text, and nothing here licenses republishing them, so the
+    committed index omits them and a local `--with-docs` build keeps them.
+    The default output path of that build is the committed file's neighbour
+    rather than the committed file, but a stray `--force`, a hand edit or a
+    future builder change would put the prose back with nothing to notice --
+    which is what this test is for.
+    """
+
+    index = _bundled_index()
+    assert index.get("documentation") == "omitted", (
+        "the committed index must declare that it carries no prose notes"
+    )
+
+    found = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "documentation":
+                    found.append(path)
+                else:
+                    walk(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for i, item in enumerate(node):
+                walk(item, f"{path}[{i}]")
+
+    for section in ("functions", "events", "tables", "predicates", "systems"):
+        walk(index[section], section)
+
+    assert not found, f"Blizzard's prose notes are in the committed index: {found[:5]}"
+    assert index["total_documented"] == 0, index["total_documented"]
+
+
 def _bundled_index():
     import json
 

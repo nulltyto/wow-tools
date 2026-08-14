@@ -2,12 +2,23 @@
 """Parse Blizzard_APIDocumentationGenerated lua files into a JSON index.
 
 Usage:
-    generate_index.py [docs_dir] [output_path] [--ensure|--check|--force]
+    generate_index.py [docs_dir] [output_path] [--ensure|--check|--force] [--with-docs]
 
 Modes:
     --ensure   rebuild only if the docs export changed (default)
     --check    report FRESH/STALE, exit 1 if stale
     --force    rebuild unconditionally
+
+Blizzard's prose notes:
+    --with-docs keeps them. They are left out by default because the index in
+    this repository is redistributed, and the notes are the one part of the
+    export that is Blizzard's own writing rather than a fact about the
+    interface. Names, signatures, payloads, enum members, flags and the
+    secret markers are facts and are always kept.
+
+    --with-docs writes references/api_index.local.json, which is gitignored,
+    so a local build with the notes never replaces the file this repository
+    ships. The skill reads the local one when it is there.
 
 docs_dir resolution order:
     1. CLI argument
@@ -28,10 +39,15 @@ import sys
 from datetime import date
 from pathlib import Path
 
-BUILDER_VERSION = 5
+# 6 added the `documentation` header field, so an index built by 5 rebuilds
+# rather than being read as one that deliberately carries no notes.
+BUILDER_VERSION = 6
 
 DOCS_SUBPATH = Path("Interface/AddOns/Blizzard_APIDocumentationGenerated")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "references" / "api_index.json"
+# --with-docs writes here instead, so a local build carrying Blizzard's prose
+# never lands on top of the file this repository ships. Gitignored.
+LOCAL_OUTPUT = DEFAULT_OUTPUT.with_name("api_index.local.json")
 
 
 def find_docs_dir():
@@ -360,7 +376,31 @@ def add_entry(lookup, name, entry):
         lookup[name] = [existing, entry]
 
 
-def build_index(docs_dir):
+def strip_documentation(lookup):
+    """Drop every prose note from a built lookup, in place. Returns the count.
+
+    Applied to the sections rather than to the whole index, so the header
+    field of the same name survives.
+    """
+    removed = 0
+
+    def walk(node):
+        nonlocal removed
+        if isinstance(node, dict):
+            if "documentation" in node:
+                del node["documentation"]
+                removed += 1
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(lookup)
+    return removed
+
+
+def build_index(docs_dir, include_docs=False):
     """Build the full index from all documentation files."""
     systems = []
     function_lookup = {}
@@ -481,18 +521,32 @@ def build_index(docs_dir):
                     documented += sum(1 for f in item.get(field_list, [])
                                       if f.get("documentation"))
 
+    stored = documented
+    if not include_docs:
+        stored = 0
+        for lookup in (function_lookup, event_lookup, table_lookup, predicate_lookup):
+            strip_documentation(lookup)
+
     return {
         "builder_version": BUILDER_VERSION,
-        "generated_from": str(docs_dir),
+        # The subpath, not the absolute one: the checkout a build ran against
+        # is identified by source_version and source_fingerprint, so the rest
+        # of the path says nothing except whose machine it was.
+        "generated_from": DOCS_SUBPATH.as_posix(),
         "source_version": detect_source_version(docs_dir),
         "source_fingerprint": fingerprint(docs_dir),
         "generated_on": date.today().isoformat(),
+        "documentation": "included" if include_docs else "omitted",
         "total_systems": len(systems),
         "total_functions": total(function_lookup),
         "total_events": total(event_lookup),
         "total_tables": total(table_lookup),
         "total_predicates": total(predicate_lookup),
-        "total_documented": documented,
+        # What this file carries, then what the export offered. The two differ
+        # by exactly the notes left behind, so a reader can see the cost of
+        # the default and a validator can check the omission was complete.
+        "total_documented": stored,
+        "source_documented": documented,
         "functions": function_lookup,
         "events": event_lookup,
         "tables": table_lookup,
@@ -538,12 +592,17 @@ def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("docs_dir", nargs="?", help="path to Blizzard_APIDocumentationGenerated")
-    ap.add_argument("output", nargs="?", help=f"output path (default: {DEFAULT_OUTPUT})")
+    ap.add_argument("output", nargs="?",
+                    help=f"output path (default: {DEFAULT_OUTPUT}, "
+                         f"or {LOCAL_OUTPUT.name} with --with-docs)")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--ensure", action="store_true", help="rebuild only if stale (default)")
     mode.add_argument("--check", action="store_true", help="report freshness, exit 1 if stale")
     mode.add_argument("--force", action="store_true", help="rebuild unconditionally")
+    ap.add_argument("--with-docs", action="store_true",
+                    help="keep Blizzard's prose notes (left out of the committed index)")
     args = ap.parse_args()
+    wanted_docs = "included" if args.with_docs else "omitted"
 
     if args.docs_dir:
         docs_dir = Path(args.docs_dir).expanduser()
@@ -560,7 +619,10 @@ def main():
             )
             sys.exit(1)
 
-    output_path = Path(args.output).expanduser() if args.output else DEFAULT_OUTPUT
+    if args.output:
+        output_path = Path(args.output).expanduser()
+    else:
+        output_path = LOCAL_OUTPUT if args.with_docs else DEFAULT_OUTPUT
 
     if not docs_dir.is_dir():
         print(f"Error: {docs_dir} is not a directory", file=sys.stderr)
@@ -568,17 +630,24 @@ def main():
 
     header = read_index_header(output_path)
     fp = fingerprint(docs_dir)
+    # The notes are part of what makes an index the one that was asked for, so
+    # --with-docs against a index built without them is stale, not fresh.
     fresh = (
         header.get("source_fingerprint") == fp
         and header.get("builder_version") == BUILDER_VERSION
+        and header.get("documentation") == wanted_docs
     )
+    rebuild = f"python3 {Path(sys.argv[0]).name} --ensure"
+    if args.with_docs:
+        rebuild += " --with-docs"
 
     if args.check:
         if fresh:
             print(f"FRESH  {output_path}  ({header.get('source_version', '?')}, "
-                  f"generated {header.get('generated_on', '?')})")
+                  f"generated {header.get('generated_on', '?')}, "
+                  f"notes {header.get('documentation', '?')})")
             sys.exit(0)
-        print(f"STALE  {output_path}  -- run: python3 {Path(sys.argv[0]).name} --ensure")
+        print(f"STALE  {output_path}  -- run: {rebuild}")
         sys.exit(1)
 
     if fresh and not args.force:
@@ -588,7 +657,7 @@ def main():
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    index = build_index(docs_dir)
+    index = build_index(docs_dir, include_docs=args.with_docs)
     output_path.write_text(serialize_index(index), encoding="utf-8")
 
     print(f"Index written to {output_path}")
@@ -597,7 +666,11 @@ def main():
     print(f"  Functions: {index['total_functions']}")
     print(f"  Events:    {index['total_events']}")
     print(f"  Tables:    {index['total_tables']}")
-    print(f"  Doc notes: {index['total_documented']}")
+    if args.with_docs:
+        print(f"  Doc notes: {index['total_documented']}  (local build; not committed)")
+    else:
+        print(f"  Doc notes: omitted  ({index['source_documented']} in the export; "
+              f"add --with-docs to keep them locally)")
 
 
 if __name__ == "__main__":
