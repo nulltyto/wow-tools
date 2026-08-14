@@ -64,19 +64,28 @@ the index resolves. Before calling it dead, remember what the index cannot see
 — a handler reached through `hooksecurefunc`, a name assembled at runtime, or a
 function stored in a table and invoked from there.
 
-### The one gap worth a second look — a renamed receiver
+### What the lists cover, and the one gap left
 
-Measured against a real parser, the published lists are 99.1% complete on bare
-`Foo()` calls. Dotted `owner.Foo()` calls are 73.9% complete, and nearly all of
-the shortfall is a single case: **the call site spells the receiver differently
-from the `owner` this record stores.** A file does `local PPc = PP` and then
-calls `PPc.ToPixels(...)`; attribution follows the receiver, so the edge is
-dropped. Real pairs in this tree include `PPa.` for `PP.`, `EllesmereUI.Lite.`
-for `EUILite.`, `barCtx.` for `ctx.`, and `ns.Engine.` for `Engine.`.
+Measured against a real parser: **99.1%** of bare `Foo()` calls are recorded,
+and **78.6%** of dotted `owner.Foo()` calls.
 
-`PP.ToPixels` at `EllesmereUI.lua:2137` reports `caller_count: 0`. It has eight
-real callers, reached as `PPi.`, `PPc.`, and `gamePP.` — three aliases for one
-table, none of them the recorded `owner`.
+The builder resolves a renamed receiver where the rename is syntactic — a table
+published on a path (`EllesmereUI.PP = PP`) and a local bound from one
+(`local PPc = EllesmereUI and EllesmereUI.PP`), in both directions. So
+`PP.ToPixels` lists all eight of its callers and names `PPi.`, `PPc.`, and
+`gamePP.` in `aliases`, even though none of them is the recorded `owner`.
+
+What it cannot resolve is a receiver that arrives as **a function parameter**:
+one builder takes `ctx` and calls it `barCtx`, and nothing in the text connects
+the two. That is most of the remaining 21%.
+
+**Method calls are a separate matter, and the coverage there is thin by
+design: about 7% of `X:Foo()` sites.** A method is credited only where the
+receiver is literally the `owner` (or `self` inside the defining file), and
+most calls instead go through an instance — `btn:`, `frame:`, `bar:`. Widening
+that to match on the method name alone would hand `SetPoint` 7,126 callers that
+belong to Blizzard frames. So for anything normally called as `obj:Method()`,
+read a low `caller_count` as "not measured" rather than "not called", and grep.
 
 So for a **`field` or `method` record**, treat a zero or suspiciously small
 count as unproven rather than as an answer. One grep settles it, and it is the

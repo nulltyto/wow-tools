@@ -6,6 +6,10 @@ with tree-sitter 0.26.0 and tree-sitter-lua 0.5.0. Conclusion: unchanged. No
 for the existing extraction, yes for the part of the call graph the index still
 cannot reach.**
 
+The re-measurement was not neutral. It found 12 of the build's 20 seconds in
+one avoidable loop, and a receiver-aliasing gap in the caller index worth 616
+call edges. Both are fixed; the numbers below are after those fixes.
+
 The three skills here parse Lua with regexes over a *masked* copy of the source
 — a pass that blanks comment bodies and string contents to spaces while keeping
 byte offsets intact. tree-sitter is the obvious alternative, so this is what
@@ -72,32 +76,38 @@ something that parses this tree correctly with something that does not, and the
 failure is silent — an ERROR node yields no captures, so the records simply
 stop appearing.
 
-### 4. Cost, and the parsing efficiency question
+### 4. Cost
 
 | | First run | Now |
 |---|---|---|
 | Tree | 137 files, 399,657 lines, 20 MB | 151 files, 448,183 lines, 23.9 MB |
 | tree-sitter parse of every file | 1.43 s (14 MB/s) | 1.71 s (14.0 MB/s) |
-| Full index build (parse + extract + cross-refs + write) | ~14 s | 19.7 s |
+| Full index build (parse + extract + cross-refs + write) | ~14 s | 7.6 s |
 
-**The extraction has not become more efficient. It has become slower, because
-it now does more.** Running the previous extractor (`ab762b2`) and the current
-one against the same tree, three runs each, isolates the code change from the
-tree growth:
+The re-measurement first found the extraction had got *slower*, not faster.
+Against the same tree the previous extractor (`ab762b2`) took 16.6 s and the
+then-current one 19.7 s, for identical symbol output -- the extra work being
+caller edges, colour tables, and branch-built defaults tables.
 
-| Extractor | Full `--force` build | Symbols produced |
-|---|---|---|
-| `ab762b2` (first evaluation) | 16.6 s | 17,015 |
-| current | 19.7 s | 17,015 |
+Profiling that 19.7 s found one function holding 12.4 s of it.
+`extract_saved_variable_keys` compiled two regexes per SavedVariables name and
+ran them over every file: 40 names against 24 MB is 80 reads of the whole tree.
+One alternation over all 40 names reads it twice, and the same profile paid for
+a `mask_lua` that visited every character one at a time when only four
+characters can open a masked region.
 
-Same output on the symbol count, about 19% more wall clock. The extra time buys
-the passes added since: caller edges, colour tables, and defaults tables built
-one branch at a time. tree-sitter's own throughput is unchanged at 14 MB/s, so
-the gap between the two has widened slightly in tree-sitter's favour — from
-roughly 10x to roughly 12x — and it still does not matter.
+| Extractor | Full `--force` build |
+|---|---|
+| `ab762b2` (first evaluation) | 16.6 s |
+| before optimisation | 19.7 s |
+| **now** | **7.6 s** |
 
-Parsing is not the bottleneck in either version, and `--ensure` makes the build
-a no-op when nothing changed. There is no performance case either way.
+Byte-identical output on all six index files, verified against a snapshot. The
+gap to tree-sitter narrowed from roughly 12x to roughly 4.5x, which changes
+nothing about the recommendation -- parsing was never the bottleneck, and
+`--ensure` makes the build a no-op when nothing changed. It is recorded because
+the first evaluation used "parsing is cheap either way" as a reason not to look,
+and 12 of those 20 seconds were one avoidable loop.
 
 ## The dependency, which is the real cost
 
@@ -132,48 +142,67 @@ What that partial graph covers:
 | Distinct call sites recorded | 29,875 |
 | Symbols truncated by `CALLER_CAP = 40` | 125 |
 
-Measured against tree-sitter's `function_call` nodes, restricted to the names
-whose records actually publish a caller list — that is, excluding the 7,547
-records suppressed as `caller_ambiguity` and the 125 cap-truncated ones, both
-of which already route the agent to Grep:
+Call sites break down by shape as 50,106 bare `Foo()`, 24,157 dotted `X.Foo()`,
+and 69,623 method `X:Foo()` — 143,886 of the 144,460 `function_call` nodes
+resolve to a callee name.
 
-| Call shape | Call sites | Recorded by the index | Missed |
+> A first pass at this measurement read `child_by_field_name("field")` for both
+> index expressions. `method_index_expression` names its field `method`, so
+> every one of those 69,623 calls returned `None` and dropped out silently —
+> the harness reported a confident bare/dotted split with the largest category
+> missing. Worth stating because the failure looked exactly like a clean
+> result.
+
+Restricted to the names whose records actually publish a caller list — that is,
+excluding the 7,547 records suppressed as `caller_ambiguity` and the
+cap-truncated ones, both of which already route the agent to Grep:
+
+| Call shape | Call sites | Recorded | Before the alias work |
 |---|---|---|---|
-| `Foo()` | 17,573 | 17,417 (99.1%) | 156 |
-| `X.Foo()` | 8,592 | 6,353 (73.9%) | 2,239 |
-| all | 26,165 | 23,770 (90.8%) | 2,395 |
+| `Foo()` | 17,572 | 17,416 (99.1%) | 99.1% |
+| `X.Foo()` | 8,388 | 6,596 (**78.6%**) | 73.9% |
+| `X:Foo()` | 14,595 | 1,057 (7.2%) | 7.1% |
 
-Bare calls are essentially complete. The gap is almost entirely one failure,
-and it is not scope analysis in general: **the receiver at the call site is
-spelled differently from the owner the index recorded.** 639 of the dotted
-misses are a receiver that is a plain alias for the indexed owner, and the rest
-are the same idea reached through a longer path:
+**The method row is not a defect, and closing it would be a bug.** Method names
+collide with Blizzard's widget API: `:SetPoint` accounts for 7,126 of those
+"missed" calls across 2,003 distinct receivers, against a single indexed
+`fs:SetPoint` helper. Crediting them by name is precisely the false edge the
+receiver rule exists to prevent. Name matching is a fair proxy for "should have
+been recorded" on bare and dotted calls; on methods it measures instance
+dispatch, which no amount of regex or grammar resolves without type inference.
+The method calls that *are* real misses look different — `:DualRow` is called
+669 times from two receivers, not two thousand.
 
-| Called as | Indexed as | Sites |
-|---|---|---|
-| `PPa.X()` | `PP.X()` | 95 |
-| `EllesmereUI.Lite.X()` | `EUILite.X()` | 63 |
-| `barCtx.X()` | `ctx.X()` | 49 |
-| `EllesmereUI.X()` | `EUI.X()` | 45 |
-| `ns.Engine.X()` | `Engine.X()` | 33 |
+The dotted gap was one failure: **the receiver at the call site is spelled
+differently from the owner the index recorded.** That is now largely resolved.
+`build_index.py` follows three syntactic bindings — a table published on a path
+(`EllesmereUI.PP = PP`), a local bound from one
+(`local PPc = EllesmereUI and EllesmereUI.PP`, including `_G.` prefixes and an
+`or {}` fallback), and the same binding read backwards, for a file that
+declares `function EUI.Foo()` after `local EUI = _G.EllesmereUI or {}`.
 
-`PP.ToPixels` at `EllesmereUI.lua:2137` shows the shape plainly. Its
-`caller_count` is 0, yet it is called at `EUI_UnlockMode.lua:9567` as
-`PPc.ToPixels(liveCX)` — `PPc` being a local bound to the same table.
-Attribution follows the receiver by design, because the alternative reports
-6,836 callers for `SetPoint`; the cost of that correct choice is every call
-through a renamed receiver.
+`PP.ToPixels` was the worked example: `caller_count` 0 with eight real callers
+reached as `PPi.`, `PPc.`, and `gamePP.`. It now reports all eight and names
+the three aliases. Across the tree the change added 616 caller edges and 1,884
+to the true counts, and **every one of the 616 was checked against tree-sitter
+for a real call of that name at that line — none were false**.
 
-So the honest statement is narrower than the first evaluation's, and more
-useful: the caller index is close to complete on bare calls, reliable on dotted
-calls whose receiver matches the definition, and blind to receiver aliasing. It
-should not be read as a complete call graph. The remaining constructs a grammar
-would reach:
+What is deliberately left unresolved:
+
+- An `or` between two *named* tables. `EllesmereUI.Widgets` is assigned
+  `AbsorberW`, `realWidgets`, and `WidgetFactory`, because a search feature
+  swaps the table at runtime. Three claims, so the alias is dropped.
+- A receiver that arrives as a function parameter. `barCtx.X()` for `ctx.X()`
+  is 49 sites, and nothing syntactic connects them. This is real dataflow and
+  the honest end of what regexes reach — 192 dotted misses remain, down from
+  639, and they are nearly all this.
+
+The remaining constructs a grammar would reach:
 
 | Construct | Count | Why regexes struggle |
 |---|---|---|
-| Function call sites | 144,460 | Only 74,263 have a callee name resolvable without scope analysis at all. |
-| Calls through a renamed receiver | 2,239 missed | `PPc.ToPixels()` where the index recorded `PP.ToPixels`. Needs the binding followed. |
+| Method dispatch | 69,623 call sites | The receiver is an instance, not the table the method was defined on. Needs type inference, not a grammar. |
+| Receiver arriving as a parameter | 192 missed | `barCtx.X()` for `ctx.X()`. Real dataflow; nothing syntactic links them. |
 | Definitions suppressed as ambiguous | 7,547 | Mostly the AceConfig `get = function(info)` idiom, where the missing list costs nothing. |
 | `hooksecurefunc` targets | 392 | The hooked name is an argument, often a variable; resolving it means following the binding. |
 | Functions in table fields | 7,103 | Table-driven config and anonymous handlers, which no definition regex names. |
@@ -193,11 +222,10 @@ grammar there is pure cost.
 
 **Two things worth doing, neither of them a rewrite:**
 
-1. Say what the caller index is. It is 99.1% complete on bare calls and 73.9%
-   complete on `X.Foo()` calls, and the shortfall is receiver aliasing rather
-   than anything diffuse. `SKILL.md` already warns about `hooksecurefunc`,
-   runtime-assembled names, and table-stored functions; it should add the
-   alias case, which is the larger one, and name the Grep that resolves it.
+1. Say what the caller index is. It is 99.1% complete on bare calls and 78.6%
+   complete on `X.Foo()` calls, and it does not attempt method dispatch.
+   `SKILL.md` carries that, plus the Grep that resolves a receiver the alias
+   passes could not.
 2. Keep the call-graph completion on the shelf. If "what does this
    hooksecurefunc actually hook" or "which handler does this config table
    install" becomes worth answering properly, build it as a **separate,
@@ -229,5 +257,18 @@ The four checks worth repeating after any grammar or extractor change:
 3. Feed any file with ERROR nodes to `luac5.1 -p`. If luac accepts it, the
    grammar is the thing that is wrong.
 4. Diff tree-sitter `function_call` sites against the `callers` field, holding
-   out names whose `caller_count` exceeds the stored list length. Report bare
-   and dotted call shapes separately; they fail at very different rates.
+   out names whose `caller_count` exceeds the stored list length. Report bare,
+   dotted, and method shapes separately; they fail at completely different
+   rates, and a combined number hides all three.
+
+   Read the callee through the right field or the check lies: a
+   `dot_index_expression` names it `field`, a `method_index_expression` names
+   it `method`. Using `field` for both silently drops every `X:Foo()` call --
+   half the call sites in this tree -- and the run still looks clean.
+
+5. After any change to caller attribution, diff the new `callers` lists against
+   the previous ones and confirm each *added* edge has a real call of that name
+   at that line. Recall is easy to raise by inventing edges; this is the check
+   that says you did not. Expect some listed callers to disappear without a
+   regression, since `CALLER_CAP` shows only the first 40 and `caller_count`
+   carries the truth.

@@ -29,7 +29,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BUILDER_VERSION = 5
+BUILDER_VERSION = 6
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
@@ -62,12 +62,36 @@ def _long_bracket_len(text: str, i: int) -> int:
     return 0
 
 
+# Only four characters can open a masked region. Jumping between them beats
+# stepping one character at a time: over this tree the loop below runs ~700k
+# times instead of ~24M, and the skipped runs are copied as whole slices.
+_MASK_OPENER = re.compile(r"""[-\["']""")
+_NOT_NEWLINE = re.compile(r"[^\n]")
+
+
+def _blank(segment: str) -> str:
+    """The segment with every character but a newline turned into a space.
+
+    Newlines survive inside strings too, which the per-character version did
+    not do: a backslash-escaped newline was overwritten, leaving the mask one
+    line shorter than the source. Nothing in this tree writes one today, but
+    any pass that zips `text.splitlines()` against `mask.splitlines()` would
+    silently misalign from that point on.
+    """
+    return _NOT_NEWLINE.sub(" ", segment)
+
+
 def mask_lua(text: str) -> str:
     """Blank comment bodies and string contents, preserving length and offsets."""
-    out = list(text)
     n = len(text)
+    out: list[str] = []
+    kept = 0  # start of the run of unmasked text not yet emitted
     i = 0
     while i < n:
+        m = _MASK_OPENER.search(text, i)
+        if m is None:
+            break
+        i = m.start()
         c = text[i]
 
         # Comment: -- line, or --[[ long ]]
@@ -81,43 +105,42 @@ def mask_lua(text: str) -> str:
             else:
                 end = text.find("\n", i)
                 end = n if end == -1 else end
-            for k in range(i, end):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = end
-            continue
+            blank_from, blank_to = i, end
+        else:
+            # Long string [[ ... ]]
+            opener = _long_bracket_len(text, i)
+            if opener:
+                level = opener - 2
+                close = "]" + "=" * level + "]"
+                end = text.find(close, i + opener)
+                end = n if end == -1 else end + len(close)
+                blank_from = i + opener
+                blank_to = min(end - len(close), n) if end != n else n
+            elif c in "\"'":
+                # Short string
+                quote = c
+                j = i + 1
+                while j < n:
+                    if text[j] == "\\":
+                        j += 2
+                        continue
+                    if text[j] == quote or text[j] == "\n":
+                        break
+                    j += 1
+                blank_from, blank_to = i + 1, min(j, n)
+                end = j + 1 if j < n and text[j] == quote else j
+            else:
+                # A bare `-` or a `[` that opens nothing.
+                i += 1
+                continue
 
-        # Long string [[ ... ]]
-        opener = _long_bracket_len(text, i)
-        if opener:
-            level = opener - 2
-            close = "]" + "=" * level + "]"
-            end = text.find(close, i + opener)
-            end = n if end == -1 else end + len(close)
-            for k in range(i + opener, min(end - len(close), n) if end != n else n):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = end
-            continue
+        if blank_to > blank_from:
+            out.append(text[kept:blank_from])
+            out.append(_blank(text[blank_from:blank_to]))
+            kept = blank_to
+        i = end
 
-        # Short string
-        if c in "\"'":
-            quote = c
-            j = i + 1
-            while j < n:
-                if text[j] == "\\":
-                    j += 2
-                    continue
-                if text[j] == quote or text[j] == "\n":
-                    break
-                j += 1
-            for k in range(i + 1, min(j, n)):
-                out[k] = " "
-            i = j + 1 if j < n and text[j] == quote else j
-            continue
-
-        i += 1
-
+    out.append(text[kept:])
     return "".join(out)
 
 
@@ -423,21 +446,30 @@ def extract_saved_variable_keys(
     partyMode, ...) worth being able to look up.
     """
     hits: dict[tuple[str, str], set[tuple[str, str]]] = {}
-    for sv in sv_names:
-        attr = re.compile(r"\b" + re.escape(sv) + r"[ \t]*\.[ \t]*([A-Za-z_]\w*)")
-        sub = re.compile(r"\b" + re.escape(sv) + r"[ \t]*\[[ \t]*[\"']([A-Za-z_]\w*)[\"']")
-        for src in sources:
-            mod = module_of(src.rel, module_names)
-            for m in attr.finditer(src.mask):
-                hits.setdefault((sv, m.group(1)), set()).add(
-                    (mod, f"{src.rel}:{src.line(m.start())}")
-                )
-            for m in sub.finditer(src.text):
-                if src.mask[m.start(1)] != " ":
-                    continue
-                hits.setdefault((sv, m.group(1)), set()).add(
-                    (mod, f"{src.rel}:{src.line(m.start())}")
-                )
+    if not sv_names:
+        return []
+
+    # One alternation over every SavedVariables name rather than one pass per
+    # name. There are 40 of them and 24 MB of source, so the per-name loop read
+    # the whole tree 80 times; this reads it twice. Longest name first, so a
+    # name that is a prefix of another cannot win the match.
+    alt = "|".join(re.escape(sv) for sv in sorted(sv_names, key=len, reverse=True))
+    attr = re.compile(r"\b(" + alt + r")[ \t]*\.[ \t]*([A-Za-z_]\w*)")
+    sub = re.compile(
+        r"\b(" + alt + r")[ \t]*\[[ \t]*[\"']([A-Za-z_]\w*)[\"']"
+    )
+    for src in sources:
+        mod = module_of(src.rel, module_names)
+        for m in attr.finditer(src.mask):
+            hits.setdefault((m.group(1), m.group(2)), set()).add(
+                (mod, f"{src.rel}:{src.line(m.start())}")
+            )
+        for m in sub.finditer(src.text):
+            if src.mask[m.start(2)] != " ":
+                continue
+            hits.setdefault((m.group(1), m.group(2)), set()).add(
+                (mod, f"{src.rel}:{src.line(m.start())}")
+            )
 
     rows: list[dict] = []
     for (sv, key), sites in hits.items():
@@ -529,6 +561,39 @@ EXPORT_ALIAS = re.compile(
 # Bare calls to the local in that file are calls to the field it was bound from.
 IMPORT_ALIAS = re.compile(
     r"^local[ \t]+([A-Za-z_]\w*)[ \t]*=[ \t]*([A-Za-z_][\w.]*)[ \t]*\.[ \t]*([A-Za-z_]\w*)[ \t]*$",
+    re.M,
+)
+
+# The right-hand side of a table binding, allowing this suite's guard idiom:
+# `local PPc = EllesmereUI and EllesmereUI.PP` is how a module reaches another
+# module's table without erroring when it loaded alone. Any number of `X and`
+# guards may precede the name; what is wanted is the name they guard.
+#
+# A `_G.` prefix is dropped: `_G.EllesmereUI` and `EllesmereUI` are one table,
+# and definitions are recorded under the bare name.
+#
+# `or {}` is allowed, because an empty constructor is not a second candidate
+# receiver -- `local EUI = _G.EllesmereUI or {}` means the global whenever
+# there is anything to call. An `or` between two *named* tables
+# (`EllesmereUI.PanelPP or EllesmereUI.PP`) still fails to match: picking
+# either would invent call edges to a function that may never run.
+_ALIAS_RHS = (
+    r"(?:[A-Za-z_][\w.]*[ \t]+and[ \t]+)*"
+    r"(?:_G[ \t]*\.[ \t]*)?([A-Za-z_][\w.]*)"
+    r"(?:[ \t]+or[ \t]*\{[ \t]*\})?"
+)
+
+# `local PPc = ...PP` -- a whole table under a second name, for the rest of that
+# file. Distinct from IMPORT_ALIAS, which binds one function: here the calls
+# that need crediting are `PPc.ToPixels(`, not a bare `PPc(`.
+TABLE_ALIAS_LOCAL = re.compile(
+    r"^[ \t]*local[ \t]+([A-Za-z_]\w*)[ \t]*=[ \t]*" + _ALIAS_RHS + r"[ \t]*$", re.M
+)
+# `EllesmereUI.PP = PP` -- the same table published under a second path, which
+# then reaches every module. Indentation is allowed: unlike an exported
+# function, these sit inside the `do` block that builds the table.
+TABLE_ALIAS_PATH = re.compile(
+    r"^[ \t]*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)[ \t]*=[ \t]*" + _ALIAS_RHS + r"[ \t]*$",
     re.M,
 )
 
@@ -654,6 +719,83 @@ def collect_aliases(
     return exports, import_claims
 
 
+def collect_table_aliases(
+    sources: list[Source], symbols: list[dict]
+) -> tuple[
+    dict[str, list[tuple[str, str]]],
+    dict[str, list[str]],
+    dict[tuple[str, str], list[str]],
+]:
+    """Second names that a *table* is called through.
+
+    `collect_aliases` resolves a renamed function. This resolves a renamed
+    receiver, which is the larger gap: a file writes `local PPc = PP` and then
+    calls `PPc.ToPixels(...)`, and attribution that follows the receiver credits
+    nothing, because the definition was recorded as `PP.ToPixels`.
+
+    Returns two maps from the recorded owner to the other names it is reached
+    under:
+
+    - **locals** -- `owner -> [(file, alias), ...]`, good only inside that file.
+    - **paths** -- `owner -> [dotted.path, ...]`, good everywhere, since a table
+      published on a shared table is visible suite-wide.
+    - **canonical** -- `(file, alias) -> [owner, ...]`, the same bindings read
+      backwards. A file that opens `local EUI = EllesmereUI` and then declares
+      `function EUI.Foo()` has its definition recorded under the short name,
+      while the rest of the suite calls it `EllesmereUI.Foo(`. Those calls are
+      not restricted to the declaring file: the name they use is the shared
+      one.
+
+    The right-hand side has to be a name this index already knows owns a
+    definition. Without that test `local n = count` would make `n` an alias for
+    a number and credit every unrelated `n.foo(` in the file.
+    """
+    owners = {
+        row["owner"]
+        for row in symbols
+        if row["kind"] in ("field", "method") and row["owner"]
+    }
+
+    # First the published paths, because a local almost never binds the table
+    # directly -- it binds the path the table was published on
+    # (`local PPc = EllesmereUI and EllesmereUI.PP`), so `EllesmereUI.PP = PP`
+    # has to be resolved before `PPc` can mean anything.
+    path_claims: dict[str, set[str]] = {}
+    for src in sources:
+        for m in TABLE_ALIAS_PATH.finditer(src.mask):
+            path, target = m.group(1), m.group(2)
+            if target in owners and path != target:
+                path_claims.setdefault(path, set()).add(target)
+    path_to_owner = {p: next(iter(t)) for p, t in path_claims.items() if len(t) == 1}
+
+    local_claims: dict[tuple[str, str], set[str]] = {}
+    for src in sources:
+        for m in TABLE_ALIAS_LOCAL.finditer(src.mask):
+            alias, rhs = m.group(1), m.group(2)
+            target = rhs if rhs in owners else path_to_owner.get(rhs)
+            if target and alias != target:
+                local_claims.setdefault((src.rel, alias), set()).add(target)
+
+    # An alias bound to two different tables names neither of them. Dropping it
+    # is the same trade the function aliases make: a wrong caller is worse than
+    # a missing one, because nothing about it looks wrong.
+    locals_by_owner: dict[str, list[tuple[str, str]]] = {}
+    for (rel, alias), targets in local_claims.items():
+        if len(targets) == 1:
+            locals_by_owner.setdefault(next(iter(targets)), []).append((rel, alias))
+
+    paths_by_owner: dict[str, list[str]] = {}
+    for path, owner in path_to_owner.items():
+        paths_by_owner.setdefault(owner, []).append(path)
+
+    canonical: dict[tuple[str, str], list[str]] = {}
+    for (rel, alias), targets in local_claims.items():
+        if len(targets) == 1:
+            canonical[(rel, alias)] = [next(iter(targets))]
+
+    return locals_by_owner, paths_by_owner, canonical
+
+
 def collect_callers(
     sources: list[Source], symbols: list[dict], module_names: list[str]
 ) -> None:
@@ -678,6 +820,33 @@ def collect_callers(
         src.rel: module_of(src.rel, module_names) for src in sources
     }
     exports, imports = collect_aliases(sources, symbols)
+    alias_locals, alias_paths, alias_canonical = collect_table_aliases(
+        sources, symbols
+    )
+
+    def via_renamed_receiver(row: dict, sep: str) -> tuple[list, list[str]]:
+        """Call sites reaching this definition through a renamed receiver."""
+        found: list[tuple[str, int]] = []
+        seen: list[str] = []
+        name = row["name"]
+        for rel, alias in alias_locals.get(row["owner"], ()):
+            hits = [s for s in qualified.get((alias, sep, name), []) if s[0] == rel]
+            if hits:
+                found += hits
+                seen.append(f"{alias}{sep}{name}")
+        for path in alias_paths.get(row["owner"], ()):
+            hits = qualified.get((path, sep, name), [])
+            if hits:
+                found += hits
+                seen.append(f"{path}{sep}{name}")
+        # The definition itself is written on a local alias -- calls elsewhere
+        # in the suite use the shared name it was bound from.
+        for real in alias_canonical.get((row["file"], row["owner"]), ()):
+            hits = qualified.get((real, sep, name), [])
+            if hits:
+                found += hits
+                seen.append(f"{real}{sep}{name}")
+        return found, seen
 
     def scoped(row: dict) -> bool:
         return row["kind"] in ("field", "method") and owner_root(
@@ -699,19 +868,31 @@ def collect_callers(
     qualified: dict[tuple, list[tuple[str, int]]] = {}
     plain: dict[str, list[tuple[str, int]]] = {}
     for src in sources:
-        for m in CALL.finditer(src.mask):
-            recv, sep, short = m.group(1), m.group(2), m.group(3)
-            if not recv and src.mask[m.start(3) - 1 : m.start(3)] in (".", ":"):
-                # A receiver that is itself an expression -- `GetFFD(f).method()`
-                # -- does not match the identifier pattern, so the call arrives
-                # here looking unqualified. It is not: this is a table field,
-                # and crediting it to a same-named local is a plain false edge.
-                continue
-            site = (src.rel, src.line(m.start(3)))
-            if recv:
-                qualified.setdefault((recv, sep, short), []).append(site)
+        # Hoisted out of the loop: this runs about 470k times over the tree, so
+        # the attribute lookups cost more than the work between them.
+        mask = src.mask
+        rel = src.rel
+        line_of = src.line
+        for m in CALL.finditer(mask):
+            recv, sep, short = m.groups()
+            start = m.start(3)
+            if recv is None:
+                if start and mask[start - 1] in ".:":
+                    # A receiver that is itself an expression --
+                    # `GetFFD(f).method()` -- does not match the identifier
+                    # pattern, so the call arrives here looking unqualified. It
+                    # is not: this is a table field, and crediting it to a
+                    # same-named local is a plain false edge.
+                    continue
+                bucket, key = plain, short
             else:
-                plain.setdefault(short, []).append(site)
+                bucket, key = qualified, (recv, sep, short)
+            site = (rel, line_of(start))
+            got = bucket.get(key)
+            if got is None:
+                bucket[key] = [site]
+            else:
+                got.append(site)
 
     for row in symbols:
         in_module = scoped(row)
@@ -734,11 +915,17 @@ def collect_callers(
                 for s in qualified.get(("self", ":", row["name"]), [])
                 if s[0] == row["file"]
             ]
+            renamed, seen = via_renamed_receiver(row, ":")
+            sites += renamed
+            names += seen
         elif kind == "field":
             sites = list(qualified.get((row["owner"], ".", row["name"]), []))
             for rel, local in imports.get((row["owner"], row["name"]), ()):
                 sites += [s for s in plain.get(local, []) if s[0] == rel]
                 names.append(local)
+            renamed, seen = via_renamed_receiver(row, ".")
+            sites += renamed
+            names += seen
         elif kind == "local":
             sites = [s for s in plain.get(row["name"], []) if s[0] == row["file"]]
             for alias in exports.get((row["file"], row["name"]), ()):

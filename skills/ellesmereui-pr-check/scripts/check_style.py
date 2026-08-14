@@ -88,6 +88,22 @@ def _long_bracket_len(text: str, i: int) -> int:
     return 0
 
 
+# Only four characters can open a masked region, so the scan jumps between
+# them rather than visiting every character.
+_MASK_OPENER = re.compile(r"""[-\["']""")
+_NOT_NEWLINE = re.compile(r"[^\n]")
+
+
+def _blank(segment: str) -> str:
+    """The segment with every character but a newline turned into a space.
+
+    Newlines survive inside strings too. `comment_only_lines` zips
+    `mask.splitlines()` against the source lines, so a backslash-escaped
+    newline blanked away would shift every later line of that file.
+    """
+    return _NOT_NEWLINE.sub(" ", segment)
+
+
 def mask_lua(text: str, comments: list[tuple[int, int]] | None = None) -> str:
     """Blank comment bodies and string contents, preserving length and offsets.
 
@@ -95,10 +111,15 @@ def mask_lua(text: str, comments: list[tuple[int, int]] | None = None) -> str:
     Masking alone cannot tell one blanked region from another, and the comment
     budget has to distinguish a comment from a multi-line string.
     """
-    out = list(text)
     n = len(text)
+    out: list[str] = []
+    kept = 0
     i = 0
     while i < n:
+        m = _MASK_OPENER.search(text, i)
+        if m is None:
+            break
+        i = m.start()
         c = text[i]
 
         if c == "-" and i + 1 < n and text[i + 1] == "-":
@@ -112,41 +133,38 @@ def mask_lua(text: str, comments: list[tuple[int, int]] | None = None) -> str:
                 end = n if end == -1 else end
             if comments is not None:
                 comments.append((i, end))
-            for k in range(i, end):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = end
-            continue
+            blank_from, blank_to = i, end
+        else:
+            opener = _long_bracket_len(text, i)
+            if opener:
+                close = "]" + "=" * (opener - 2) + "]"
+                end = text.find(close, i + opener)
+                end = n if end == -1 else end + len(close)
+                blank_from = i + opener
+                blank_to = (end - len(close)) if end != n else n
+            elif c in "\"'":
+                quote = c
+                j = i + 1
+                while j < n:
+                    if text[j] == "\\":
+                        j += 2
+                        continue
+                    if text[j] == quote or text[j] == "\n":
+                        break
+                    j += 1
+                blank_from, blank_to = i + 1, min(j, n)
+                end = j + 1 if j < n and text[j] == quote else j
+            else:
+                i += 1
+                continue
 
-        opener = _long_bracket_len(text, i)
-        if opener:
-            close = "]" + "=" * (opener - 2) + "]"
-            end = text.find(close, i + opener)
-            end = n if end == -1 else end + len(close)
-            stop = (end - len(close)) if end != n else n
-            for k in range(i + opener, stop):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = end
-            continue
+        if blank_to > blank_from:
+            out.append(text[kept:blank_from])
+            out.append(_blank(text[blank_from:blank_to]))
+            kept = blank_to
+        i = end
 
-        if c in "\"'":
-            quote = c
-            j = i + 1
-            while j < n:
-                if text[j] == "\\":
-                    j += 2
-                    continue
-                if text[j] == quote or text[j] == "\n":
-                    break
-                j += 1
-            for k in range(i + 1, min(j, n)):
-                out[k] = " "
-            i = j + 1 if j < n and text[j] == quote else j
-            continue
-
-        i += 1
-
+    out.append(text[kept:])
     return "".join(out)
 
 
