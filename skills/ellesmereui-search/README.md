@@ -21,18 +21,28 @@ record:
 | File | Contents |
 |---|---|
 | `symbols.jsonl` | Every function definition — `ns.Foo`, `EllesmereUI.Foo`, `obj:Method`, locals, globals — with params, module, file, line, and the sites that call it |
-| `settings.jsonl` | Every key in every `defaults`/`DEFAULTS` table, with its literal default, dotted path, in-module read sites, and which `_Options.lua` line builds its UI control — plus the suite-wide keys written straight onto `EllesmereUIDB`, which have no defaults table at all |
+| `settings.jsonl` | Every key in every `defaults`/`DEFAULTS` table, with its literal default, dotted path, in-module read sites, and which `_Options.lua` line builds its UI control — plus the suite-wide keys written straight onto `EllesmereUIDB`, and the CooldownManager keys held per spell |
 | `locale.jsonl` | Every `EllesmereUI.L()` / `.Lf()` key with all call sites |
 | `events.jsonl` | Every `RegisterEvent` / `RegisterUnitEvent` name with registration sites |
 | `slash.jsonl` | Every `SLASH_*` declaration and the command it maps to |
 | `modules.jsonl` | Per module: TOC metadata, SavedVariables, `.lua` load order, line counts, slash commands |
 
-Settings come in two flavours because the addon stores them two ways. Per-module
-profile keys come from a `defaults` table and carry a literal default. Suite-wide keys
-(`profiles`, `unlockAnchors`, `partyMode`, `ppUIScale`, …) are written directly as
-`EllesmereUIDB.someKey` with inline `or` / `~= false` fallbacks and have no declared
-default anywhere — the `store` field distinguishes them, and `used_by` lists every
-module that touches the key.
+Settings come in three flavours because the addon stores them three ways, and the
+`store` field distinguishes them. Per-module profile keys come from a `defaults`
+table and carry a literal default. Suite-wide keys (`profiles`, `unlockAnchors`,
+`partyMode`, `ppUIScale`, …) are written directly as `EllesmereUIDB.someKey` with
+inline `or` / `~= false` fallbacks and have no declared default anywhere.
+`used_by` lists every module that touches the key.
+
+The third kind is held **per spell**: a CooldownManager entry keyed by spellID,
+carrying keys like `buffLostSoundKey` and `activeBorderEnabled`. These are in no
+defaults table and on no SavedVariables global, so both other passes miss them
+entirely — a debug session looking for `buffLostSoundKey` got "no declared
+setting" from the index and fell back to grepping 450k lines. They are the tier
+a "this one spell behaves wrong" report is about. They carry a `scope` field,
+and an `inherits` chain, because an unset key falls through to the bar tiers
+rather than to a default. Ten of these names also exist at profile scope, which
+is why the distinction is on the record rather than in prose.
 
 ## Asking it something
 

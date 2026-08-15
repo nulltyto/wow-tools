@@ -58,7 +58,7 @@ current counts, the git commit it was built from, and the addon root path.
 | File | Grep for | Record fields |
 |---|---|---|
 | `symbols.jsonl` | `"name":"ApplyCastBarTexture"` | `name` `kind` `owner` `full` `params` `module` `file` `line` `aliases` `callers` `caller_count` *or* `caller_ambiguity` *or* `caller_unresolved` |
-| `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by` |
+| `settings.jsonl` | `"key":"absorbCleanAlpha"` | `key` `path` `store` `default` `module` `table` `file` `line` `refs` `ref_count` `options_refs` `options_ref_count` `refs_other_modules` `used_by`, plus `scope` `inherits` on a per-entity key |
 | `locale.jsonl` | `"key":"Enable Nameplates"` | `key` `count` `sites` |
 | `events.jsonl` | `"event":"UNIT_HEALTH"` | `event` `count` `sites` |
 | `slash.jsonl` | `"command":"/enp"` | `command` `token` `module` `file` `line` |
@@ -240,8 +240,8 @@ worth a grep.
 
 ## Settings keys
 
-The highest-value part of the index, and settings reach the SavedVariables in two
-different ways. The `store` field says which:
+The highest-value part of the index, and settings reach the SavedVariables in
+three different ways. The `store` field says which:
 
 **`store: "defaults"`** — a per-module profile key. The child addon declares a
 `defaults`/`DEFAULTS` table, and `EUI_*_Options.lua` reads it via `DBVal("key")` or
@@ -270,7 +270,26 @@ instead of a defaults table. `profiles`, `unlockAnchors`, `partyMode`, and `ppUI
 live here. There is no declared default, so `default` is empty and `file`/`line`
 point at the first reference rather than a declaration.
 
-Shared by both:
+**`store: "spellSettings"`** — a CooldownManager key held **per spell**, on an
+entry keyed by spellID. These carry a `scope` field; nothing else does.
+
+This is the tier a "this one spell behaves wrong" report is about, and it is
+not a profile setting: changing the profile-level key of the same name will not
+move it. Ten of these names also exist at profile scope, so check `scope`
+before concluding you have the right record.
+
+A read falls through `__index` to the tiers named in `inherits` —
+`barSettings` ("Apply to Bar"), then `barSpellSettings` ("Apply to Bar (All
+Specs)") — so an entry stores only the keys explicitly set on it and one key
+can be answered by any of three tables. `default` is empty for the same reason
+a SavedVariables key's is: there is no declaration, and what a fresh entry
+behaves like is the inline fallback at the read site.
+
+`refs` here come from the scoped scan itself rather than from a global sweep
+for the attribute name. A key like `borderSize` matches thousands of unrelated
+`.borderSize` reads, and counting those would be worse than no count.
+
+Shared by all three:
 
 - `refs` / `ref_count` — read sites; `options_refs` is the subset that builds
   the UI control

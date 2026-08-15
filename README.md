@@ -24,8 +24,11 @@ Blizzard implement this". `ellesmereui-search` answers "where does EllesmereUI
 define or read this". `ellesmereui-pr-check` answers "will this change survive
 review". `wow-secret-values` answers "will this line raise in a raid".
 `eui-addon-debug`, `eui-addon-feature`, and `eui-perf` answer "what do I do
-first" for a bug, a feature request, and a slowdown respectively — all three
-call the other four in order and do no lookup of their own. Between them they
+first" for a bug, a feature request, and a slowdown respectively — mostly by
+calling the other four in order rather than by looking anything up themselves.
+The exception is `eui-addon-debug`, which ships an event tracer for the question
+none of the others can answer: not what the client documents, but what it
+actually sent, in what order, during one run. Between them they
 cover the three ways work arrives, which matters because a request that matches
 no orchestrator gets answered by hand: a feature session in this addon ran 31
 raw greps past an index that was current and sitting beside it. Each skill's

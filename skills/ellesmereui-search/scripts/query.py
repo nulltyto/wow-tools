@@ -217,10 +217,26 @@ def cmd_setting(args):
         print("  path      %s%s" % (r["path"],
                                     "   ([] = one declaration, one value per runtime entry)"
                                     if "[]" in r["path"] else ""))
+        scope = r.get("scope")
+        if scope:
+            # The fact that decides whether a fix is even in the right place:
+            # this is not a profile setting, and changing the profile-level key
+            # of the same name will not move it.
+            print("  scope     %s -- one value per entry, not one profile-wide value"
+                  % scope)
+            if r.get("inherits"):
+                print("  inherits  an unset key falls through to %s, in that order"
+                      % ", then ".join(r["inherits"]))
         default = r.get("default", "")
-        print("  default   %s" % (default if default != "" else
-                                  "(none declared -- the store is a SavedVariables global; "
-                                  "the effective default is the inline fallback at the read site)"))
+        if default != "":
+            print("  default   %s" % default)
+        elif scope:
+            print("  default   (none declared -- an entry stores only the keys explicitly "
+                  "set on it. An unset key inherits; what a fresh entry behaves like is "
+                  "the inline fallback at the read site)")
+        else:
+            print("  default   (none declared -- the store is a SavedVariables global; "
+                  "the effective default is the inline fallback at the read site)")
         print("  declared  %s:%d" % (r["file"], r["line"]))
         print("  read at   %d sites" % r.get("ref_count", 0))
         show_list(r.get("refs", []), r.get("ref_count"), args.limit, label="refs")
@@ -314,6 +330,19 @@ def cmd_module(args):
 # to something the index can answer.
 _KEY_CALL = re.compile(r"""(?:SGet|SSet|DBVal|Get|Set)\s*\(\s*["']([A-Za-z_][\w.]*)["']""")
 _KEY_FIELD = re.compile(r"""\b(?:key|setting|dbKey|profileKey)\s*=\s*["']([A-Za-z_][\w.]*)["']""")
+# A name used as a table field (`ss.someKey`) or passed as a string literal.
+_IDENT_USE = re.compile(r"""\.\s*([A-Za-z_]\w*)|["']([A-Za-z_]\w*)["']""")
+
+
+_SCOPED_KEYS: set | None = None
+
+
+def _scoped_keys():
+    """Every entry-scoped settings key in the index, loaded once."""
+    global _SCOPED_KEYS
+    if _SCOPED_KEYS is None:
+        _SCOPED_KEYS = {r["key"] for r in records("settings") if r.get("scope")}
+    return _SCOPED_KEYS
 
 
 def cmd_label(args):
@@ -334,6 +363,12 @@ def cmd_label(args):
             keys = []
             for probe in lines[i:i + 10]:
                 keys += _KEY_CALL.findall(probe) + _KEY_FIELD.findall(probe)
+                # An entry-scoped row has no SGet/SSet call to match: it reads
+                # `ss.someKey` and writes through a helper. Those are only
+                # recognisable against the set of keys the index already knows
+                # are entry-scoped, so match on that rather than on a shape.
+                keys += [k for pair in _IDENT_USE.findall(probe) for k in pair
+                         if k and k in _scoped_keys()]
             rel = str(path.relative_to(root))
             hits.append((rel, i + 1, line.strip()[:100], keys))
     if not hits:

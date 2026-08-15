@@ -34,9 +34,11 @@ reported unprompted, and a correctness trade is never resolved silently.
 
 | Path | What it is |
 |---|---|
-| `SKILL.md` | The seven-step loop, and what each step must produce |
+| `SKILL.md` | The eight-step loop, and what each step must produce |
+| `scripts/new_tracer.py` | Install a throwaway event tracer as a real addon, and remove it after |
+| `scripts/tracer_harness.lua` | Fire stubbed events at a generated tracer and check it prints |
 
-No scripts. The work this skill governs is done by the other four:
+Most of the work this skill governs is done by the other four:
 
 | Step | Skill |
 |---|---|
@@ -56,17 +58,38 @@ Step 3. Do not assert from memory when an event fires, what it carries, what
 order two events arrive in, or what a field means. Everything else in the loop
 is bookkeeping around that one rule.
 
-Step 5 is the runner-up: write the in-game checklist **before** the fix. You
+Step 6 is the runner-up: write the in-game checklist **before** the fix. You
 cannot run the game, so the user is the test harness — and drafting the
 checklist first exposes the cases the design does not handle while the design is
 still cheap to change.
 
+## Why step 4 exists
+
+The loop used to end step 3 by conceding that event *ordering* is often
+documented nowhere, and telling you to design so that being wrong about it was
+survivable. A later session showed that concession was too early.
+
+A buff-loss sound fired at the moment the buff was **gained**. Blizzard's source
+gave the events and the payloads but could not say what the client had actually
+sent for that spell, and the reasoning from it — correct, as it turned out — was
+still only a theory. A ten-second `UNIT_AURA` trace from the user settled it
+outright: the client destroys aura instance N and creates N+1 in one frame, so
+the removal alert fires while the buff is up. That turned a survivable guess
+into a fix with a mechanism behind it.
+
+The tracer used in that session was written by hand and did not load — no
+`.toc`, and an `## Interface` two builds behind the client. Both failures are
+silent in the client, so an empty trace reads like a disproved theory. That is
+what `new_tracer.py` exists to make impossible.
+
 ## Limits
 
-Event *ordering* is often not documented anywhere, and this skill cannot conjure
-it. What it can do is stop you from asserting it: when the answer is not in the
-API and not in Blizzard's source, say so and pick a failure direction that
-survives being wrong about it.
+A tracer needs the user to run a case and paste the output, so it costs a round
+trip. It is worth one when the question is ordering or timing; it is not a
+substitute for reading the payload in step 3, which is free.
+
+The generated tracer stubs nothing and proves nothing on its own — it reports
+what the client did during one run, on one character, at one latency.
 
 The skill assumes the EllesmereUI checkout and the other four skills are
 present. With none of them it degrades to a checklist, which is still better

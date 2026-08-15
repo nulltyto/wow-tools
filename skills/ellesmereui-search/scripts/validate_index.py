@@ -387,6 +387,21 @@ def main() -> int:
            for rel, tbl in sorted(declared) if (rel, tbl) not in covered]
     c.report("defaults tables indexed", len(declared), bad)
 
+    # Entry-scoped keys are found by matching names that live in the addon, so
+    # a refactor there retires the whole pass without breaking anything that
+    # looks broken. The count going to zero while the store is still in the
+    # source is the shape of that failure.
+    scoped = [r for r in settings if r.get("scope")]
+    store_files = sorted(
+        rel for rel in {r["file"] for r in settings}
+        if "spellSettings" in (root / rel).read_text(encoding="utf-8", errors="replace")
+    )
+    bad = []
+    if store_files and not scoped:
+        bad.append(f"{store_files[0]} uses the per-entity store but no key was "
+                   "indexed from it -- a resolver name in build_index.py is stale")
+    c.report("entry-scoped settings indexed", max(len(scoped), 1), bad)
+
     # A colour is one setting and has to be indexed under its own name. Walking
     # into `{ r = .., g = .., b = .. }` produces leaves keyed `r`, `g` and `b`
     # instead: the colour's name answers nothing, and each leaf inherits the

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -354,6 +355,146 @@ def test_a_defaults_branch_filled_in_a_loop_is_still_indexed():
     assert rows["bars.[].alwaysShowButtons"]["default"] == "true"
     assert rows["bars.[].alwaysShowButtons"]["line"] == 4
     assert "scale" in rows, "the plain form must keep working"
+
+
+# --------------------------------------------------------------------------
+#  Entry-scoped settings
+# --------------------------------------------------------------------------
+# A per-spell key is written onto an entry keyed by a runtime spellID, so it is
+# in no defaults table and on no SavedVariables global. Both other passes miss
+# it, and a debug session looking for `buffLostSoundKey` got "no declared
+# setting" from the index and fell back to grepping 450k lines.
+
+
+def _scoped(files: dict, modules=("ModA",)):
+    """Run the entry-scoped settings pass over in-memory sources."""
+    B = _eui_builder()
+    sources = [B.Source(rel, text) for rel, text in files.items()]
+    rows = B.extract_scoped_settings(sources, list(modules))
+    return {r["key"]: r for r in rows}
+
+
+STORE_DECL = "function ns.GetSpellSettingsStore(bar, create)\n    return nil\nend\n"
+
+
+def test_block_end_stops_where_the_block_does():
+    """The scope primitive the whole pass rests on."""
+    B = _eui_builder()
+    src = B.Source("ModA/a.lua", "local a = 1\nif x then\n    y()\nend\nafter()\n")
+    # From inside the `if`, the block ends at that `end`, not at the file end.
+    inside = src.text.index("y()")
+    assert src.text[:src.block_end(inside)].endswith("    y()\n")
+
+
+def test_block_end_does_not_double_count_an_elseif():
+    """`elseif ... then` continues the block its `if` opened.
+
+    Counting that `then` as a second opener leaves the scan one `end` short,
+    so every following block reads as still open and the scope runs to EOF.
+    """
+    B = _eui_builder()
+    text = "if a then\n    p()\nelseif b then\n    q()\nend\ntail()\n"
+    src = B.Source("ModA/a.lua", text)
+    assert src.text[src.block_end(text.index("p()")):].startswith("end")
+
+
+def test_scoped_settings_finds_a_per_spell_key():
+    """The shape the index could not answer before."""
+    rows = _scoped({"ModA/a.lua": STORE_DECL + (
+        "local function Play(sd, sid)\n"
+        "    local ss = sd and sd.spellSettings[sid]\n"
+        "    return ss and ss.buffLostSoundKey\n"
+        "end\n"
+    )})
+    assert "buffLostSoundKey" in rows
+    row = rows["buffLostSoundKey"]
+    assert row["store"] == "spellSettings"
+    assert row["scope"] == "per-spell"
+    # The fact that decides where a fix belongs: it is not a profile setting.
+    assert row["inherits"] == ["barSettings", "barSpellSettings"]
+
+
+def test_scoped_settings_follows_a_store_then_entry_chain():
+    """Options rows reach an entry in two steps, and carry the labels.
+
+    Matching only a literal `.spellSettings[` would index the runtime reads and
+    miss every options page -- which is the half a bug report starts from.
+    """
+    rows = _scoped({"ModA/a.lua": STORE_DECL + (
+        "local function Build(barKey, spellID)\n"
+        "    local store = ns.GetSpellSettingsStore(barKey, true)\n"
+        "    local ss = store and store[spellID]\n"
+        "    return ss.buffGlow\n"
+        "end\n"
+    )})
+    assert "buffGlow" in rows
+
+
+def test_scoped_settings_reads_a_writer_helper_call_site():
+    """A write-only option never appears as an attribute anywhere.
+
+    The options page writes through `SetOwn("key", v)`, so without following
+    the helper the key is invisible no matter how many times it is set.
+    """
+    rows = _scoped({"ModA/a.lua": STORE_DECL + (
+        "local function Build(sd, sid)\n"
+        "    local ss = sd.spellSettings[sid]\n"
+        "    local function SetOwn(key, val)\n"
+        "        ss[key] = val\n"
+        "    end\n"
+        "    SetOwn(\"activeBorderEnabled\", true)\n"
+        "end\n"
+    )})
+    assert "activeBorderEnabled" in rows
+
+
+def test_scoped_settings_stops_at_the_end_of_the_block():
+    """A short name is re-bound to something unrelated further down the file.
+
+    `ss` and `store` are re-declared for a different table a few functions
+    later. Scanning a fixed window past the binding instead of to the end of
+    the block credited bar-data fields (`assignedSpells`) as settings keys.
+    """
+    rows = _scoped({"ModA/a.lua": STORE_DECL + (
+        "local function A(sd, sid)\n"
+        "    local ss = sd.spellSettings[sid]\n"
+        "    return ss.realKey\n"
+        "end\n"
+        "local function B(bs)\n"
+        "    local ss = bs.somethingElse\n"
+        "    return ss.notASettingKey\n"
+        "end\n"
+    )})
+    assert "realKey" in rows
+    assert "notASettingKey" not in rows
+
+
+def test_scoped_settings_credit_the_module_owning_the_store():
+    """One store, one owner -- not whichever file mentions a key most.
+
+    Counting sites per key credited the suite-level migration file, which
+    rewrites the store without owning it.
+    """
+    rows = _scoped(
+        {
+            "ModA/a.lua": STORE_DECL + (
+                "local function A(sd, sid)\n"
+                "    local ss = sd.spellSettings[sid]\n"
+                "    return ss.someKey\n"
+                "end\n"
+            ),
+            "ModB/migrate.lua": (
+                "local function M(sd, sid)\n"
+                "    local ss = sd.spellSettings[sid]\n"
+                "    ss.someKey = ss.someKey or 1\n"
+                "    return ss.someKey\n"
+                "end\n"
+            ),
+        },
+        modules=("ModA", "ModB"),
+    )
+    assert rows["someKey"]["module"] == "ModA"
+    assert set(rows["someKey"]["used_by"]) == {"ModA", "ModB"}
 
 
 def test_a_key_whose_value_is_a_positional_table_is_the_leaf():
@@ -1066,6 +1207,213 @@ def test_comment_budget_ignores_trailing_comments():
     C = _style_checker()
     text = "".join(f"local v{i} = {i} -- note {i}\n" for i in range(C.COMMENT_BUDGET + 5))
     assert not _budget(text)
+
+
+# --------------------------------------------------------------------------
+#  Event tracer
+# --------------------------------------------------------------------------
+# The tracer answers questions the API cannot -- chiefly what order two events
+# arrive in. Its failure mode is silence: a folder with no .toc, or an
+# `## Interface` below the running build, loads nothing and reports nothing,
+# which is indistinguishable from "the theory was wrong".
+
+TRACER = REPO / "skills" / "eui-addon-debug" / "scripts" / "new_tracer.py"
+
+
+def _addons(tmp_path: Path, interface: str = "120000, 120001, 120100") -> Path:
+    """An AddOns directory holding one installed addon to copy a build from."""
+    addons = tmp_path / "AddOns"
+    (addons / "Existing").mkdir(parents=True)
+    (addons / "Existing" / "Existing.toc").write_text(
+        f"## Interface: {interface}\n", encoding="utf-8")
+    return addons
+
+
+def _make_tracer(addons: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(TRACER), "AuraTrace", "--addons", str(addons), *args],
+        capture_output=True, text=True, timeout=120)
+
+
+def test_tracer_writes_a_loadable_addon(tmp_path):
+    """A .toc naming the .lua, both present. Neither loads without the other."""
+    addons = _addons(tmp_path)
+    proc = _make_tracer(addons)
+    assert proc.returncode == 0, proc.stderr
+    toc = addons / "AuraTrace" / "AuraTrace.toc"
+    assert toc.is_file() and (addons / "AuraTrace" / "AuraTrace.lua").is_file()
+    assert "AuraTrace.lua" in toc.read_text(encoding="utf-8")
+
+
+def test_tracer_takes_the_highest_interface_offered(tmp_path):
+    """A .toc lists every build it supports; the client is running the newest.
+
+    Copying the first number instead of the largest greys the tracer out as
+    out of date, which looks exactly like a tracer installed in the wrong place.
+    """
+    addons = _addons(tmp_path, interface="120000, 120001, 120100")
+    _make_tracer(addons)
+    toc = (addons / "AuraTrace" / "AuraTrace.toc").read_text(encoding="utf-8")
+    assert "## Interface: 120100" in toc, toc
+
+
+def test_tracer_removal_refuses_to_take_files_it_did_not_write(tmp_path):
+    """Cleanup deletes a folder, so it checks what is in the folder first."""
+    addons = _addons(tmp_path)
+    _make_tracer(addons)
+    (addons / "AuraTrace" / "notes.txt").write_text("mine", encoding="utf-8")
+    proc = _make_tracer(addons, "--remove")
+    assert proc.returncode != 0
+    assert (addons / "AuraTrace" / "notes.txt").is_file()
+
+    (addons / "AuraTrace" / "notes.txt").unlink()
+    assert _make_tracer(addons, "--remove").returncode == 0
+    assert not (addons / "AuraTrace").exists()
+
+
+@pytest.mark.parametrize("events", [["UNIT_AURA"], ["SPELL_UPDATE_COOLDOWN"]])
+def test_tracer_compiles_under_lua_51(tmp_path, events):
+    """The client runs 5.1. A 5.2+ construct here fails in game, not here."""
+    luac = shutil.which("luac5.1")
+    if not luac:
+        pytest.skip("luac5.1 not installed")
+    addons = _addons(tmp_path)
+    _make_tracer(addons, "--events", *events)
+    proc = subprocess.run([luac, "-p", str(addons / "AuraTrace" / "AuraTrace.lua")],
+                          capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_tracer_actually_fires(tmp_path):
+    """Drive the generated tracer with stubbed events and check it prints.
+
+    Compiling is not firing. This is the check that would have caught a tracer
+    shipped to the user that loads and then says nothing.
+    """
+    lua = shutil.which("lua5.1")
+    if not lua:
+        pytest.skip("lua5.1 not installed")
+    addons = _addons(tmp_path)
+    _make_tracer(addons, "--events", "UNIT_AURA", "--unit", "player")
+    harness = TRACER.parent / "tracer_harness.lua"
+    proc = subprocess.run(
+        [lua, str(harness), str(addons / "AuraTrace" / "AuraTrace.lua")],
+        capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "FAIL" not in proc.stdout, proc.stdout
+
+
+# --------------------------------------------------------------------------
+#  Base resolution
+# --------------------------------------------------------------------------
+# The addon is developed in a fork, so `origin` is the fork and `origin/main`
+# trails the real mainline by however long the fork has existed. Taking the
+# first ref that resolves picked that stale one and reported hundreds of
+# upstream commits as changed lines -- 5885 findings, none of them the user's.
+
+
+def _repo(tmp_path: Path):
+    """A git repo with a `main` history, returning a commit helper."""
+    def run(*args: str) -> str:
+        return subprocess.run(["git", "-C", str(tmp_path), *args],
+                              capture_output=True, text=True).stdout.strip()
+
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@example.com")
+    run("config", "user.name", "T")
+    # The checkout marker the script looks for before it will lint anything.
+    (tmp_path / "EllesmereUI.toc").write_text("## Interface: 120100\n", encoding="utf-8")
+    run("add", "EllesmereUI.toc")
+    run("commit", "-qm", "toc")
+
+    def commit(text: str) -> str:
+        (tmp_path / "f.lua").write_text(text, encoding="utf-8")
+        run("add", "f.lua")
+        run("commit", "-qm", text)
+        return run("rev-parse", "HEAD")
+
+    return run, commit
+
+
+def test_base_prefers_the_nearest_mainline(tmp_path):
+    """A stale `origin/main` loses to the local `main` that is closer to HEAD.
+
+    This is the fork case exactly: the fork remote sits far back, local `main`
+    tracks upstream, and only the nearer of the two describes "what I changed".
+    """
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    stale = commit("local a = 1\n")
+    for i in range(3):
+        commit(f"local b = {i}\n")
+    tip = run("rev-parse", "HEAD")
+    run("update-ref", "refs/remotes/origin/main", stale)
+    run("checkout", "-q", "-b", "feature")
+    commit("local c = 1\n")
+
+    assert C.resolve_base(tmp_path, None) == (tip, "main")
+
+
+def test_base_falls_back_to_the_only_ref_there_is(tmp_path):
+    """With no local `main`, the remote is still better than giving up."""
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    base = commit("local a = 1\n")
+    run("update-ref", "refs/remotes/origin/main", base)
+    run("checkout", "-q", "-b", "feature")
+    commit("local c = 1\n")
+    run("branch", "-qD", "main")
+
+    assert C.resolve_base(tmp_path, None) == (base, "origin/main")
+
+
+def test_base_explicit_ref_is_taken_as_given(tmp_path):
+    """`--base` is the user overruling the search, not seeding it."""
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    stale = commit("local a = 1\n")
+    commit("local b = 1\n")
+    run("update-ref", "refs/remotes/origin/main", stale)
+
+    assert C.resolve_base(tmp_path, "origin/main") == (stale, "origin/main")
+    assert C.resolve_base(tmp_path, "no/such/ref") is None
+
+
+def test_base_names_the_ref_it_actually_used(tmp_path):
+    """The scope line reports the winning ref, not a hardcoded "main".
+
+    The wrong scope is invisible when the header is trusted, and the header was
+    printing a ref the tool had not used.
+    """
+    run, commit = _repo(tmp_path)
+    base = commit("local a = 1\n")
+    run("update-ref", "refs/remotes/origin/main", base)
+    run("checkout", "-q", "-b", "feature")
+    run("branch", "-qD", "main")
+    (tmp_path / "f.lua").write_text("local a = 2\n", encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "skills" / "ellesmereui-pr-check" /
+                             "scripts" / "check_style.py"), "--root", str(tmp_path)],
+        capture_output=True, text=True, timeout=120)
+    assert "vs origin/main" in proc.stdout, proc.stdout
+
+
+def test_base_warns_when_the_scope_is_not_your_work(tmp_path):
+    """Past the distance threshold the run says so instead of just printing."""
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    stale = commit("local a = 1\n")
+    for i in range(C.BASE_DISTANCE_WARN + 2):
+        commit(f"local b = {i}\n")
+    run("update-ref", "refs/remotes/origin/main", stale)
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "skills" / "ellesmereui-pr-check" /
+                             "scripts" / "check_style.py"),
+         "--root", str(tmp_path), "--base", "origin/main"],
+        capture_output=True, text=True, timeout=120)
+    assert "commits behind HEAD" in proc.stdout, proc.stdout
 
 
 # --------------------------------------------------------------------------
