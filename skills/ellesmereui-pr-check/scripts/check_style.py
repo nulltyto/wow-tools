@@ -5,7 +5,7 @@ By default this checks only the lines your branch changes, because the tree
 carries legacy violations that predate the rules -- a whole-tree run is noise,
 a diff-scoped run is a gate.
 
-    check_style.py                     changed lines vs the merge-base with main
+    check_style.py                     changed lines vs the nearest mainline base
     check_style.py --staged            staged lines only (what a commit records)
     check_style.py --base origin/main  pick the base ref explicitly
     check_style.py --all               every file (expect legacy findings)
@@ -660,12 +660,41 @@ def git(root: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-def resolve_base(root: Path, explicit: str | None) -> str | None:
-    for ref in ([explicit] if explicit else ["origin/main", "main", "origin/master", "master"]):
-        if ref and git(root, "rev-parse", "--verify", "--quiet", ref):
-            base = git(root, "merge-base", ref, "HEAD")
-            return base or ref
-    return None
+BASE_CANDIDATES = ("main", "origin/main", "upstream/main",
+                   "master", "origin/master", "upstream/master")
+
+# Past this many commits the base is reporting somebody else's history as your
+# diff, so say so rather than printing thousands of findings that are not yours.
+BASE_DISTANCE_WARN = 25
+
+
+def resolve_base(root: Path, explicit: str | None) -> tuple[str, str] | None:
+    """Pick the base to diff against; return (commit, the ref it came from).
+
+    With no explicit ref, take the candidate whose merge-base sits *closest to
+    HEAD* rather than the first one that resolves. On a fork this is the whole
+    difference between a gate and noise: `origin` is the fork, so `origin/main`
+    trails the real mainline by however long the fork has existed, and taking it
+    first reports every upstream commit since then as a changed line.
+    """
+    if explicit:
+        if not git(root, "rev-parse", "--verify", "--quiet", explicit):
+            return None
+        return git(root, "merge-base", explicit, "HEAD") or explicit, explicit
+
+    best: tuple[int, int, str, str] | None = None
+    for order, ref in enumerate(BASE_CANDIDATES):
+        if not git(root, "rev-parse", "--verify", "--quiet", ref):
+            continue
+        base = git(root, "merge-base", ref, "HEAD")
+        if not base:
+            continue
+        count = git(root, "rev-list", "--count", f"{base}..HEAD")
+        # Ties keep list order, so a plain checkout still reports "main".
+        key = (int(count) if count.isdigit() else 1 << 30, order, base, ref)
+        if best is None or key < best:
+            best = key
+    return (best[2], best[3]) if best else None
 
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -901,18 +930,25 @@ def main() -> int:
         scope_desc = (f"staged lines: {len(targets)} file(s), "
                       f"{sum(len(v) for v in changed.values())} line(s)")
     else:
-        base = resolve_base(root, args.base)
-        if base is None:
+        resolved = resolve_base(root, args.base)
+        if resolved is None:
             sys.exit("Could not resolve a base ref. Pass --base, or use --all.")
+        base, base_ref = resolved
         changed = changed_lines(root, base)
         for rel, lines in sorted(changed.items()):
             p = root / rel
             if p.is_file() and not excluded(rel):
                 targets.append((p, rel, lines, None))
         short = git(root, "rev-parse", "--short", base) or base
-        scope_desc = (f"changed lines vs {args.base or 'main'} ({short}): "
+        scope_desc = (f"changed lines vs {base_ref} ({short}): "
                       f"{len(targets)} file(s), "
                       f"{sum(len(v) for v in changed.values())} line(s)")
+        ahead = git(root, "rev-list", "--count", f"{base}..HEAD")
+        if ahead.isdigit() and int(ahead) > BASE_DISTANCE_WARN:
+            scope_desc += (f"\n  NOTE: {base_ref} is {ahead} commits behind HEAD, so this "
+                           f"scope covers more than your own work.\n"
+                           f"  Pass --base <ref> to narrow it, or --staged for just the "
+                           f"next commit.")
 
     findings: list[Finding] = []
     for path, rel, scope, text in targets:
@@ -944,8 +980,11 @@ def main() -> int:
     counts = {s: sum(1 for f in findings if f.severity == s)
               for s in (ERROR, WARNING, NOTE)}
     if findings and not args.json:
+        # Repeat the scope beside the totals. A long run gets read through
+        # `tail`, which cuts off the header -- and a total only means something
+        # once you know what was counted.
         print(f"{counts[ERROR]} error(s), {counts[WARNING]} warning(s), "
-              f"{counts[NOTE]} note(s)")
+              f"{counts[NOTE]} note(s) -- {scope_desc}")
 
     if counts[ERROR]:
         return 1

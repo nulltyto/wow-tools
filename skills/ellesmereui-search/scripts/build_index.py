@@ -172,6 +172,9 @@ BLOCK_LOCAL = re.compile(
     r"^[ \t]+local[ \t]+(?:function[ \t]+([A-Za-z_]\w*)|([A-Za-z_][\w, \t]*))", re.M
 )
 
+# Keywords that open and close a Lua block. See `Source.block_end`.
+BLOCK_KW = re.compile(r"\b(function|then|do|repeat|end|until|elseif)\b")
+
 
 class Source:
     """One Lua file: original text, masked text, and line-number lookup."""
@@ -226,6 +229,40 @@ class Source:
         """How many table constructors are open at `offset`."""
         i = bisect.bisect_left(self._brace_at, offset)
         return self._brace_depth[i - 1] if i else 0
+
+    def block_end(self, start: int) -> int:
+        """Offset where the block enclosing `start` closes.
+
+        Lua scopes a `local` to the end of its enclosing block. A settings
+        table bound to a short name -- `ss`, `bs` -- is re-bound to something
+        unrelated a few functions down, so a scan that runs a fixed number of
+        lines past the binding credits the second variable's fields to the
+        first one's table. In this tree that turned bar-data fields
+        (`assignedSpells`, `customSpellIDs`) into per-spell settings keys.
+
+        Counts the keywords that open a block against those that close one.
+        The `then` of an `elseif` continues the block its `if` already opened,
+        so it must not be counted a second time. `for`/`while` are not counted
+        because their own `do` is.
+        """
+        depth = 0
+        after_elseif = False
+        for m in BLOCK_KW.finditer(self.mask, start):
+            word = m.group(1)
+            if word == "elseif":
+                after_elseif = True
+            elif word == "then":
+                if after_elseif:
+                    after_elseif = False
+                else:
+                    depth += 1
+            elif word in ("function", "do", "repeat"):
+                depth += 1
+            else:  # end, until
+                if depth == 0:
+                    return m.start()
+                depth -= 1
+        return len(self.mask)
 
     @property
     def n_lines(self) -> int:
@@ -592,6 +629,175 @@ def extract_saved_variable_keys(
                 "options_refs": options[:10],
                 "options_ref_count": len(options),
                 "used_by": sorted({mod for mod, _ in sites}),
+            }
+        )
+    return rows
+
+
+# --------------------------------------------------------------------------
+#  Third settings class: keys stored per entity rather than per profile
+# --------------------------------------------------------------------------
+# A per-spell setting is written to an entry keyed by a runtime spellID, so it
+# never appears in a defaults table and never as `EllesmereUIDB.<key>`. Both
+# other passes miss it completely -- and a per-spell option is exactly what a
+# "this one spell behaves wrong" report is about. The bug that prompted this
+# pass was `buffLostSoundKey`, which the index could not name at all.
+#
+# The three tables below share ONE key namespace: a read of a per-spell entry
+# falls through `__index` to the bar tiers, so a key valid at one tier is valid
+# at all of them. That is why they resolve to a single record with a chain
+# rather than to three.
+#
+# These names are facts about this codebase, not about Lua, so a refactor in
+# the addon can retire this pass without breaking anything that looks broken.
+# `build` fails when the store is still in the source but yields no keys, and
+# validate_index.py checks the count, because the failure mode otherwise is a
+# pass that silently returns nothing.
+SCOPED_STORE_NAME = "spellSettings"
+SCOPED_TIERS = ("barSettings", "barSpellSettings")
+SCOPED_RESOLVERS = ("ResolveSpellSettings", "_ResolveCdmSS", "GetBarTierSettings")
+
+# A store holds many entries; an entry holds the keys. `store[id]` is the step
+# between them, so a local bound to a store is tracked separately from a local
+# bound to one entry.
+SCOPED_STORE = re.compile(
+    r"\.[ \t]*" + SCOPED_STORE_NAME + r"\b(?![ \t]*\[)"
+    r"|\bGetSpellSettingsStore(?:ForProf)?[ \t]*\("
+)
+SCOPED_ENTRY = re.compile(
+    r"\.[ \t]*" + SCOPED_STORE_NAME + r"[ \t]*\["
+    + r"|\.[ \t]*(?:" + "|".join(SCOPED_TIERS) + r")\b"
+    + r"|\b(?:" + "|".join(SCOPED_RESOLVERS) + r")[ \t]*\("
+)
+# Where the store itself is declared. Its module owns every key in the store.
+STORE_ACCESSOR = re.compile(r"\bfunction[ \t]+[\w.:]*GetSpellSettingsStore[ \t]*\(")
+LOCAL_BIND = re.compile(r"\blocal[ \t]+([A-Za-z_]\w*)[ \t]*=([^\n]*)")
+LOCAL_FUNC = re.compile(r"\blocal[ \t]+function[ \t]+([A-Za-z_]\w*)[ \t]*\([ \t]*([A-Za-z_]\w*)")
+
+
+def _live_range(src: Source, name: str, start: int) -> tuple[int, int]:
+    """Where a local declared at `start` is still the variable it was bound to.
+
+    The block bound is the language rule; the rebinding bound is the one this
+    tree needs. The big options file declares `local store = ...` for half a
+    dozen unrelated stores inside one enormous block, so block scope alone lets
+    the first one claim every later `store[id]`.
+    """
+    end = src.block_end(start)
+    rebind = re.search(r"\blocal[ \t]+" + re.escape(name) + r"\b", src.mask[start:end])
+    return start, (start + rebind.start() if rebind else end)
+
+
+def _scoped_binds(src: Source) -> list[tuple[str, int, int]]:
+    """Every local bound to one per-entity settings entry, with its scope.
+
+    Two levels, because the code reaches an entry in two steps: bind the store
+    (`local store = ns.GetSpellSettingsStore(bar)`), then subscript it
+    (`local ss = store[spellID]`). Matching only the second step against a
+    literal container name would miss every options row, which is where the
+    keys carry their labels.
+    """
+    mask = src.mask
+    stores = [
+        (m.group(1), *_live_range(src, m.group(1), m.end()))
+        for m in LOCAL_BIND.finditer(mask)
+        if SCOPED_STORE.search(m.group(2))
+    ]
+    out: list[tuple[str, int, int]] = []
+    for m in LOCAL_BIND.finditer(mask):
+        rhs = m.group(2)
+        hit = bool(SCOPED_ENTRY.search(rhs)) or any(
+            start <= m.start() <= end
+            and re.search(r"\b" + re.escape(name) + r"[ \t]*\[", rhs)
+            for name, start, end in stores
+        )
+        if hit:
+            out.append((m.group(1), *_live_range(src, m.group(1), m.end())))
+    return out
+
+
+def extract_scoped_settings(
+    sources: list[Source], module_names: list[str]
+) -> list[dict]:
+    hits: dict[str, set[tuple[str, str]]] = {}
+
+    # Every one of these keys lives in the same store, so they share one owner:
+    # the module that declares the store accessor. Attributing them per key by
+    # counting sites instead credits whichever file happens to mention a key
+    # most -- for two of them that was the suite-level migration file, which
+    # only rewrites the store and does not own it.
+    owner = next(
+        (
+            module_of(src.rel, module_names)
+            for src in sources
+            if STORE_ACCESSOR.search(src.mask)
+        ),
+        "",
+    )
+
+    for src in sources:
+        mask, text = src.mask, src.text
+        mod = module_of(src.rel, module_names)
+
+        def add(key: str, offset: int) -> None:
+            hits.setdefault(key, set()).add((mod, f"{src.rel}:{src.line(offset)}"))
+
+        for name, start, end in _scoped_binds(src):
+            body = mask[start:end]
+            for m in re.finditer(
+                r"\b" + re.escape(name) + r"[ \t]*\.[ \t]*([A-Za-z_]\w*)", body
+            ):
+                add(m.group(1), start + m.start())
+
+            # A writer helper takes the key as a parameter and writes it onto
+            # the entry (`local function SetOwn(key, val) ss[key] = val end`).
+            # Its call sites carry key names that appear nowhere as an
+            # attribute, so without this every write-only option is invisible.
+            for f in LOCAL_FUNC.finditer(body):
+                fn, param = f.group(1), f.group(2)
+                fs = start + f.end()
+                fe = src.block_end(fs)
+                if not re.search(
+                    r"\b" + re.escape(name) + r"[ \t]*\[[ \t]*" + re.escape(param) + r"[ \t]*\]",
+                    mask[fs:fe],
+                ):
+                    continue
+                # Call sites are read from the raw text: the key is a string
+                # literal, which the mask blanks.
+                for c in re.finditer(
+                    r"\b" + re.escape(fn) + r"[ \t]*\([ \t]*[\"']([A-Za-z_]\w*)[\"']", text
+                ):
+                    if mask[c.start()] == " ":
+                        continue
+                    add(c.group(1), c.start())
+
+    path_root = f"{SCOPED_STORE_NAME}[<id>]"
+    rows: list[dict] = []
+    for key, sites in hits.items():
+        ordered = sorted(s for _, s in sites)
+        options = [s for s in ordered if s.rsplit(":", 1)[0].endswith("_Options.lua")]
+        rows.append(
+            {
+                "key": key,
+                "path": f"{path_root}.{key}",
+                "store": SCOPED_STORE_NAME,
+                "scope": "per-spell",
+                "inherits": list(SCOPED_TIERS),
+                "default": "",
+                "module": owner,
+                "table": SCOPED_STORE_NAME,
+                "file": ordered[0].rsplit(":", 1)[0],
+                "line": int(ordered[0].rsplit(":", 1)[1]),
+                # Sites come from the scoped scan itself, not from a global
+                # attribute sweep: a key like `duration` matches thousands of
+                # unrelated `.duration` reads, and counting those would make
+                # the number worse than no number.
+                "refs": ordered[:60],
+                "ref_count": len(ordered),
+                "options_refs": options[:10],
+                "options_ref_count": len(options),
+                "used_by": sorted({m for m, _ in sites}),
+                "refs_other_modules": 0,
             }
         )
     return rows
@@ -1409,6 +1615,24 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
     for row in sv_rows:
         row["refs_other_modules"] = 0
     settings.extend(sv_rows)
+
+    # Third settings class: keys on a per-entity entry. Names already declared
+    # at profile level keep both records -- the same short name genuinely
+    # exists at two scopes here, and saying so is the answer to "I changed it
+    # and nothing happened".
+    scoped_rows = extract_scoped_settings(sources, module_names)
+    if not scoped_rows and any(SCOPED_STORE_NAME in src.mask for src in sources):
+        # The pass is driven by names that live in the addon, so a refactor can
+        # retire it silently, and an index that quietly stops covering a whole
+        # settings class is worse than one that fails loudly. Only a tree that
+        # still has the store but yields no keys is a broken pass -- a tree
+        # without it is simply a tree without per-entity settings.
+        raise SystemExit(
+            f"Found {SCOPED_STORE_NAME!r} in the source but extracted no keys from "
+            f"it. A resolver in {SCOPED_RESOLVERS} was probably renamed -- update "
+            "SCOPED_* in this file."
+        )
+    settings.extend(scoped_rows)
 
     module_rows: list[dict] = []
     for name, toc in mods:

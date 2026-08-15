@@ -76,7 +76,10 @@ something the index can answer.
 
 Find all of these before editing anything:
 
-- the settings key and its default
+- the settings key and its default — and its `scope`, if it has one. A
+  CooldownManager key can be held **per spell**, in which case there is no one
+  default and no one value: an unset key inherits from the bar tiers. A fix
+  aimed at the profile-level key of the same name moves nothing.
 - every site that reads the key (a guard is often duplicated and only one copy is wrong)
 - **every caller of every function you are about to change** — the `callers`
   field on the `symbols.jsonl` record. This is the step that gets replaced by
@@ -125,8 +128,8 @@ Then state your theory with the source attached. "`UNIT_SPELLCAST_START` lands
 after the server acknowledges, so a same-frame read sees nothing" is a claim. It
 belongs in a comment only once something confirms it.
 
-If the answer is genuinely not in the API — event *ordering* often is not — say
-so, and design so that being wrong about it is survivable. That is step 4.
+If the answer is genuinely not in the API — event *ordering* often is not — do
+not skip to designing around it. Measure it. That is step 4.
 
 **If the verdict is "not a bug", stop and say so.** Report the model the code
 actually implements, the evidence, and what the reporter believed instead. Then
@@ -139,7 +142,48 @@ permission to edit, which is where the design steps get skipped -- and a
 feature has failure modes this loop does not cover, chiefly a value that
 resolves correctly on the character that wrote it and on no other.
 
-### 4. Design for correctness, and name the failure direction
+### 4. When the source cannot answer it, trace it in the client
+
+Blizzard's source says what the events are and what they carry. It does not say
+what the client actually sent, in what order, for the spell in the report. That
+gap is where a plausible theory survives to become a comment nobody can check.
+
+You cannot play the game, but you can ship a tracer and have the user run one
+case. Ten seconds of real trace outranks any amount of reasoning about ordering:
+
+    python3 scripts/new_tracer.py AuraTrace --events UNIT_AURA --unit player
+
+That writes a loadable addon into the client's `AddOns/`, prints every dispatch
+with a frame number, and prints the in-game steps. Use it, rather than writing
+the addon by hand, because the ways a hand-written one fails are all silent —
+the client does not report them, so the trace comes back empty and reads like a
+disproved theory:
+
+- **a folder with no `.toc` does not load at all.** Describing the `.toc` in a
+  comment is not writing one.
+- **an `## Interface` below the running build** greys the addon out as
+  out of date. A neighbouring `.toc` lists every build it supports; the client
+  is on the newest of them, not the first.
+- **sending the file to the user is not installing it.** It has to be written
+  into `Interface/AddOns/<Name>/`.
+- **`tostring` on a value the client classifies raises**, which loses the trace
+  in exactly the combat case being investigated.
+
+Ask for a full restart rather than `/reload` — a new addon folder needs the list
+rebuilt — and say what each possible shape of the output would prove *before*
+seeing it, so the reading is not fitted to the theory afterwards. The
+distinction worth designing the trace around is almost always **same frame
+versus adjacent frames**: a remove and an add of a new instance in one frame is
+a replacement, and the same pair one frame apart is a real drop.
+
+Remove it when the question is answered: `scripts/new_tracer.py <Name> --remove`.
+
+If you extend the generated Lua, run it against the harness before sending it —
+`lua5.1 scripts/tracer_harness.lua <the generated .lua>` fires stubbed events at
+it and checks it prints. A tracer that loads and stays silent is indistinguishable
+from a theory that was wrong.
+
+### 5. Design for correctness, and name the failure direction
 
 Every guard fails in a direction. Choose it deliberately and write it in the
 comment:
@@ -169,7 +213,7 @@ Warning signs that step 3 was skipped and this design is guesswork:
 - a `pcall` wrapping a read to make an error go away rather than to handle a
   secret value
 
-### 5. Write the in-game checklist before you write the fix
+### 6. Write the in-game checklist before you write the fix
 
 You cannot run the game. The user is the test harness, so the checklist is the
 deliverable — and writing it first exposes cases the design does not handle,
@@ -189,7 +233,7 @@ A checklist covers:
 Number them so the user can answer by number. Say what the correct result looks
 like for each, not just what to press.
 
-### 6. Cost it, unprompted
+### 7. Cost it, unprompted
 
 State the cost when you report the fix, before being asked. Cover:
 
@@ -207,7 +251,7 @@ State the cost when you report the fix, before being asked. Cover:
 If the fix is a genuine cost/correctness trade, present both options and let the
 user choose. Do not resolve it silently in favour of either one.
 
-### 7. Ship gate
+### 8. Ship gate
 
 Then, and only then, `ellesmereui-pr-check`. It is the house-style and PR gate,
 not a correctness review, and it does not check anything above.
