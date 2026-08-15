@@ -334,11 +334,15 @@ _KEY_FIELD = re.compile(r"""\b(?:key|setting|dbKey|profileKey)\s*=\s*["']([A-Za-
 _IDENT_USE = re.compile(r"""\.\s*([A-Za-z_]\w*)|["']([A-Za-z_]\w*)["']""")
 
 
-def _scoped_keys(_cache=[]):
+_SCOPED_KEYS: set | None = None
+
+
+def _scoped_keys():
     """Every entry-scoped settings key in the index, loaded once."""
-    if not _cache:
-        _cache.append({r["key"] for r in records("settings") if r.get("scope")})
-    return _cache[0]
+    global _SCOPED_KEYS
+    if _SCOPED_KEYS is None:
+        _SCOPED_KEYS = {r["key"] for r in records("settings") if r.get("scope")}
+    return _SCOPED_KEYS
 
 
 def cmd_label(args):

@@ -716,6 +716,41 @@ def _scoped_binds(src: Source) -> list[tuple[str, int, int]]:
     return out
 
 
+def _scoped_key_sites(src: Source) -> list[tuple[str, int]]:
+    """Every (key, offset) this file reads or writes on a per-entity entry."""
+    mask, text = src.mask, src.text
+    found: list[tuple[str, int]] = []
+    for name, start, end in _scoped_binds(src):
+        body = mask[start:end]
+        for m in re.finditer(
+            r"\b" + re.escape(name) + r"[ \t]*\.[ \t]*([A-Za-z_]\w*)", body
+        ):
+            found.append((m.group(1), start + m.start()))
+
+        # A writer helper takes the key as a parameter and writes it onto the
+        # entry (`local function SetOwn(key, val) ss[key] = val end`). Its call
+        # sites carry key names that appear nowhere as an attribute, so without
+        # this every write-only option is invisible.
+        for f in LOCAL_FUNC.finditer(body):
+            fn, param = f.group(1), f.group(2)
+            fs = start + f.end()
+            fe = src.block_end(fs)
+            if not re.search(
+                r"\b" + re.escape(name) + r"[ \t]*\[[ \t]*" + re.escape(param) + r"[ \t]*\]",
+                mask[fs:fe],
+            ):
+                continue
+            # Call sites are read from the raw text: the key is a string
+            # literal, which the mask blanks.
+            for c in re.finditer(
+                r"\b" + re.escape(fn) + r"[ \t]*\([ \t]*[\"']([A-Za-z_]\w*)[\"']", text
+            ):
+                if mask[c.start()] == " ":
+                    continue
+                found.append((c.group(1), c.start()))
+    return found
+
+
 def extract_scoped_settings(
     sources: list[Source], module_names: list[str]
 ) -> list[dict]:
@@ -736,40 +771,9 @@ def extract_scoped_settings(
     )
 
     for src in sources:
-        mask, text = src.mask, src.text
         mod = module_of(src.rel, module_names)
-
-        def add(key: str, offset: int) -> None:
+        for key, offset in _scoped_key_sites(src):
             hits.setdefault(key, set()).add((mod, f"{src.rel}:{src.line(offset)}"))
-
-        for name, start, end in _scoped_binds(src):
-            body = mask[start:end]
-            for m in re.finditer(
-                r"\b" + re.escape(name) + r"[ \t]*\.[ \t]*([A-Za-z_]\w*)", body
-            ):
-                add(m.group(1), start + m.start())
-
-            # A writer helper takes the key as a parameter and writes it onto
-            # the entry (`local function SetOwn(key, val) ss[key] = val end`).
-            # Its call sites carry key names that appear nowhere as an
-            # attribute, so without this every write-only option is invisible.
-            for f in LOCAL_FUNC.finditer(body):
-                fn, param = f.group(1), f.group(2)
-                fs = start + f.end()
-                fe = src.block_end(fs)
-                if not re.search(
-                    r"\b" + re.escape(name) + r"[ \t]*\[[ \t]*" + re.escape(param) + r"[ \t]*\]",
-                    mask[fs:fe],
-                ):
-                    continue
-                # Call sites are read from the raw text: the key is a string
-                # literal, which the mask blanks.
-                for c in re.finditer(
-                    r"\b" + re.escape(fn) + r"[ \t]*\([ \t]*[\"']([A-Za-z_]\w*)[\"']", text
-                ):
-                    if mask[c.start()] == " ":
-                        continue
-                    add(c.group(1), c.start())
 
     path_root = f"{SCOPED_STORE_NAME}[<id>]"
     rows: list[dict] = []

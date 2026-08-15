@@ -50,7 +50,10 @@ def resolve_base(cs, explicit: str | None) -> str | None:
     """
     if explicit:
         return explicit
-    base = cs.resolve_base(REPO, None)
+    # check_style.resolve_base returns (commit, the ref it came from); only the
+    # commit is a thing git can diff against.
+    resolved = cs.resolve_base(REPO, None)
+    base = resolved[0] if resolved else None
     head = cs.git(REPO, "rev-parse", "HEAD")
     if base and cs.git(REPO, "rev-parse", base) != head:
         return base

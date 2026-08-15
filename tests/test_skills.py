@@ -1385,7 +1385,6 @@ def test_base_names_the_ref_it_actually_used(tmp_path):
     The wrong scope is invisible when the header is trusted, and the header was
     printing a ref the tool had not used.
     """
-    C = _style_checker()
     run, commit = _repo(tmp_path)
     base = commit("local a = 1\n")
     run("update-ref", "refs/remotes/origin/main", base)
