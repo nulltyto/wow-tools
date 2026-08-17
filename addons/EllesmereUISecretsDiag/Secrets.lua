@@ -986,3 +986,194 @@ ns.Command("eval", {
         end
     end,
 })
+
+-------------------------------------------------------------------------------
+-- /euidiag aurarows
+-------------------------------------------------------------------------------
+-- Blizzard documents a filter token in one sentence; what it admits only shows
+-- up live. Run several side by side and see which populate.
+--
+-- READ IT VISUALLY: group counts are obfuscated and a tainted addon cannot
+-- enumerate what it just displayed, so the icons ARE the result.
+local AURA_ROW_PRESETS = {
+    -- Each row is { label, { filter tokens }, candidateFilters or nil }.
+    --
+    -- What the dispel-glow fix turns on: does DISPELLABLE admit an enrage, and
+    -- do the two dispel-type filters partition the row exactly? Rows 4 and 5
+    -- are the answer -- an enrage has no dispelName, so include rejects it and
+    -- exclude keeps it.
+    dispel = {
+        { "1 base (all buffs)", { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY" } },
+        { "2 DISPELLABLE",      { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY", "DISPELLABLE" } },
+        { "3 RAID_PLAYER_DISP", { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY", "RAID_PLAYER_DISPELLABLE" } },
+        { "4 DISP  +Magic",     { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY", "DISPELLABLE" },
+            { includeDispelTypes = { Magic = true } } },
+        { "5 DISP  -Magic",     { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY", "DISPELLABLE" },
+            { excludeDispelTypes = { Magic = true } } },
+        { "6 RAIDP -Magic",     { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY", "RAID_PLAYER_DISPELLABLE" },
+            { excludeDispelTypes = { Magic = true } } },
+    },
+    helpful = {
+        { "1 base",             { "HELPFUL" } },
+        { "2 DISPELLABLE",      { "HELPFUL", "DISPELLABLE" } },
+        { "3 RAID_PLAYER_DISP", { "HELPFUL", "RAID_PLAYER_DISPELLABLE" } },
+        { "4 IMPORTANT",        { "HELPFUL", "IMPORTANT" } },
+        { "5 nameplate only",   { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY" } },
+    },
+    harmful = {
+        { "1 base",           { "HARMFUL" } },
+        { "2 mine",           { "HARMFUL", "PLAYER" } },
+        { "3 CROWD_CONTROL",  { "HARMFUL", "CROWD_CONTROL" } },
+        { "4 not CC",         { "HARMFUL", "!CROWD_CONTROL" } },
+        { "5 DISPELLABLE",    { "HARMFUL", "DISPELLABLE" } },
+    },
+}
+
+local rowPanel, rowContainers, rowSizeDenied = nil, {}, 0
+
+-- An UNSIZED BUTTON RENDERS NOTHING: the flow layout only ANCHORS group buttons,
+-- and the group layout's elementWidth/elementHeight feed the flow math alone.
+-- SetSize is also denied while auras are secret, so build rows BEFORE entering
+-- restricted content -- rowSizeDenied reports when that bit.
+local function InitRowButton(button)
+    if not pcall(button.SetSize, button, 26, 26) then
+        rowSizeDenied = rowSizeDenied + 1
+    end
+    -- A flat backing behind the icon, so a button the engine populated still
+    -- reads even if the icon texture never gets painted. This is what tells
+    -- "no matching aura" apart from "matched but drew nothing".
+    local bg = button:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(button)
+    bg:SetColorTexture(0.25, 0.25, 0.9, 0.9)
+
+    local tex = button:CreateTexture(nil, "ARTWORK")
+    tex:SetAllPoints(button)
+    pcall(button.SetIcon, button, tex)
+end
+
+local function RowsSetUnit(unit)
+    for i = 1, #rowContainers do
+        pcall(function()
+            rowContainers[i]:SetUnit(unit)
+            rowContainers[i]:UpdateAllAuras()
+        end)
+    end
+end
+
+local rowWatcher
+local function BuildAuraRows(rows, unit)
+    if rowPanel then rowPanel:Hide() end
+    rowPanel, rowContainers, rowSizeDenied = nil, {}, 0
+
+    if not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+        C_AddOns.LoadAddOn("Blizzard_AuraContainer")
+    end
+
+    rowPanel = CreateFrame("Frame", "EUIDiagAuraRowsPanel", UIParent, "BackdropTemplate")
+    rowPanel:SetSize(430, 40 + #rows * 34)
+    rowPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 150)
+    rowPanel:SetMovable(true)
+    rowPanel:EnableMouse(true)
+    rowPanel:RegisterForDrag("LeftButton")
+    rowPanel:SetScript("OnDragStart", rowPanel.StartMoving)
+    rowPanel:SetScript("OnDragStop", rowPanel.StopMovingOrSizing)
+    if rowPanel.SetBackdrop then
+        rowPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
+        rowPanel:SetBackdropColor(0, 0, 0, 0.75)
+    end
+
+    local title = rowPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOP", rowPanel, "TOP", 0, -8)
+    title:SetText("aurarows: " .. unit .. " (drag to move)")
+
+    for i = 1, #rows do
+        local label, tokens, cand = rows[i][1], rows[i][2], rows[i][3]
+        local y = -28 - (i - 1) * 34
+
+        local fs = rowPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        fs:SetPoint("TOPLEFT", rowPanel, "TOPLEFT", 10, y - 6)
+        fs:SetWidth(180)
+        fs:SetJustifyH("LEFT")
+        fs:SetText(label)
+
+        local host = CreateFrame("Frame", nil, rowPanel)
+        host:SetSize(220, 28)
+        host:SetPoint("TOPLEFT", rowPanel, "TOPLEFT", 196, y)
+
+        local ok, err = pcall(function()
+            local c = CreateFrame("AuraContainer", nil, host, "CustomAuraContainerTemplate")
+            c:SetPoint("LEFT", host, "LEFT")
+            c:SetSize(220, 28)
+            c:AddAuraGroup("probe", table.concat(tokens, "|"), {
+                maxFrameCount = 8,
+                candidateFilters = cand,
+                initializeFrame = InitRowButton,
+                layout = { elementWidth = 26, elementHeight = 26,
+                    elementSpacing = 3, lineSpacing = 3 },
+            })
+            -- Unit LAST: SetUnit re-evaluates event registration, and that is
+            -- gated on the container already having groups.
+            c:SetUnit(unit)
+            c:UpdateAllAuras()
+            rowContainers[#rowContainers + 1] = c
+        end)
+        if not ok then
+            fs:SetText(label .. " |cffff4040FAILED|r")
+            result("ERR", label, tostring(err))
+        end
+    end
+
+    if not rowWatcher then
+        rowWatcher = CreateFrame("Frame")
+        rowWatcher:SetScript("OnEvent", function()
+            if rowPanel and rowPanel:IsShown() then RowsSetUnit(rowPanel._unit or "target") end
+        end)
+    end
+    rowPanel._unit = unit
+    rowWatcher:UnregisterAllEvents()
+    if unit == "target" then rowWatcher:RegisterEvent("PLAYER_TARGET_CHANGED") end
+    rowWatcher:RegisterEvent("UNIT_AURA")
+end
+
+ns.Command("aurarows", {
+    group = "Secrets",
+    usage = "aurarows [dispel|helpful|harmful|custom] [unit] | off | list",
+    help  = "bench engine aura filters side by side; read the panel, not a count",
+    fn    = function(args)
+        local sub = (args[1] or "dispel"):lower()
+        if sub == "off" then
+            if rowPanel then rowPanel:Hide() end
+            RowsSetUnit("none")
+            emit("aurarows: hidden")
+            return
+        end
+        if sub == "list" then
+            for name, rows in pairs(AURA_ROW_PRESETS) do
+                outf("  %s (%d rows)", name, #rows)
+            end
+            emit("custom: set EUIDiagAuraRows = { {label, {tokens}, cand}, ... }")
+            return
+        end
+        local rows = AURA_ROW_PRESETS[sub]
+        if sub == "custom" then rows = _G.EUIDiagAuraRows end
+        if type(rows) ~= "table" or #rows == 0 then
+            outf("no preset '%s' -- /euidiag aurarows list", sub)
+            return
+        end
+        local unit = args[2] or "target"
+        local ok, err = pcall(BuildAuraRows, rows, unit)
+        if not ok then
+            result("ERR", "aurarows", tostring(err))
+            return
+        end
+        result("INFO", "aurarows", format("%s, %d rows on %s", sub, #rows, unit))
+        -- Auras go secret on entering restricted content, and a button sized
+        -- after that point stays invisible. Say so rather than let the panel
+        -- read as "nothing matched".
+        if rowSizeDenied > 0 then
+            result("WARN", "SetSize denied",
+                format("%d buttons -- rebuild OUTSIDE restricted content", rowSizeDenied))
+        end
+        emit("read the icons, not a count: group counts are obfuscated")
+    end,
+})

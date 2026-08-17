@@ -41,7 +41,7 @@ measurements it works from come from `/euidiag` and `tools/perf/`, below.
 
 | Addon | What it does |
 |---|---|
-| [`EllesmereUISecretsDiag`](addons/EllesmereUISecretsDiag/) | In-game developer diagnostics for the EllesmereUI suite: CPU and memory per module, taint tracking, secret-value probes, and a sampling recorder. `/euidiag` |
+| [`EllesmereUISecretsDiag`](addons/EllesmereUISecretsDiag/) | In-game developer diagnostics for the EllesmereUI suite: CPU and memory per module, taint tracking, secret-value probes, an aura filter bench, and a sampling recorder. `/euidiag` |
 
 It depends on `EllesmereUI` and does nothing without it. Installing it is
 opt-in — the interactive installer defaults to no addons, since putting a

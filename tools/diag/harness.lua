@@ -257,6 +257,8 @@ local SCRIPT = {
     "taint errors", "taint log",
     "secrets list", "secrets list all",
     "eval 1+1", "eval return 'hello', {a=1,b=2}", "eval this is not lua",
+    "aurarows list", "aurarows dispel", "aurarows harmful focus",
+    "aurarows nosuchpreset", "aurarows off",
     "save probe-run", "logs",
     "nosuchcommand",
 }
