@@ -22,6 +22,7 @@ Exit status is 1 if the addon could not be written or fails a syntax check.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -35,9 +36,17 @@ INTERFACE = re.compile(r"^##\s*Interface\s*:\s*(.+)$", re.MULTILINE)
 # the whole reason to trace it: a replacement (remove + add of a new instance)
 # and a refresh (an update of the same instance) are indistinguishable to any
 # handler that only counts events.
+#
+# Blizzard marks no field of UnitAuraUpdateInfo NeverSecret, so in restricted
+# content every line below raises -- the truthiness test as much as the concat.
+# A tracer cannot read this payload there at all, and the useful failure is one
+# line saying so rather than the same error once per event. An earlier version
+# of this template branched on `info.isFullUpdate` directly and threw 52x in a
+# live pull before anyone learned that.
 AURA_BATCH = '''
-local function DumpAuraBatch(info)
-    if not info then return end
+local auraDenied = false
+
+local function DumpAuraFields(info)
     if info.isFullUpdate then
         Say("|cff888888full update|r")
         return
@@ -56,6 +65,18 @@ local function DumpAuraBatch(info)
         for _, id in ipairs(info.updatedAuraInstanceIDs) do
             Say("|cffffcc00UPDATE|r inst=" .. S(id))
         end
+    end
+end
+
+local function DumpAuraBatch(info)
+    -- `== nil` is the one test that never raises on a classified value.
+    if info == nil then return end
+    if pcall(DumpAuraFields, info) then return end
+    if not auraDenied then
+        auraDenied = true
+        Say("|cffff4040UNIT_AURA payload is secret here|r -- no field of "
+            .. "UnitAuraUpdateInfo is readable in restricted content. "
+            .. "Run this trace outside an instance, or use /euidiag aurarows.")
     end
 end
 '''
@@ -198,6 +219,115 @@ def client_interface(addons: Path) -> str:
     return str(best)
 
 
+# Where a wow-api-search skill is likely to be. Ordered nearest-first, matching
+# the resolution the wow-secret-values skill uses for the same index.
+API_INDEX_BASES = (
+    Path(__file__).resolve().parent.parent.parent,
+    Path.home() / ".agents" / "skills",
+    Path.home() / ".claude" / "skills",
+    Path.home() / ".config" / "skills",
+)
+
+
+def load_api_index():
+    """The wow-api-search index, or None when that skill is not installed."""
+    env = os.environ.get("WOW_API_INDEX")
+    candidates = [Path(env).expanduser()] if env else []
+    candidates += [b / "wow-api-search" / "references" / "api_index.json"
+                   for b in API_INDEX_BASES]
+    for path in candidates:
+        if path.is_file():
+            try:
+                with path.open(encoding="utf-8") as fh:
+                    return json.load(fh)
+            except (OSError, ValueError):
+                return None
+    return None
+
+
+def secret_payload_fields(events: list[str], index) -> dict:
+    """Field names these events carry that Blizzard does not mark NeverSecret.
+
+    Walks event -> payload argument type -> structure -> fields. Blizzard marks
+    the readable ones; everything else may come back opaque, and touching one
+    raises rather than returning a wrong answer.
+    """
+    secret = {}
+    tables = index.get("tables", {})
+    for event in events:
+        entry = index.get("events", {}).get(event)
+        for arg in (entry or {}).get("payload", []):
+            struct = tables.get(arg.get("type"))
+            if not struct or struct.get("type") != "Structure":
+                continue
+            for field in struct.get("fields", []):
+                if not field.get("never_secret"):
+                    secret.setdefault(field["name"], arg["type"])
+    return secret
+
+
+# A bare read is fine -- assignment and `== nil` never raise. What raises is
+# using the value: a truthiness test, a comparison, a concat, or an iterator.
+SECRET_USE = re.compile(r"(?:\bif\b|\bwhile\b|\band\b|\bor\b|\bnot\b|\.\.|\bipairs\(|\bpairs\()")
+
+
+def secret_audit(source: str, events: list[str], index) -> list[str]:
+    """Generated lines that operate on a secret payload field outside a pcall.
+
+    Scoped deliberately to the shape this script emits rather than to Lua in
+    general: functions are audited whole, and one whose every call site sits
+    inside a `pcall` is treated as guarded. That is the shape the template uses
+    to read a payload it cannot branch on safely.
+    """
+    secret = secret_payload_fields(events, index)
+    if not secret:
+        return []
+
+    lines = source.splitlines()
+    # Map each `local function NAME(` to the half-open line range of its body.
+    bodies, stack = {}, []
+    for i, line in enumerate(lines):
+        match = re.match(r"\s*local function ([A-Za-z_]\w*)\(", line)
+        if match:
+            stack.append((match.group(1), i))
+        elif re.match(r"^end\b", line) and stack:
+            name, start = stack.pop()
+            bodies[name] = (start, i)
+
+    def uses_secret(start, end):
+        hits = []
+        for i in range(start, end + 1):
+            line = lines[i]
+            for field in secret:
+                if re.search(r"\.%s\b" % re.escape(field), line) and SECRET_USE.search(line):
+                    hits.append((i + 1, field, line.strip()))
+        return hits
+
+    findings = []
+    audited = set()
+    for name, (start, end) in bodies.items():
+        hits = uses_secret(start, end)
+        if not hits:
+            continue
+        audited.update(range(start, end + 1))
+        calls = [i for i, line in enumerate(lines)
+                 if re.search(r"\b%s\b" % re.escape(name), line) and not (start <= i <= end)]
+        unguarded = [i for i in calls if "pcall(" not in lines[i]]
+        if not calls or unguarded:
+            where = ("never called" if not calls
+                     else "called without pcall at line %d" % (unguarded[0] + 1))
+            for lineno, field, text in hits:
+                findings.append(
+                    "line %d: %s.%s is secret (%s) and %s is %s\n    %s"
+                    % (lineno, "info", field, secret[field], name, where, text))
+
+    for lineno, field, text in uses_secret(0, len(lines) - 1):
+        if lineno - 1 not in audited:
+            findings.append("line %d: %s is secret (%s), used outside any pcall\n    %s"
+                            % (lineno, field, secret[field], text))
+    return findings
+
+
 def syntax_check(path: Path) -> str | None:
     """Compile the generated Lua. Returns an error string, or None if clean."""
     for exe in ("luac5.1", "luac"):
@@ -239,6 +369,8 @@ def main() -> int:
     ap.add_argument("--addons", help="path to Interface/AddOns")
     ap.add_argument("--interface", help="override the ## Interface build number")
     ap.add_argument("--remove", action="store_true", help="delete the tracer instead")
+    ap.add_argument("--skip-secret-audit", action="store_true",
+                    help="install even if the generated Lua branches on a secret field")
     args = ap.parse_args()
 
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", args.name):
@@ -264,11 +396,29 @@ def main() -> int:
         sys.exit(f"{folder} exists and is not a directory")
 
     interface = args.interface or client_interface(addons)
+    source = render(args.name, args.events, args.unit)
+
+    index = load_api_index()
+    if index is None:
+        print("note: no wow-api-search index found, so the generated Lua was not "
+              "checked against Blizzard's NeverSecret markings.", file=sys.stderr)
+    elif not args.skip_secret_audit:
+        findings = secret_audit(source, args.events, index)
+        if findings:
+            print("This tracer would raise in restricted content:\n", file=sys.stderr)
+            for finding in findings:
+                print("  " + finding + "\n", file=sys.stderr)
+            print("A secret raises when it is tested, compared, concatenated, or "
+                  "iterated.\nPut the read inside a pcall and report the denial once, "
+                  "or trace an event\nwhose payload Blizzard marks NeverSecret. "
+                  "--skip-secret-audit overrides.", file=sys.stderr)
+            return 1
+
     folder.mkdir(parents=True, exist_ok=True)
     lua = folder / f"{args.name}.lua"
     (folder / f"{args.name}.toc").write_text(
         TOC.format(interface=interface, name=args.name), encoding="utf-8")
-    lua.write_text(render(args.name, args.events, args.unit), encoding="utf-8")
+    lua.write_text(source, encoding="utf-8")
 
     err = syntax_check(lua)
     if err:

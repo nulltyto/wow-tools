@@ -968,6 +968,87 @@ def _api_query_module():
     return module
 
 
+# --- Staleness --------------------------------------------------------------
+# The index answers whatever build it was made from and says nothing about
+# which one that is. A session in this repo's addon spent thirty greps and one
+# wrong theory ("did 12.1 remove this?") against a clone two builds behind the
+# live client, then repulled the clone and never rebuilt the index.
+
+
+def test_api_query_reports_stale_when_the_clone_has_moved(monkeypatch, capsys):
+    Q = _api_query_module()
+    fake = argparse.Namespace(
+        find_docs_dir=lambda: Path("/somewhere/Blizzard_APIDocumentationGenerated"),
+        detect_source_version=lambda _d: "12.1.0-3-gabcdef0",
+        fingerprint=lambda _d: "new-fingerprint",
+    )
+    monkeypatch.setitem(sys.modules, "generate_index", fake)
+    verdict, detail = Q.freshness(
+        {"source_fingerprint": "old-fingerprint", "source_version": "12.0.7"})
+    assert verdict == "stale"
+    assert "12.0.7" in detail and "12.1.0-3-gabcdef0" in detail
+
+
+def test_api_query_says_unknown_rather_than_guessing(monkeypatch):
+    """No clone is a normal state -- the bundled index is meant to work alone.
+
+    An index with no fingerprint is undecided too. Calling either one stale
+    would train the reader to ignore the warning that matters.
+    """
+    Q = _api_query_module()
+    no_clone = argparse.Namespace(
+        find_docs_dir=lambda: None,
+        detect_source_version=lambda _d: "x",
+        fingerprint=lambda _d: "x",
+    )
+    monkeypatch.setitem(sys.modules, "generate_index", no_clone)
+    assert Q.freshness({"source_fingerprint": "anything"})[0] == "unknown"
+
+    has_clone = argparse.Namespace(
+        find_docs_dir=lambda: Path("/somewhere"),
+        detect_source_version=lambda _d: "12.1.0",
+        fingerprint=lambda _d: "fp",
+    )
+    monkeypatch.setitem(sys.modules, "generate_index", has_clone)
+    assert Q.freshness({})[0] == "unknown"
+    assert Q.freshness({"source_fingerprint": "fp"})[0] == "fresh"
+
+
+def test_api_query_warning_stays_off_stdout(monkeypatch, capsys):
+    """Lookups get piped and grepped. A warning on stdout corrupts the answer."""
+    Q = _api_query_module()
+    monkeypatch.setattr(Q, "resolve_index_path", lambda _e: Path("/nonexistent.json"))
+    monkeypatch.setattr(Q, "index_header",
+                        lambda _p: {"source_fingerprint": "old", "source_version": "12.0.7"})
+    monkeypatch.setattr(Q, "freshness", lambda _h: ("stale", "index built from 12.0.7"))
+    Q.warn_if_stale(argparse.Namespace(index=None, no_check=False))
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "STALE" in captured.err
+
+
+def test_api_query_no_check_opts_out(monkeypatch, capsys):
+    Q = _api_query_module()
+    monkeypatch.setattr(Q, "freshness", lambda _h: ("stale", "should not be reached"))
+    Q.warn_if_stale(argparse.Namespace(index=None, no_check=True))
+    assert capsys.readouterr().err == ""
+
+
+def test_shipped_api_index_matches_the_clone_it_was_built_from():
+    """The tracked index is what ships to anyone without a clone.
+
+    Skipped when there is no clone on this machine, since that is the normal
+    state for a bare checkout and not a failure.
+    """
+    Q = _api_query_module()
+    path = REPO / "skills" / "wow-api-search" / "references" / "api_index.json"
+    verdict, detail = Q.freshness(Q.index_header(path))
+    if verdict == "unknown":
+        pytest.skip(detail)
+    assert verdict == "fresh", (
+        f"{detail}\nrebuild: python3 skills/wow-api-search/scripts/generate_index.py --force")
+
+
 def test_api_query_renders_the_taint_marking_with_the_signature(capsys):
     """`secret_arguments` is the field a combat-path change turns on.
 
@@ -1303,6 +1384,114 @@ def test_tracer_actually_fires(tmp_path):
     assert "FAIL" not in proc.stdout, proc.stdout
 
 
+def test_harness_reaches_the_secret_check_without_a_unit_filter(tmp_path):
+    """The default tracer takes no --unit, so the unit-filter check cannot apply.
+
+    It used to fail anyway, and Check() exited on the first failure, so the
+    secret-value check below it never ran on the configuration the skill tells
+    you to generate. A live session hit exactly that: a tracer made with no
+    --unit passed through here and then threw 52x on a secret field in game.
+    """
+    lua = shutil.which("lua5.1")
+    if not lua:
+        pytest.skip("lua5.1 not installed")
+    addons = _addons(tmp_path)
+    _make_tracer(addons, "--events", "UNIT_AURA")
+    harness = TRACER.parent / "tracer_harness.lua"
+    proc = subprocess.run(
+        [lua, str(harness), str(addons / "AuraTrace" / "AuraTrace.lua")],
+        capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "skip unit filter" in proc.stdout, proc.stdout
+    assert "ok   a classified value prints instead of raising" in proc.stdout, proc.stdout
+
+
+def test_harness_runs_every_check_before_reporting(tmp_path):
+    """One failure must not hide the checks after it -- the last one costs most."""
+    lua = shutil.which("lua5.1")
+    if not lua:
+        pytest.skip("lua5.1 not installed")
+    addons = _addons(tmp_path)
+    _make_tracer(addons, "--events", "UNIT_AURA")
+    tracer = addons / "AuraTrace" / "AuraTrace.lua"
+    # Break the very first check. Everything after it must still run.
+    tracer.write_text(
+        tracer.read_text(encoding="utf-8").replace(' loaded -- /', ' xxxxxx -- /'),
+        encoding="utf-8")
+    proc = subprocess.run([lua, str(TRACER.parent / "tracer_harness.lua"), str(tracer)],
+                          capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 1, proc.stdout
+    assert "FAIL loads and announces itself" in proc.stdout, proc.stdout
+    assert "a classified value prints instead of raising" in proc.stdout, proc.stdout
+
+
+# --------------------------------------------------------------------------
+#  The generated tracer against Blizzard's NeverSecret markings
+# --------------------------------------------------------------------------
+# A secret raises when it is tested, compared, concatenated, or iterated. The
+# UNIT_AURA payload has no readable field at all, so a tracer that branches on
+# one is not merely fragile -- it cannot work in the content worth tracing.
+
+
+def _tracer_module():
+    sys.path.insert(0, str(TRACER.parent))
+    import new_tracer  # noqa: PLC0415
+    return new_tracer
+
+
+def test_unit_aura_payload_is_entirely_secret():
+    """The premise the audit rests on, read from Blizzard's own markings."""
+    mod = _tracer_module()
+    index = mod.load_api_index()
+    assert index is not None, "the wow-api-search index should resolve from this repo"
+    secret = mod.secret_payload_fields(["UNIT_AURA"], index)
+    assert "isFullUpdate" in secret
+    assert secret["isFullUpdate"] == "UnitAuraUpdateInfo"
+
+
+def test_generated_aura_tracer_is_secret_safe():
+    """What this script emits today passes its own audit."""
+    mod = _tracer_module()
+    index = mod.load_api_index()
+    source = mod.render("AuraTrace", ["UNIT_AURA"], None)
+    assert mod.secret_audit(source, ["UNIT_AURA"], index) == []
+
+
+def test_audit_catches_a_bare_branch_on_a_secret_field():
+    """The exact line that threw 52x in a live pull."""
+    mod = _tracer_module()
+    index = mod.load_api_index()
+    unsafe = (
+        "local function DumpAuraBatch(info)\n"
+        "    if info.isFullUpdate then\n"
+        "        Say('full')\n"
+        "    end\n"
+        "end\n"
+        "DumpAuraBatch(payload)\n"
+    )
+    findings = mod.secret_audit(unsafe, ["UNIT_AURA"], index)
+    assert findings, "a bare truthiness test on isFullUpdate must be reported"
+    assert "isFullUpdate" in findings[0]
+
+
+def test_audit_accepts_the_same_read_behind_a_pcall():
+    """pcall around the whole read is the shape the skill prescribes."""
+    mod = _tracer_module()
+    index = mod.load_api_index()
+    guarded = (
+        "local function DumpAuraFields(info)\n"
+        "    if info.isFullUpdate then\n"
+        "        Say('full')\n"
+        "    end\n"
+        "end\n"
+        "local function DumpAuraBatch(info)\n"
+        "    if info == nil then return end\n"
+        "    if pcall(DumpAuraFields, info) then return end\n"
+        "end\n"
+    )
+    assert mod.secret_audit(guarded, ["UNIT_AURA"], index) == []
+
+
 # --------------------------------------------------------------------------
 #  Base resolution
 # --------------------------------------------------------------------------
@@ -1333,6 +1522,47 @@ def _repo(tmp_path: Path):
         return run("rev-parse", "HEAD")
 
     return run, commit
+
+
+def test_base_notes_a_branch_cut_from_an_unfetched_main(tmp_path):
+    """Local `main` behind its own upstream means the tree is missing work.
+
+    This is not the fork case above -- the ref chosen is the right one, it is
+    just out of date. A session in this repo cut a branch from a local `main`
+    that trailed `origin/main` by three commits, and the checkout silently lost
+    a skill's scripts, because the installed skill is a symlink into the tree.
+    """
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    commit("local a = 1\n")
+    behind = run("rev-parse", "HEAD")
+    upstream_tip = commit("local b = 2\n")
+    # `main` sits at the older commit while its tracking ref carries the newer.
+    run("update-ref", "refs/heads/main", behind)
+    run("update-ref", "refs/remotes/origin/main", upstream_tip)
+    run("config", "remote.origin.url", str(tmp_path))
+    run("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+    run("config", "branch.main.remote", "origin")
+    run("config", "branch.main.merge", "refs/heads/main")
+
+    trailing = C.behind_upstream(tmp_path, "main")
+    assert trailing == (1, "origin/main"), trailing
+
+
+def test_base_stays_quiet_when_main_is_current(tmp_path):
+    """No upstream, or nothing to catch up on, prints nothing."""
+    C = _style_checker()
+    run, commit = _repo(tmp_path)
+    commit("local a = 1\n")
+    assert C.behind_upstream(tmp_path, "main") is None
+
+    tip = run("rev-parse", "HEAD")
+    run("update-ref", "refs/remotes/origin/main", tip)
+    run("config", "remote.origin.url", str(tmp_path))
+    run("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+    run("config", "branch.main.remote", "origin")
+    run("config", "branch.main.merge", "refs/heads/main")
+    assert C.behind_upstream(tmp_path, "main") is None
 
 
 def test_base_prefers_the_nearest_mainline(tmp_path):
@@ -1726,3 +1956,91 @@ def test_a_key_named_only_inside_a_comment_is_not_a_setting():
         {"EllesmereUIDB": "ModA"},
     )
     assert set(rows) == {("EllesmereUIDB", "real")}, rows
+
+
+# --------------------------------------------------------------------------
+#  Absence from the API index is undecided, not clean
+# --------------------------------------------------------------------------
+# Blizzard documents structures unevenly. The aura payload every enemy nameplate
+# is drawn from carries `dispelName`, and no generated documentation file
+# mentions it -- so the lookup that decides whether a dispel filter survives an
+# instance returns nothing. A session read that silence as "no caveat" and the
+# question reached a PR unanswered.
+
+SECRET_FIELDS = REPO / "skills" / "wow-secret-values" / "scripts" / "secret_fields.py"
+
+
+def _secret_fields(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(SECRET_FIELDS), *args],
+                          capture_output=True, text=True, timeout=120)
+
+
+def test_secret_fields_still_answers_a_documented_structure():
+    proc = _secret_fields("SpellChargeInfo")
+    assert proc.returncode == 0, proc.stderr
+    assert "SECRET  currentCharges" in proc.stdout
+    assert "clean   maxCharges" in proc.stdout
+
+
+def test_an_undocumented_structure_routes_to_the_live_probe():
+    """No near match means Blizzard documents nothing, not that the name is wrong."""
+    proc = _secret_fields("AuraData")
+    assert proc.returncode == 1
+    assert "UNDECIDED, not clean" in proc.stderr, proc.stderr
+    assert "/euidiag eval" in proc.stderr, proc.stderr
+
+
+def test_a_typo_gets_suggestions_rather_than_the_live_probe():
+    """Routing a misspelling into the client would waste a trip into combat."""
+    proc = _secret_fields("SpellChargeInf")
+    assert proc.returncode == 1
+    assert "Did you mean: SpellChargeInfo" in proc.stderr, proc.stderr
+    assert "UNDECIDED" not in proc.stderr, proc.stderr
+
+
+# --------------------------------------------------------------------------
+#  `def --body` -- so the second question does not cost a raw grep
+# --------------------------------------------------------------------------
+# "Where is it" is always followed by "what does it say". Answering the second
+# with `grep -n 'function X' -A 12` drops the caller count and its floor caveat,
+# which is the part of the record that stops the answer being over-read.
+
+
+def test_body_window_prints_numbered_source(tmp_path, capsys):
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text(
+        "".join(f"line {i}\n" for i in range(1, 21)), encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 3}, 4)
+    out = capsys.readouterr().out
+    assert "     3  line 3" in out, out
+    assert "     6  line 6" in out, out
+    assert "line 7" not in out, "the window must stop where it was told to"
+
+
+def test_body_window_flags_truncation(tmp_path, capsys):
+    """A truncated definition that does not say so reads as a whole one."""
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text(
+        "".join(f"line {i}\n" for i in range(1, 21)), encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 1}, 5)
+    assert "may run past them" in capsys.readouterr().out
+
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 1}, 50)
+    assert "may run past them" not in capsys.readouterr().out
+
+
+def test_body_window_reports_a_stale_line_number(tmp_path, capsys):
+    """A line past the end means the index no longer matches the source."""
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text("one\ntwo\n", encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 99}, 5)
+    assert "the index is stale" in capsys.readouterr().out
+
+
+def test_body_window_survives_a_missing_file(tmp_path, capsys):
+    Q = _query_module()
+    Q.print_body(tmp_path, {"file": "Mod/gone.lua", "line": 1}, 5)
+    assert "could not read" in capsys.readouterr().out

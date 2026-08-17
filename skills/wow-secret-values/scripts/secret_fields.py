@@ -127,6 +127,58 @@ def all_clean(index, system):
     return 0
 
 
+def near_names(name, index, limit=5):
+    """Index names close enough to the one asked for to be a typo."""
+    import difflib
+
+    pool = []
+    for section in ("tables", "functions", "events"):
+        pool.extend(index.get(section, {}).keys())
+    close = difflib.get_close_matches(name, pool, n=limit, cutoff=0.7)
+    lowered = name.lower()
+    for candidate in pool:
+        if len(close) >= limit:
+            break
+        if candidate.lower() == lowered and candidate not in close:
+            close.insert(0, candidate)
+    return close
+
+
+def report_miss(name, index):
+    """Absence from the index is undecided, not clean.
+
+    Blizzard documents structures unevenly. The aura payload every enemy
+    nameplate is drawn from carries `dispelName`, and no generated
+    documentation file mentions it -- so this lookup returns nothing for the
+    field whose secrecy decides whether a dispel filter works in an instance.
+    Reading that silence as "no caveat" is how the question reaches a PR
+    unanswered, which is exactly what happened once.
+    """
+    suggestions = near_names(name, index)
+    print(f"{name!r} is not in the index.", file=sys.stderr)
+    if suggestions:
+        print("Did you mean: " + ", ".join(suggestions), file=sys.stderr)
+        print("Names are unqualified: GetSpellCooldown, not C_Spell.GetSpellCooldown.",
+              file=sys.stderr)
+        return
+    print("Names are unqualified: GetSpellCooldown, not C_Spell.GetSpellCooldown.",
+          file=sys.stderr)
+    print(file=sys.stderr)
+    print("Nothing close matched, so Blizzard probably documents no structure of",
+          file=sys.stderr)
+    print("this name. That leaves the field UNDECIDED, not clean -- an undocumented",
+          file=sys.stderr)
+    print("field can still come back secret, and the index cannot rule it out.",
+          file=sys.stderr)
+    print("Settle it in the client instead:", file=sys.stderr)
+    print("    /euidiag eval <expression>    classify what it returns, here", file=sys.stderr)
+    print("    /euidiag aurarows             for aura filters specifically", file=sys.stderr)
+    print("Run it in the content that matters: solo in a city almost everything",
+          file=sys.stderr)
+    print("reads plain, and the same probe in an instanced pull is the real answer.",
+          file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -169,9 +221,7 @@ def main():
             found = True
 
     if not found:
-        print(f"{name!r} is not in the index.", file=sys.stderr)
-        print("Names are unqualified: GetSpellCooldown, not C_Spell.GetSpellCooldown.",
-              file=sys.stderr)
+        report_miss(name, index)
         return 1
     return 0
 

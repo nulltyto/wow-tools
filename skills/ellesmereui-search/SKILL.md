@@ -16,6 +16,7 @@ Ask the index the question directly:
 
 ```bash
 python3 <skill>/scripts/query.py def SpecIndexFor
+python3 <skill>/scripts/query.py def MakeInitializer --body 30
 python3 <skill>/scripts/query.py callers ApplyCastBarTexture
 python3 <skill>/scripts/query.py setting hideUnusable
 python3 <skill>/scripts/query.py label "Hide Unusable Entries"
@@ -38,6 +39,14 @@ searches every record file when the right one is not obvious, and
 codebase ran 31 and 55 raw greps against the source with the index sitting
 current and unread beside them, because a lookup written by hand cost more
 than the grep it replaced. A subcommand costs one line.
+
+`def --body N` is there because "where is it" is always followed by "what does
+it say", and answering the second with `grep -n 'function X' -A 12` throws away
+the first one's caveats. A third session ran forty greps against the tree beside
+ten index queries, and about twenty of those greps were plain definition lookups
+this command answers -- with the caller count and its floor caveat attached,
+which the grep does not carry. It prints a fixed window and says so rather than
+guessing where the definition ends.
 
 The output states the caveat that belongs with each record — that a list is
 capped, that a receiver-scoped caller count is a floor rather than an answer,

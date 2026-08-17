@@ -77,9 +77,20 @@ local function Has(pattern)
     return nil
 end
 
+-- Every check runs, then the exit code reports. Stopping at the first failure
+-- hides the checks after it, and the ones after it are not less important --
+-- the secret-value check is last and is the one a live client charges most for
+-- getting wrong. A tracer generated without --unit used to fail the unit-filter
+-- check, exit here, and never reach it.
+local failures = 0
+
 local function Check(label, ok)
+    if ok == nil then
+        realprint("skip " .. label)
+        return
+    end
     realprint((ok and "ok   " or "FAIL ") .. label)
-    if not ok then os.exit(1) end
+    if not ok then failures = failures + 1 end
 end
 
 Check("loads and announces itself", Has("loaded") ~= nil)
@@ -111,8 +122,21 @@ local addLine, removeLine = Has("ADD"), Has("REMOVE")
 Check("same frame reads the same on both edges",
     addLine:match("f(%d+)") == removeLine:match("f(%d+)"))
 
+-- Only meaningful when the tracer was generated with --unit. Asserting it on a
+-- tracer that declares no filter fails something that is working as asked.
+local declaresFilter = false
+do
+    local fh = io.open(target)
+    if fh then
+        local text = fh:read("*a")
+        fh:close()
+        declaresFilter = text:match('local UNITFILTER = "') ~= nil
+    end
+end
+
 Fire("UNIT_AURA", "target", {addedAuras = {{auraInstanceID = 4, spellId = 5}}})
-Check("unit filter drops another unit", Has("inst=4") == nil)
+Check("unit filter drops another unit",
+    declaresFilter and (Has("inst=4") == nil) or nil)
 
 secrets[secretID] = true
 Fire("UNIT_AURA", "player", {addedAuras = {{auraInstanceID = secretID, spellId = 7}}})
@@ -120,3 +144,7 @@ Check("a classified value prints instead of raising", Has("<secret>") ~= nil)
 
 realprint("")
 realprint(#output .. " line(s) traced")
+if failures > 0 then
+    realprint(failures .. " check(s) failed")
+    os.exit(1)
+end
