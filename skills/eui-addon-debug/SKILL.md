@@ -142,14 +142,30 @@ permission to edit, which is where the design steps get skipped -- and a
 feature has failure modes this loop does not cover, chiefly a value that
 resolves correctly on the character that wrote it and on no other.
 
-### 4. When the source cannot answer it, trace it in the client
+### 4. When the source cannot answer it, run it in the client
 
 Blizzard's source says what the events are and what they carry. It does not say
 what the client actually sent, in what order, for the spell in the report. That
 gap is where a plausible theory survives to become a comment nobody can check.
 
-You cannot play the game, but you can ship a tracer and have the user run one
-case. Ten seconds of real trace outranks any amount of reasoning about ordering:
+**Check what `/euidiag` already answers before building anything.** The
+`EllesmereUISecretsDiag` addon in `wow-tools` is installed for exactly this, and
+it is the cheaper half of this step by a wide margin — one command, no restart,
+no file written into `AddOns/`:
+
+    /euidiag eval <lua>        classify what an expression returns, right here
+    /euidiag aurarows [set]    several aura filters side by side on one unit
+    /euidiag secrets           every probe that fits the current context
+    /euidiag chargewatch <id>  a cooldown and its charges, logged together
+
+Load `wow-secret-values` for the full list. A session skipped this entirely and
+spent about twenty-five edits and six client restarts hand-building a probe for
+a question `/euidiag eval` answers in one line — then ported the useful half of
+that probe back into `/euidiag` afterwards. The tool existed the whole time.
+
+Reach for a tracer when the question is about **sequence over time** — what
+arrived, in what order, in which frame. That is the one thing `/euidiag` does
+not do, and it is what a tracer is for:
 
     python3 scripts/new_tracer.py AuraTrace --events UNIT_AURA --unit player
 
@@ -182,6 +198,15 @@ If you extend the generated Lua, run it against the harness before sending it �
 `lua5.1 scripts/tracer_harness.lua <the generated .lua>` fires stubbed events at
 it and checks it prints. A tracer that loads and stays silent is indistinguishable
 from a theory that was wrong.
+
+The generator also refuses to install Lua that branches on a field Blizzard does
+not mark `NeverSecret`, checked against the `wow-api-search` index. Take that
+seriously rather than reaching for `--skip-secret-audit`: a whole payload can be
+unreadable. `UNIT_AURA` is the case to know — **no** field of
+`UnitAuraUpdateInfo` is readable in restricted content, so a tracer on it cannot
+work in an instance at all, and the generated one says so once instead of
+throwing per event. If the question is about auras in restricted content,
+`/euidiag aurarows` is the tool, not a tracer.
 
 ### 5. Design for correctness, and name the failure direction
 
@@ -229,9 +254,25 @@ A checklist covers:
    normal case abnormal
 6. **the case your fix is knowingly weakest at**, named as such
 7. a class or spec you are not testing on, if the distinction depends on it
+8. **restricted content**, whenever the fix reads unit or aura data — an
+   instanced pull, not a target dummy and not the open world
 
 Number them so the user can answer by number. Say what the correct result looks
 like for each, not just what to press.
+
+Item 8 is the one that gets left off, because unrestricted testing across five
+specs looks like thorough testing. It is not the same question. A redacted field
+does not raise and does not log; it reads nil, and the code around it carries on
+with a wrong answer — see **Two failure modes** in `wow-secret-values`. This
+codebase has now been bitten by it twice through the same door, a candidate
+filter keyed on a field of enemy aura data, and the second time the comment
+recording the first incident was eight lines from the edit.
+
+So: when the diff narrows, filters, or branches on a field of unit or aura data,
+say in the PR whether it has been captured in restricted content. If it has not,
+that is a stated gap rather than a finished fix, and the choice between waiting
+for a capture and gating the change on `AK.AurasRestricted()` belongs to the
+user.
 
 ### 7. Cost it, unprompted
 

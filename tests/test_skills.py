@@ -1956,3 +1956,91 @@ def test_a_key_named_only_inside_a_comment_is_not_a_setting():
         {"EllesmereUIDB": "ModA"},
     )
     assert set(rows) == {("EllesmereUIDB", "real")}, rows
+
+
+# --------------------------------------------------------------------------
+#  Absence from the API index is undecided, not clean
+# --------------------------------------------------------------------------
+# Blizzard documents structures unevenly. The aura payload every enemy nameplate
+# is drawn from carries `dispelName`, and no generated documentation file
+# mentions it -- so the lookup that decides whether a dispel filter survives an
+# instance returns nothing. A session read that silence as "no caveat" and the
+# question reached a PR unanswered.
+
+SECRET_FIELDS = REPO / "skills" / "wow-secret-values" / "scripts" / "secret_fields.py"
+
+
+def _secret_fields(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(SECRET_FIELDS), *args],
+                          capture_output=True, text=True, timeout=120)
+
+
+def test_secret_fields_still_answers_a_documented_structure():
+    proc = _secret_fields("SpellChargeInfo")
+    assert proc.returncode == 0, proc.stderr
+    assert "SECRET  currentCharges" in proc.stdout
+    assert "clean   maxCharges" in proc.stdout
+
+
+def test_an_undocumented_structure_routes_to_the_live_probe():
+    """No near match means Blizzard documents nothing, not that the name is wrong."""
+    proc = _secret_fields("AuraData")
+    assert proc.returncode == 1
+    assert "UNDECIDED, not clean" in proc.stderr, proc.stderr
+    assert "/euidiag eval" in proc.stderr, proc.stderr
+
+
+def test_a_typo_gets_suggestions_rather_than_the_live_probe():
+    """Routing a misspelling into the client would waste a trip into combat."""
+    proc = _secret_fields("SpellChargeInf")
+    assert proc.returncode == 1
+    assert "Did you mean: SpellChargeInfo" in proc.stderr, proc.stderr
+    assert "UNDECIDED" not in proc.stderr, proc.stderr
+
+
+# --------------------------------------------------------------------------
+#  `def --body` -- so the second question does not cost a raw grep
+# --------------------------------------------------------------------------
+# "Where is it" is always followed by "what does it say". Answering the second
+# with `grep -n 'function X' -A 12` drops the caller count and its floor caveat,
+# which is the part of the record that stops the answer being over-read.
+
+
+def test_body_window_prints_numbered_source(tmp_path, capsys):
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text(
+        "".join(f"line {i}\n" for i in range(1, 21)), encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 3}, 4)
+    out = capsys.readouterr().out
+    assert "     3  line 3" in out, out
+    assert "     6  line 6" in out, out
+    assert "line 7" not in out, "the window must stop where it was told to"
+
+
+def test_body_window_flags_truncation(tmp_path, capsys):
+    """A truncated definition that does not say so reads as a whole one."""
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text(
+        "".join(f"line {i}\n" for i in range(1, 21)), encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 1}, 5)
+    assert "may run past them" in capsys.readouterr().out
+
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 1}, 50)
+    assert "may run past them" not in capsys.readouterr().out
+
+
+def test_body_window_reports_a_stale_line_number(tmp_path, capsys):
+    """A line past the end means the index no longer matches the source."""
+    Q = _query_module()
+    (tmp_path / "Mod").mkdir()
+    (tmp_path / "Mod" / "a.lua").write_text("one\ntwo\n", encoding="utf-8")
+    Q.print_body(tmp_path, {"file": "Mod/a.lua", "line": 99}, 5)
+    assert "the index is stale" in capsys.readouterr().out
+
+
+def test_body_window_survives_a_missing_file(tmp_path, capsys):
+    Q = _query_module()
+    Q.print_body(tmp_path, {"file": "Mod/gone.lua", "line": 1}, 5)
+    assert "could not read" in capsys.readouterr().out

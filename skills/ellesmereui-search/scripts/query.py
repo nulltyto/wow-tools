@@ -123,6 +123,7 @@ def fuzzy_note(matched, needle, field):
 # --------------------------------------------------------------------------
 
 def cmd_def(args):
+    root = ensure_index(args.root, quiet=True) if args.body else None
     rows, exact = find("symbols", "name", args.name)
     if not rows:
         print("no definition named %r" % args.name)
@@ -152,7 +153,39 @@ def cmd_def(args):
         else:
             n = r.get("caller_count", 0)
             print("  %d caller%s%s" % (n, "" if n == 1 else "s", caller_caveat(r)))
+        if args.body:
+            print_body(root, r, args.body)
     return 0
+
+
+def print_body(root, record, count):
+    """The first `count` source lines of a definition, numbered.
+
+    `def` answers where something is, and the next question is always what it
+    says -- which used to be a second round trip through grep or sed. Sessions
+    reach for `grep -n 'function X' -A 12` instead of this command for exactly
+    that reason, and pay the index's caveats away to save one call.
+
+    This is a window, not a parse: it prints a fixed number of lines and says
+    so, rather than guessing where the definition ends.
+    """
+    path = root / record["file"]
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            lines = fh.readlines()
+    except OSError as exc:
+        print("  (could not read %s: %s)" % (record["file"], exc))
+        return
+    start = record["line"] - 1
+    window = lines[start:start + count]
+    if not window:
+        print("  (line %d is past the end of %s -- the index is stale)"
+              % (record["line"], record["file"]))
+        return
+    for offset, text in enumerate(window):
+        print("  %5d  %s" % (start + offset + 1, text.rstrip("\n")))
+    if start + count < len(lines):
+        print("  ... first %d lines; the definition may run past them" % count)
 
 
 def caller_caveat(r):
@@ -434,7 +467,7 @@ def cmd_status(args):
 
 # --------------------------------------------------------------------------
 
-DEFAULTS = {"root": None, "json": False, "limit": 20, "no_ensure": False}
+DEFAULTS = {"root": None, "json": False, "limit": 20, "no_ensure": False, "body": 0}
 
 COMMANDS = {
     "def": (cmd_def, "name", "where a symbol is defined"),
@@ -481,6 +514,10 @@ def main():
         p = sub.add_parser(name, help=help_text, parents=[common])
         if arg:
             p.add_argument(arg)
+        if name == "def":
+            p.add_argument("--body", nargs="?", type=int, const=15, default=argparse.SUPPRESS,
+                           metavar="N",
+                           help="also print the first N source lines (default 15)")
         p.set_defaults(fn=fn)
 
     args = ap.parse_args()

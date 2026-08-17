@@ -35,6 +35,34 @@ Blizzard publishes the answer per field as `NeverSecret`. Read it before
 designing the branch, not after the error. `--all-clean Spell` lists the whole
 usable surface of a system at once.
 
+**A name the index does not hold is undecided, not clean.** Blizzard documents
+structures unevenly, and the gaps are not the obscure ones: `AuraData` — the
+payload behind every aura on every nameplate — has no generated documentation
+at all, so neither `dispelName` nor any other field of it can be looked up here.
+The script says so and routes you to the live probe rather than printing a bare
+"not in the index", because that message reads like a typo and gets treated as
+an absence of caveats. It is the opposite.
+
+## Two failure modes, and only one of them is loud
+
+This is the distinction that decides how a fix has to be tested.
+
+| | What happens | How you find out |
+|---|---|---|
+| **It raises** | the read, compare, or concat throws | a Lua error, immediately, with the addon named |
+| **It reads nil** | a redacted field is simply absent | nothing at all -- a filter matches zero rows, a guard silently inverts |
+
+Everything else in this skill is about the first one. The second has no error
+text to search for and no `issecretvalue` answer, because there is no value to
+classify — the field is gone. A candidate filter keyed on `dispelName`, a
+comparison against `auraData.spellId`, anything that reads a field off enemy
+unit data: in restricted content that read can come back nil and the code
+around it keeps running with a wrong answer.
+
+You cannot test for this outside restricted content, and unrestricted testing
+looks completely clean. Say so in the PR when a change reads unit or aura data
+and you have not captured it in an instance.
+
 ## What raises
 
 A secret is not a poisoned value that spreads. It is opaque. These raise:
@@ -130,11 +158,25 @@ The `EllesmereUISecretsDiag` addon in this repository exists for that:
 ```
 /euidiag secrets          run every probe that fits the current context
 /euidiag eval <lua>       classify whatever an expression returns
+/euidiag aurarows [set]   several aura filters side by side against one unit
 /euidiag chargewatch <id> log a spell cooldown and charge recharge side by side
 ```
 
 `/euidiag eval` is the fastest way to settle "is this secret here" — it
 classifies the result without performing an operation that could raise.
+
+**Reach for these before writing a throwaway addon.** They are installed,
+harnessed, and answer in one line. A session spent about twenty-five edits and
+six client restarts hand-building a probe for a question `/euidiag eval` was
+already built to answer, and then ported the useful half of that probe back
+into this addon as `aurarows`. Check what `/euidiag` already does first.
+
+`aurarows` is the one for filter questions: it declares one real AuraContainer
+per row, each with its own filter string and `candidateFilters`, binds them all
+to the same unit, and shows them stacked. Read the icons, not a count — group
+counts are obfuscated and a tainted addon cannot enumerate what it just drew.
+Rows must be built outside restricted content, and the command reports the
+denial count rather than letting an empty panel read as "nothing matched".
 
 When writing a new probe, run the offline harness before handing a command to
 somebody who has to go into combat to use it:
