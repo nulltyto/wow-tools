@@ -30,13 +30,76 @@ BUNDLED = SKILL_DIR / "references" / "api_index.json"
 LOCAL = SKILL_DIR / "references" / "api_index.local.json"
 
 
-def load_index(explicit=None):
-    """The local index wins: it is the same data plus Blizzard's prose notes."""
+def resolve_index_path(explicit=None):
+    """Which index file a lookup will read, without parsing it."""
     for path in ([Path(explicit)] if explicit else [LOCAL, BUNDLED]):
         if path.is_file():
-            with path.open(encoding="utf-8") as fh:
-                return json.load(fh), path
+            return path
     sys.exit("no API index found -- run generate_index.py, or check %s" % BUNDLED)
+
+
+def load_index(explicit=None):
+    """The local index wins: it is the same data plus Blizzard's prose notes."""
+    path = resolve_index_path(explicit)
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh), path
+
+
+def freshness(header):
+    """Compare an index header against the wow-ui-source clone on this machine.
+
+    Returns (verdict, detail). The verdict is "fresh", "stale", or "unknown"
+    when no clone is reachable -- the bundled index is meant to work standalone,
+    so a missing clone is a normal state and not a warning.
+
+    The whole check costs about 10ms, which is why it runs on every lookup
+    rather than waiting to be asked. A session in this repo's addon spent thirty
+    greps and one wrong theory ("did 12.1 remove this?") against a clone two
+    builds behind the live client. The index kept answering, and what it
+    answered about was the old build.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import generate_index
+    except ImportError:
+        return "unknown", "generate_index.py is not importable"
+    docs_dir = generate_index.find_docs_dir()
+    if docs_dir is None:
+        return "unknown", "no wow-ui-source clone found"
+    if not header.get("source_fingerprint"):
+        return "unknown", "this index records no source fingerprint"
+    built_from = header.get("source_version", "?")
+    clone = generate_index.detect_source_version(docs_dir)
+    if header.get("source_fingerprint") == generate_index.fingerprint(docs_dir):
+        return "fresh", clone
+    return "stale", "index built from %s, clone is at %s" % (built_from, clone)
+
+
+def index_header(path):
+    """Scalar header fields only -- the index itself is multi-megabyte."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import generate_index
+    except ImportError:
+        return {}
+    return generate_index.read_index_header(path)
+
+
+def warn_if_stale(args):
+    """Say it on stderr, so a stale answer cannot be read as a current one."""
+    if getattr(args, "no_check", False):
+        return
+    path = resolve_index_path(getattr(args, "index", None))
+    header = index_header(path)
+    verdict, detail = freshness(header)
+    if verdict == "stale":
+        print("warning: this index is STALE -- %s\n"
+              "         rebuild: python3 %s --force%s\n"
+              "         answers below describe the older build."
+              % (detail,
+                 Path(__file__).resolve().parent / "generate_index.py",
+                 " --with-docs" if header.get("documentation") else ""),
+              file=sys.stderr)
 
 
 def as_entries(value):
@@ -241,6 +304,8 @@ def cmd_status(args):
     print("counts   %s functions, %s events, %s tables, %s systems"
           % (index.get("total_functions"), index.get("total_events"),
              index.get("total_tables"), index.get("total_systems")))
+    verdict, detail = freshness(index)
+    print("source   %s -- %s" % (verdict.upper(), detail))
     return 0
 
 
@@ -254,7 +319,7 @@ COMMANDS = {
 }
 
 
-DEFAULTS = {"index": None, "json": False, "limit": 25}
+DEFAULTS = {"index": None, "json": False, "limit": 25, "no_check": False}
 
 
 def main():
@@ -269,6 +334,8 @@ def main():
                         help="print the raw entries")
     common.add_argument("--limit", type=int, default=argparse.SUPPRESS,
                         help="max list entries (default 25)")
+    common.add_argument("--no-check", action="store_true", default=argparse.SUPPRESS,
+                        help="skip the staleness check against the wow-ui-source clone")
 
     ap = argparse.ArgumentParser(
         prog="query.py",
@@ -292,6 +359,8 @@ def main():
     if not args.command:
         ap.print_help()
         return 0
+    if args.command != "status":
+        warn_if_stale(args)
     return args.fn(args)
 
 

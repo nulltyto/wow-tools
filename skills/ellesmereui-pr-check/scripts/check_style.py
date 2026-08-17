@@ -668,6 +668,24 @@ BASE_CANDIDATES = ("main", "origin/main", "upstream/main",
 BASE_DISTANCE_WARN = 25
 
 
+def behind_upstream(root: Path, ref: str) -> tuple[int, str] | None:
+    """How many commits `ref` trails its own tracking branch, if it has one.
+
+    A local `main` that has not been fetched is the quietest way to start work
+    on the wrong base: the branch is cut, the diff looks right, and whatever
+    landed upstream since the last fetch is simply absent from the tree. In this
+    repo that silently uninstalled a skill's scripts, because the installed
+    skill is a symlink into the working tree.
+    """
+    upstream = git(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", f"{ref}@{{upstream}}")
+    if not upstream:
+        return None
+    count = git(root, "rev-list", "--count", f"{ref}..{upstream}")
+    if not count.isdigit() or int(count) == 0:
+        return None
+    return int(count), upstream
+
+
 def resolve_base(root: Path, explicit: str | None) -> tuple[str, str] | None:
     """Pick the base to diff against; return (commit, the ref it came from).
 
@@ -949,6 +967,13 @@ def main() -> int:
                            f"scope covers more than your own work.\n"
                            f"  Pass --base <ref> to narrow it, or --staged for just the "
                            f"next commit.")
+        trailing = behind_upstream(root, base_ref)
+        if trailing:
+            count, upstream = trailing
+            scope_desc += (f"\n  NOTE: {base_ref} is {count} commit(s) behind {upstream}. "
+                           f"This branch was cut from a base that is not current,\n"
+                           f"  so work already merged upstream is missing from the tree. "
+                           f"Run: git fetch && git rebase {upstream}")
 
     findings: list[Finding] = []
     for path, rel, scope, text in targets:
