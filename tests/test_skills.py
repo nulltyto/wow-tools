@@ -1769,6 +1769,18 @@ def test_mask_preserves_length_and_every_newline():
             ], (name, repr(text))
 
 
+def _fuzz_cases():
+    """Random strings over the characters that drive the scanner."""
+    import random
+
+    rand = random.Random(1979)
+    alphabet = "-[]=\"'\\\nabc "
+    return [
+        "".join(rand.choice(alphabet) for _ in range(rand.randint(0, 60)))
+        for _ in range(3000)
+    ]
+
+
 def test_mask_never_moves_a_newline_on_arbitrary_input():
     """The invariant above, fuzzed over the characters that drive the scanner.
 
@@ -1776,16 +1788,8 @@ def test_mask_never_moves_a_newline_on_arbitrary_input():
     indexes depend on. A property test states that once instead of guessing
     which literal will regress next.
     """
-    import random
-
-    rand = random.Random(1979)
-    alphabet = "-[]=\"'\\\nabc "
-    cases = [
-        "".join(rand.choice(alphabet) for _ in range(rand.randint(0, 60)))
-        for _ in range(3000)
-    ]
     for name, mask_lua in _mask_fns():
-        for text in cases:
+        for text in _fuzz_cases():
             got = mask_lua(text)
             assert len(got) == len(text), (name, repr(text))
             assert [i for i, c in enumerate(got) if c == "\n"] == [
@@ -1794,6 +1798,59 @@ def test_mask_never_moves_a_newline_on_arbitrary_input():
             # Masking only ever blanks: a non-space in the output is untouched.
             for i, c in enumerate(got):
                 assert c == " " or c == text[i], (name, repr(text), i)
+
+
+# --------------------------------------------------------------------------
+#  ... and that the two copies agree
+# --------------------------------------------------------------------------
+# The copies cannot import each other (ADR-0001), so what holds them together
+# is a test rather than a symbol. Everything above runs both through the same
+# expectation, which does prove agreement -- for the four literals somebody
+# thought to write down. Masking Lua is where the case nobody imagined lives.
+
+
+def _disagreement(a: str, b: str, text: str) -> str:
+    """Where two masks first differ, in terms of the source that produced it."""
+    if len(a) != len(b):
+        return f"lengths differ: {len(a)} vs {len(b)}"
+    i = next(i for i in range(len(a)) if a[i] != b[i])
+    return (f"first differ at offset {i} (line {text.count(chr(10), 0, i) + 1}): "
+            f"build_index {a[i]!r} vs check_style {b[i]!r}\n"
+            f"  source: {text[max(0, i - 40):i + 40]!r}")
+
+
+def _lua_corpus():
+    """Every Lua file this repo ships."""
+    files = sorted((REPO / "addons").rglob("*.lua")) + sorted((REPO / "tools").rglob("*.lua"))
+    return [(p.relative_to(REPO), p.read_text(encoding="utf-8", errors="replace"))
+            for p in files]
+
+
+def test_the_two_maskers_agree_on_the_lua_this_repo_ships():
+    """Real Lua, rather than the shapes a test author happened to picture.
+
+    The diagnostics addon and the two harnesses are several thousand lines of
+    it, already in the tree and needing no fixture.
+    """
+    B, C = _eui_builder(), _style_checker()
+    corpus = _lua_corpus()
+    assert corpus, "no Lua found -- the corpus moved and this test stopped testing"
+    for rel, text in corpus:
+        a, b = B.mask_lua(text), C.mask_lua(text)
+        assert a == b, f"{rel}: {_disagreement(a, b, text)}"
+
+
+def test_the_two_maskers_agree_on_arbitrary_input():
+    """The same claim where neither copy's author chose the input.
+
+    The fuzz above asserts each copy keeps its own invariants; two maskers can
+    both preserve every newline and still disagree about which characters are
+    inside a string.
+    """
+    B, C = _eui_builder(), _style_checker()
+    for text in _fuzz_cases():
+        a, b = B.mask_lua(text), C.mask_lua(text)
+        assert a == b, _disagreement(a, b, text)
 
 
 # --------------------------------------------------------------------------
