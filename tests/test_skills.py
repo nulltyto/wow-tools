@@ -18,9 +18,8 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wow_tools import skills as skills_mod  # noqa: E402
+from wow_tools import scripts
+from wow_tools import skills as skills_mod
 
 REPO = Path(__file__).resolve().parent.parent
 SKILL_DIRS = sorted(p for p in (REPO / "skills").iterdir() if p.is_dir())
@@ -228,18 +227,12 @@ def test_table_systems_are_not_a_sibling_table_name():
 
 
 def _eui_builder():
-    """The EllesmereUI builder, loaded from its script path.
+    """The EllesmereUI builder.
 
     The index it produces is a gitignored build artifact, so these tests drive
     the extractor over fabricated sources instead of a checkout.
     """
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "build_index.py"
-    spec = importlib.util.spec_from_file_location("eui_build_index", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("eui_build_index")
 
 
 def _callers(files: dict[str, str], modules=("ModA", "ModB")):
@@ -944,13 +937,7 @@ def test_no_index_at_all_is_not_fresh(tmp_path):
 
 
 def _query_module():
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "query.py"
-    spec = importlib.util.spec_from_file_location("eui_query", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("eui_query")
 
 
 @pytest.mark.parametrize("skill,before,after", [
@@ -1032,13 +1019,7 @@ def test_query_labels_a_substring_match_as_one(capsys):
 
 
 def _api_query_module():
-    import importlib.util
-
-    path = REPO / "skills" / "wow-api-search" / "scripts" / "query.py"
-    spec = importlib.util.spec_from_file_location("api_query", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("api_query")
 
 
 # --- Staleness --------------------------------------------------------------
@@ -1173,7 +1154,7 @@ def test_api_query_says_when_the_index_is_the_one_without_prose(capsys):
     assert "the bundled copy omits" in out and "1307" in out
 
 
-def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys):
+def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys, monkeypatch):
     """Events are keyed by literal AND camelCase name; a search must not double."""
     Q = _api_query_module()
     index = {"events": {
@@ -1183,7 +1164,7 @@ def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys):
             "literal_name": "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "system": "Unit"},
     }}
     args = argparse.Namespace(pattern="Specialization", limit=25, index=None, json=False)
-    Q.load_index = lambda explicit=None: (index, Path("fake.json"))
+    monkeypatch.setattr(Q, "load_index", lambda explicit=None: (index, Path("fake.json")))
     Q.cmd_search(args)
     out = capsys.readouterr().out
     assert out.count("ACTIVE_PLAYER_SPECIALIZATION_CHANGED") == 1, out
@@ -1275,14 +1256,8 @@ def test_bundled_index_carries_the_profiler_surface():
 
 
 def _style_checker():
-    """The EllesmereUI style checker, loaded from its script path."""
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py"
-    spec = importlib.util.spec_from_file_location("eui_check_style", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    """The EllesmereUI style checker."""
+    return scripts.load("eui_check_style")
 
 
 def _budget(text: str, scope=None):
@@ -1507,9 +1482,7 @@ def test_harness_runs_every_check_before_reporting(tmp_path):
 
 
 def _tracer_module():
-    sys.path.insert(0, str(TRACER.parent))
-    import new_tracer  # noqa: PLC0415
-    return new_tracer
+    return scripts.load("eui_new_tracer")
 
 
 def test_unit_aura_payload_is_entirely_secret():

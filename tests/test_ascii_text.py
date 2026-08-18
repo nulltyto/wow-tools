@@ -9,7 +9,6 @@ matters if a commit actually stops.
 
 from __future__ import annotations
 
-import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -19,24 +18,10 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 
 
-def _module(path: Path, name: str):
-    """Import a standalone script by path.
-
-    Registered in sys.modules before it runs, which is not optional: with
-    `from __future__ import annotations` every annotation is a string, and on
-    Python 3.9 dataclasses resolves those through sys.modules[cls.__module__].
-    A module missing from there fails with an AttributeError on NoneType.
-    """
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture(scope="module")
-def at():
-    return _module(REPO / "tools" / "lint" / "ascii_text.py", "ascii_text")
+@pytest.fixture
+def at(ascii_text):
+    """The gate under test. `ascii_text` is the fixture in conftest.py."""
+    return ascii_text
 
 
 # --------------------------------------------------------------------------
@@ -65,21 +50,17 @@ def test_offence_reports_where_and_what(at):
     assert "EM DASH" in found[0].name
 
 
-def test_replacement_table_agrees_with_the_lua_one(at):
+def test_replacement_table_agrees_with_the_lua_one(at, style_checker):
     """The Lua source rule carries the same table; drift between them is a bug.
 
     They are duplicated on purpose -- this script runs as a hook in another
     repository and must not import across checkouts -- so the coupling is
-    asserted here instead of in the code.
+    asserted here instead of in the code. See ADR-0001.
     """
-    style = _module(
-        REPO / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py",
-        "eui_check_style",
-    )
-    shared = set(at.REPLACEMENTS) & set(style.REPLACEMENTS)
+    shared = set(at.REPLACEMENTS) & set(style_checker.REPLACEMENTS)
     assert shared, "the two tables no longer overlap at all"
     for ch in shared:
-        assert at.REPLACEMENTS[ch] == style.REPLACEMENTS[ch], f"{ch!r} disagrees"
+        assert at.REPLACEMENTS[ch] == style_checker.REPLACEMENTS[ch], f"{ch!r} disagrees"
 
 
 # --------------------------------------------------------------------------

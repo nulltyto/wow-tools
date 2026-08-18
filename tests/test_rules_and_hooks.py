@@ -18,8 +18,6 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from wow_tools import hooks as hooks_mod  # noqa: E402
 from wow_tools import install as engine  # noqa: E402
 from wow_tools import registry  # noqa: E402

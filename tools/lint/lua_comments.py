@@ -18,27 +18,25 @@ budget does not depend on which repo a file happens to sit in.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-RULE = REPO / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py"
+sys.path.insert(0, str(REPO))
+
+from wow_tools import scripts  # noqa: E402
 
 
 def load_rule():
-    """Import check_style.py by path.
+    """The rule, loaded from the skill that owns it.
 
     The skills are stdlib-only standalone scripts with no package to import
-    from, and copying the rule here would let the two definitions drift.
+    from, and copying the rule here would let the two definitions drift. This
+    file is not installed as a hook and only ever runs from a full checkout,
+    so unlike the scripts it lints, it may import the package. See ADR-0001.
     """
-    spec = importlib.util.spec_from_file_location("check_style", RULE)
-    if spec is None or spec.loader is None:
-        sys.exit(f"Cannot load the rule from {RULE}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("eui_check_style")
 
 
 def resolve_base(cs, explicit: str | None) -> str | None:

@@ -27,7 +27,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from . import scripts
 
 # Every hook is a marker, the git hook it occupies, and the command it runs.
 # The marker goes in a comment inside the generated hook so that a later run,
@@ -121,14 +121,14 @@ HOOKS: tuple[Hook, ...] = (
     Hook(
         name="ascii-git-text",
         event="commit-msg",
-        script=REPO_ROOT / "tools" / "lint" / "ascii_text.py",
+        script=scripts.path("ascii_text"),
         args='--commit-msg "$1"',
         summary="reject a commit message containing non-ASCII characters",
     ),
     Hook(
         name="eui-style",
         event="pre-commit",
-        script=REPO_ROOT / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py",
+        script=scripts.path("eui_check_style"),
         args='--root "$(git rev-parse --show-toplevel)" --staged',
         summary="run the EllesmereUI style check over the staged lines",
         requires=("EllesmereUI.toc",),

@@ -6,12 +6,9 @@ Everything here runs in tmp_path, so a test run never touches the real
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from wow_tools import install as engine  # noqa: E402
 from wow_tools import registry  # noqa: E402
