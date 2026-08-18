@@ -34,6 +34,75 @@ BUILDER_VERSION = 9
 SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_DIR = SKILL_DIR / "references" / "index"
 
+# The six tables a complete index carries. Named once: "is the index complete"
+# is asked from three places, and a list that drifted between them would report
+# a half-written index as fresh.
+INDEX_FILES = ("modules", "symbols", "settings", "locale", "events", "slash")
+
+
+class IndexStore:
+    """Where one built index lives, and whether it is still good.
+
+    Constructed with a directory rather than read from a module global, so a
+    build can be pointed at a temporary one without the destination becoming
+    process-wide state that outlives the caller who set it.
+    """
+
+    __slots__ = ("dir",)
+
+    def __init__(self, directory) -> None:
+        self.dir = Path(directory)
+
+    def path(self, name: str) -> Path:
+        """A table name, with or without its extension, as a path."""
+        return self.dir / (name if name.endswith((".json", ".jsonl")) else name + ".jsonl")
+
+    def read(self, name: str) -> list:
+        p = self.path(name)
+        if not p.is_file():
+            sys.exit("no %s in the index -- run build_index.py --force" % p.name)
+        with p.open(encoding="utf-8") as fh:
+            return [json.loads(line) for line in fh if line.strip()]
+
+    def write(self, name: str, rows: list) -> None:
+        with self.path(name).open("w", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, separators=(",", ":"), ensure_ascii=False) + "\n")
+
+    def meta(self) -> "dict | None":
+        p = self.path("meta.json")
+        if not p.is_file():
+            return None
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            return None
+
+    def write_meta(self, meta: dict) -> None:
+        self.path("meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+
+    def complete(self) -> bool:
+        return all(self.path(n).is_file() for n in INDEX_FILES)
+
+    def is_fresh(self, fp: str, root: Path) -> bool:
+        """Whether a lookup may be answered from this index without rebuilding.
+
+        The one definition of fresh. It was written twice -- here and in
+        query.py -- so a build that started answering with a stale table would
+        have had to be fixed in both.
+        """
+        meta = self.meta()
+        return (
+            meta is not None
+            and meta.get("source_fingerprint") == fp
+            and meta.get("builder_version") == BUILDER_VERSION
+            and meta.get("addon_root") == str(root)
+            and self.complete()
+        )
+
+
+DEFAULT_STORE = IndexStore(INDEX_DIR)
+
 # Directories never worth indexing: vendored libraries, the packager's output
 # copy of the whole tree, and the per-locale translation tables (bulk data --
 # the canonical key list lives in Locales/_keys.txt).
@@ -1461,12 +1530,9 @@ def root_candidates(explicit: str | None):
     if os.environ.get("ELLESMEREUI_ROOT"):
         yield Path(os.environ["ELLESMEREUI_ROOT"]).expanduser()
 
-    meta_path = INDEX_DIR / "meta.json"
-    if meta_path.is_file():
-        try:
-            yield Path(json.loads(meta_path.read_text())["addon_root"])
-        except Exception:
-            pass
+    prev = DEFAULT_STORE.meta()
+    if prev and prev.get("addon_root"):
+        yield Path(prev["addon_root"])
 
     # WoW installs sit at unpredictable depths, especially under Proton/Wine
     # prefixes (~/Faugus/<app>/drive_c/Program Files (x86)/World of Warcraft/...).
@@ -1506,14 +1572,8 @@ def resolve_root(explicit: str | None) -> Path:
 #  Build
 # --------------------------------------------------------------------------
 
-def write_jsonl(path: Path, rows: list[dict]) -> None:
-    with path.open("w", encoding="utf-8") as fh:
-        for row in rows:
-            fh.write(json.dumps(row, separators=(",", ":"), ensure_ascii=False) + "\n")
-
-
-def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
+def build(root: Path, fp: str, n_files: int, n_bytes: int, store: IndexStore) -> dict:
+    store.dir.mkdir(parents=True, exist_ok=True)
 
     mods = discover(root)
     module_names = [name for name, _ in mods]
@@ -1673,24 +1733,24 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
             }
         )
 
-    write_jsonl(INDEX_DIR / "modules.jsonl", module_rows)
-    write_jsonl(INDEX_DIR / "symbols.jsonl", sorted(symbols, key=lambda r: (r["name"], r["file"], r["line"])))
-    write_jsonl(INDEX_DIR / "settings.jsonl", sorted(settings, key=lambda r: (r["key"], r["module"])))
-    write_jsonl(
-        INDEX_DIR / "locale.jsonl",
+    store.write("modules", module_rows)
+    store.write("symbols", sorted(symbols, key=lambda r: (r["name"], r["file"], r["line"])))
+    store.write("settings", sorted(settings, key=lambda r: (r["key"], r["module"])))
+    store.write(
+        "locale",
         [
             {"key": k, "count": len(v), "sites": sorted(v)[:40]}
             for k, v in sorted(locale.items())
         ],
     )
-    write_jsonl(
-        INDEX_DIR / "events.jsonl",
+    store.write(
+        "events",
         [
             {"event": k, "count": len(v), "sites": sorted(v)[:40]}
             for k, v in sorted(events.items())
         ],
     )
-    write_jsonl(INDEX_DIR / "slash.jsonl", sorted(slashes, key=lambda r: r["command"]))
+    store.write("slash", sorted(slashes, key=lambda r: r["command"]))
 
     meta = {
         "builder_version": BUILDER_VERSION,
@@ -1717,18 +1777,8 @@ def build(root: Path, fp: str, n_files: int, n_bytes: int) -> dict:
             "slash_commands": len(slashes),
         },
     }
-    (INDEX_DIR / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+    store.write_meta(meta)
     return meta
-
-
-def load_meta() -> dict | None:
-    p = INDEX_DIR / "meta.json"
-    if not p.is_file():
-        return None
-    try:
-        return json.loads(p.read_text())
-    except Exception:
-        return None
 
 
 def main() -> int:
@@ -1740,19 +1790,11 @@ def main() -> int:
     mode.add_argument("--force", action="store_true", help="rebuild unconditionally")
     args = ap.parse_args()
 
+    store = DEFAULT_STORE
     root = resolve_root(args.root)
-    meta = load_meta()
+    meta = store.meta()
     fp, n_files, n_bytes = fingerprint(root)
-
-    fresh = (
-        meta is not None
-        and meta.get("source_fingerprint") == fp
-        and meta.get("builder_version") == BUILDER_VERSION
-        and meta.get("addon_root") == str(root)
-        and all((INDEX_DIR / f).is_file() for f in
-                ("modules.jsonl", "symbols.jsonl", "settings.jsonl",
-                 "locale.jsonl", "events.jsonl", "slash.jsonl"))
-    )
+    fresh = store.is_fresh(fp, root)
 
     if args.check:
         if fresh:
@@ -1766,7 +1808,7 @@ def main() -> int:
               f"{meta['counts']['settings']} settings) -- nothing to do")
         return 0
 
-    meta = build(root, fp, n_files, n_bytes)
+    meta = build(root, fp, n_files, n_bytes, store)
     c = meta["counts"]
     g = meta["git"]
     print(
@@ -1780,7 +1822,7 @@ def main() -> int:
         f"  locale   {c['locale_keys']:,} keys\n"
         f"  events   {c['events']}\n"
         f"  slash    {c['slash_commands']}\n"
-        f"  -> {INDEX_DIR}"
+        f"  -> {store.dir}"
     )
     return 0
 

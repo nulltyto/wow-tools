@@ -796,13 +796,10 @@ def _build_tree(tmp_path, files: dict[str, str]):
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text, encoding="utf-8")
-    out = tmp_path / "index"
-    out.mkdir()
-    B.INDEX_DIR = out
+    store = B.IndexStore(tmp_path / "index")
     fp, n_files, n_bytes = B.fingerprint(root)
-    B.build(root, fp, n_files, n_bytes)
-    import json as _json
-    return [_json.loads(line) for line in (out / "settings.jsonl").read_text().splitlines() if line]
+    B.build(root, fp, n_files, n_bytes, store)
+    return store.read("settings")
 
 
 _SUITE_TOC = "## Title: EllesmereUI\n## SavedVariables: EllesmereUIDB\nEllesmereUI.lua\n"
@@ -861,6 +858,82 @@ def test_an_options_page_credits_only_the_module_it_configures(tmp_path):
     assert by_module["EllesmereUINameplates"]["options_ref_count"] == 1
     assert by_module["EllesmereUIQuickdraw"]["options_ref_count"] == 0, \
         "a Nameplates page must not build a Quickdraw control"
+
+
+# --- Where a built index lives -----------------------------------------------
+#
+# `build()` used to write to a module global, so a test that redirected it left
+# the new path in place for every later caller. The store carries the
+# destination instead, and answers freshness -- a question that was previously
+# asked in two places, in two slightly different ways.
+
+
+def _store(tmp_path, **meta):
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path / "index")
+    store.dir.mkdir(parents=True)
+    for name in B.INDEX_FILES:
+        store.write(name, [])
+    base = {"source_fingerprint": "fp", "builder_version": B.BUILDER_VERSION,
+            "addon_root": "/addons"}
+    base.update(meta)
+    store.write_meta(base)
+    return store
+
+
+def test_a_table_name_resolves_with_or_without_its_extension(tmp_path):
+    """query.py asked for `settings`, validate_index.py for `settings.jsonl`."""
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path)
+    assert store.path("settings") == store.path("settings.jsonl")
+    assert store.path("meta.json").name == "meta.json"
+
+
+def test_two_stores_do_not_share_a_destination(tmp_path):
+    """The property the module global could not offer."""
+    B = _eui_builder()
+    a = B.IndexStore(tmp_path / "a")
+    b = B.IndexStore(tmp_path / "b")
+    a.dir.mkdir()
+    b.dir.mkdir()
+    a.write("settings", [{"key": "x"}])
+    b.write("settings", [{"key": "y"}])
+    assert a.read("settings") == [{"key": "x"}]
+    assert b.read("settings") == [{"key": "y"}]
+
+
+def test_a_complete_matching_index_is_fresh(tmp_path):
+    assert _store(tmp_path).is_fresh("fp", Path("/addons"))
+
+
+@pytest.mark.parametrize("fp,root", [("moved", "/addons"), ("fp", "/elsewhere")])
+def test_a_changed_source_is_not_fresh(tmp_path, fp, root):
+    assert not _store(tmp_path).is_fresh(fp, Path(root))
+
+
+def test_an_older_builder_is_not_fresh(tmp_path):
+    """A builder change alters what the same source produces."""
+    assert not _store(tmp_path, builder_version=0).is_fresh("fp", Path("/addons"))
+
+
+def test_a_missing_table_is_not_fresh(tmp_path):
+    """The half-written index.
+
+    This is the arm that made the duplication worth removing: meta.json can
+    match perfectly while a table is absent, and a caller that checked only the
+    metadata would answer lookups from an index that has no settings in it.
+    """
+    store = _store(tmp_path)
+    store.path("settings").unlink()
+    assert not store.complete()
+    assert not store.is_fresh("fp", Path("/addons"))
+
+
+def test_no_index_at_all_is_not_fresh(tmp_path):
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path / "nothing-here")
+    assert store.meta() is None
+    assert not store.is_fresh("fp", Path("/addons"))
 
 
 # --- The index query CLI -----------------------------------------------------
