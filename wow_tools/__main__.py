@@ -31,9 +31,9 @@ from collections import OrderedDict
 from pathlib import Path
 
 from . import addons as addons_mod
+from . import catalogue, registry, wow
 from . import hooks as hooks_mod
 from . import install as engine
-from . import registry, wow
 from . import rules as rules_mod
 from . import skills as skills_mod
 from .install import Method, Outcome
@@ -266,6 +266,20 @@ def plan_rules(harnesses, scope: str, project_root: Path | None):
 # --------------------------------------------------------------------------
 #  Commands
 # --------------------------------------------------------------------------
+
+SKILLS = catalogue.Catalogue(
+    noun="skill",
+    discover=skills_mod.discover,
+    plan=lambda hs, scope, root: plan(hs, scope, root),
+    when_unnamed=catalogue.WhenUnnamed.ALL,
+    place=lambda item, directory, method, *, force, dry_run: engine.install_item(
+        item, directory, method, force=force, dry_run=dry_run),
+    unplace=lambda item, directory, *, dry_run: engine.uninstall_item(
+        item, directory, dry_run=dry_run),
+    moved_advice="Restart your harness (or reload its skills) to pick these up.",
+    unchanged_advice="Everything was already in place; nothing to restart.",
+)
+
 
 def cmd_list(args) -> int:
     found, problems = skills_mod.discover()
@@ -738,18 +752,15 @@ def _run_skills(args, uninstalling: bool) -> int:
 
     # Skills
     if args.skills:
-        specs = [s for spec in args.skills for s in spec.replace(",", " ").split()]
         try:
-            chosen = skills_mod.resolve_names(specs, found)
-        except KeyError as e:
-            # KeyError reprs its argument, which wraps a written-out message in
-            # quotes. The message is the whole value here, so unwrap it.
-            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+            chosen = SKILLS.resolve(catalogue.split_specs(args.skills), found)
+        except catalogue.UnknownName as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         chosen = choose_skills(found)
     else:
-        chosen = list(found)
+        chosen = SKILLS.unnamed_selection(found)
 
     if not chosen:
         return 0
@@ -785,24 +796,18 @@ def _run_skills(args, uninstalling: bool) -> int:
             print("Aborted.")
             return 1
 
-    failed = False
-    changed = False
-    for directory in groups:
-        print()
-        if len(groups) > 1:
-            print(f"{directory}")
-        for s in chosen:
-            if uninstalling:
-                r = engine.uninstall_item(s, directory, dry_run=args.dry_run)
-            else:
-                r = engine.install_item(
-                    s, directory, methods[directory], force=args.force, dry_run=args.dry_run
-                )
-            print(r)
-            failed = failed or not r.outcome.ok
-            changed = changed or r.outcome not in (Outcome.CURRENT, Outcome.ABSENT)
+    applied = SKILLS.apply(chosen, groups, methods, uninstalling=uninstalling,
+                           force=args.force, dry_run=args.dry_run)
+    shown = None
+    for directory, r in applied.results:
+        if directory != shown:
+            print()
+            if len(groups) > 1:
+                print(f"{directory}")
+            shown = directory
+        print(r)
 
-    if failed:
+    if applied.failed:
         print("\nSome entries were left alone. Re-run with --force to replace them.")
         return 1
 
@@ -815,10 +820,7 @@ def _run_skills(args, uninstalling: bool) -> int:
         # Advice to restart is only advice when something moved. Printing it
         # after a run that changed nothing invites a pointless restart, and
         # makes a no-op look like work.
-        if changed:
-            print("\nRestart your harness (or reload its skills) to pick these up.")
-        else:
-            print("\nEverything was already in place; nothing to restart.")
+        print(f"\n{applied.advice(SKILLS)}")
     return 0
 
 
