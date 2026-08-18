@@ -54,6 +54,10 @@ def split_specs(values) -> list[str]:
     return [s for spec in values or () for s in spec.replace(",", " ").split()]
 
 
+def _itself(group_key):
+    return group_key
+
+
 @dataclass(frozen=True)
 class Catalogue:
     """One installable kind."""
@@ -64,8 +68,15 @@ class Catalogue:
     when_unnamed: WhenUnnamed
     place: Callable
     unplace: Callable
-    moved_advice: str
-    unchanged_advice: str
+    # Said once at the end of a run, chosen by whether anything actually moved.
+    # Empty for a kind that has nothing to say: a rule is read at the start of
+    # the next session, so there is nothing to restart and nothing to advise.
+    moved_advice: str = ""
+    unchanged_advice: str = ""
+    # A group key is opaque to the placement loop, but a caller reporting on a
+    # group needs the directory out of it. Skills group by directory alone and
+    # rules by directory and extension, so only rules override this.
+    directory_of: Callable = _itself
     # Only read when when_unnamed is REFUSE.
     refusal: str = ""
     # Addons and hooks match without regard to case; skills and rules do not.

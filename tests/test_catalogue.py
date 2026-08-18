@@ -141,6 +141,45 @@ def test_advice_depends_on_whether_anything_moved():
     assert catalogue.Applied([], failed=False, changed=False).advice(c) == "unchanged"
 
 
+def test_a_kind_with_nothing_to_advise_says_nothing():
+    """Rules have no closing advice: one is read at the start of the next
+    session, so there is nothing to restart and nothing to tell anyone.
+
+    The first thing converting rules taught us about the shape -- the advice
+    fields were required, and rules have neither.
+    """
+    quiet = Catalogue(
+        noun="rule", discover=lambda: ([], []), plan=lambda *a: ({}, []),
+        when_unnamed=WhenUnnamed.NONE, place=lambda *a, **k: None,
+        unplace=lambda *a, **k: None,
+    )
+    assert catalogue.Applied([], failed=False, changed=True).advice(quiet) == ""
+    assert catalogue.Applied([], failed=False, changed=False).advice(quiet) == ""
+
+
+def test_a_group_key_yields_its_directory():
+    """Skills group by directory; rules by directory and extension.
+
+    The placement loop never looks inside a group key, but whoever reports on a
+    group needs the directory out of it.
+    """
+    from pathlib import Path as P
+
+    assert make().directory_of(P("/a/b")) == P("/a/b")
+    from wow_tools.__main__ import RULES
+    assert RULES.directory_of((P("/a/b"), ".mdc")) == P("/a/b")
+
+
+def test_the_rules_catalogue_is_wired_to_the_real_thing():
+    from wow_tools.__main__ import RULES
+
+    assert RULES.noun == "rule"
+    assert RULES.when_unnamed is WhenUnnamed.NONE
+    found, _ = RULES.discover()
+    assert found, "discover should find this repo's own rules"
+    assert RULES.unnamed_selection(found) == [], "rules are opted into"
+
+
 def test_the_skills_catalogue_is_wired_to_the_real_thing():
     """Guards the instance, not just the type."""
     from wow_tools.__main__ import SKILLS

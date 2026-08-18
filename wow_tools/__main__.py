@@ -281,6 +281,20 @@ SKILLS = catalogue.Catalogue(
 )
 
 
+RULES = catalogue.Catalogue(
+    noun="rule",
+    discover=rules_mod.discover,
+    plan=lambda hs, scope, root: plan_rules(hs, scope, root),
+    when_unnamed=catalogue.WhenUnnamed.NONE,
+    place=lambda item, key, method, *, force, dry_run: engine.install_rule(
+        item, key[0], method, filename=item.filename(key[1]),
+        force=force, dry_run=dry_run),
+    unplace=lambda item, key, *, dry_run: engine.uninstall_rule(
+        item, key[0], filename=item.filename(key[1]), dry_run=dry_run),
+    directory_of=lambda key: key[0],
+)
+
+
 def cmd_list(args) -> int:
     found, problems = skills_mod.discover()
     print("Skills in this repository:\n")
@@ -554,6 +568,23 @@ def _run(args, uninstalling: bool) -> int:
     return rc
 
 
+def _report(applied, cat, n_groups: int) -> None:
+    """Say what happened, one group at a time.
+
+    The directory is only worth repeating when there is more than one, which is
+    the uncommon case: most harnesses read the same cross-agent path, so eight
+    of them selected usually means one heading.
+    """
+    shown = None
+    for key, result in applied.results:
+        if key != shown:
+            print()
+            if n_groups > 1:
+                print(f"{cat.directory_of(key)}")
+            shown = key
+        print(result)
+
+
 def _run_rules(args, uninstalling: bool) -> int:
     found, problems = rules_mod.discover()
     if problems:
@@ -564,16 +595,15 @@ def _run_rules(args, uninstalling: bool) -> int:
         return 0
 
     if args.rules:
-        specs = [s for spec in args.rules for s in spec.replace(",", " ").split()]
         try:
-            chosen = rules_mod.resolve_names(specs, found)
-        except KeyError as e:
-            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+            chosen = RULES.resolve(catalogue.split_specs(args.rules), found)
+        except catalogue.UnknownName as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         chosen = choose_rules(found)
     else:
-        chosen = []
+        chosen = RULES.unnamed_selection(found)
 
     if not chosen:
         return 0
@@ -622,24 +652,11 @@ def _run_rules(args, uninstalling: bool) -> int:
             print("Aborted.")
             return 1
 
-    failed = False
-    for (directory, ext) in groups:
-        print()
-        if len(groups) > 1:
-            print(f"{directory}")
-        for r in chosen:
-            name = r.filename(ext)
-            if uninstalling:
-                res = engine.uninstall_rule(r, directory, filename=name, dry_run=args.dry_run)
-            else:
-                res = engine.install_rule(
-                    r, directory, methods[directory, ext],
-                    filename=name, force=args.force, dry_run=args.dry_run,
-                )
-            print(res)
-            failed = failed or not res.outcome.ok
+    applied = RULES.apply(chosen, groups, methods, uninstalling=uninstalling,
+                          force=args.force, dry_run=args.dry_run)
+    _report(applied, RULES, len(groups))
 
-    if failed:
+    if applied.failed:
         print("\nSome entries were left alone. Re-run with --force to replace them.")
         return 1
     return 0
@@ -798,14 +815,7 @@ def _run_skills(args, uninstalling: bool) -> int:
 
     applied = SKILLS.apply(chosen, groups, methods, uninstalling=uninstalling,
                            force=args.force, dry_run=args.dry_run)
-    shown = None
-    for directory, r in applied.results:
-        if directory != shown:
-            print()
-            if len(groups) > 1:
-                print(f"{directory}")
-            shown = directory
-        print(r)
+    _report(applied, SKILLS, len(groups))
 
     if applied.failed:
         print("\nSome entries were left alone. Re-run with --force to replace them.")
