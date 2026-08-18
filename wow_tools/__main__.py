@@ -36,7 +36,7 @@ from . import hooks as hooks_mod
 from . import install as engine
 from . import rules as rules_mod
 from . import skills as skills_mod
-from .install import Method, Outcome
+from .install import Method
 
 # --------------------------------------------------------------------------
 #  Selection
@@ -292,6 +292,21 @@ RULES = catalogue.Catalogue(
     unplace=lambda item, key, *, dry_run: engine.uninstall_rule(
         item, key[0], filename=item.filename(key[1]), dry_run=dry_run),
     directory_of=lambda key: key[0],
+)
+
+
+ADDONS = catalogue.Catalogue(
+    noun="addon",
+    discover=addons_mod.discover,
+    when_unnamed=catalogue.WhenUnnamed.REFUSE,
+    place=lambda item, directory, method, *, force, dry_run: engine.install_item(
+        item, directory, method, force=force, dry_run=dry_run),
+    unplace=lambda item, directory, *, dry_run: engine.uninstall_item(
+        item, directory, dry_run=dry_run),
+    moved_advice="/reload in game, or restart the client, to pick these up.",
+    unchanged_advice="Everything was already in place; no /reload needed.",
+    refusal="--wow-addons given without --addons.",
+    fold_case=True,
 )
 
 
@@ -844,20 +859,16 @@ def _run_addons(args, uninstalling: bool) -> int:
         return 0
 
     if args.addons:
-        specs = [a for spec in args.addons for a in spec.replace(",", " ").split()]
         try:
-            chosen = addons_mod.resolve_names(specs, found)
-        except KeyError as e:
-            # KeyError reprs its argument, which wraps a written-out message in
-            # quotes. The message is the whole value here, so unwrap it.
-            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+            chosen = ADDONS.resolve(catalogue.split_specs(args.addons), found)
+        except catalogue.UnknownName as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         chosen = choose_addons(found)
     else:
-        # Reached only via --wow-addons with no --addons. Taking that as "all"
-        # would install into a game directory nobody named an addon for.
-        print("error: --wow-addons given without --addons.", file=sys.stderr)
+        # Reached only via --wow-addons with no --addons.
+        print(f"error: {ADDONS.refusal}", file=sys.stderr)
         return 2
 
     if not chosen:
@@ -886,20 +897,15 @@ def _run_addons(args, uninstalling: bool) -> int:
             print("Aborted.")
             return 1
 
-    failed = False
-    changed = False
-    for a in chosen:
-        if uninstalling:
-            r = engine.uninstall_item(a, directory, dry_run=args.dry_run)
-        else:
-            r = engine.install_item(
-                a, directory, method, force=args.force, dry_run=args.dry_run
-            )
+    # One directory, already announced above, so the results follow it directly
+    # rather than under a heading of their own.
+    applied = ADDONS.apply(chosen, {directory: []}, {directory: method},
+                           uninstalling=uninstalling, force=args.force,
+                           dry_run=args.dry_run)
+    for _key, r in applied.results:
         print(r)
-        failed = failed or not r.outcome.ok
-        changed = changed or r.outcome not in (Outcome.CURRENT, Outcome.ABSENT)
 
-    if failed:
+    if applied.failed:
         print("\nSome entries were left alone. Re-run with --force to replace them.")
         return 1
 
@@ -911,10 +917,7 @@ def _run_addons(args, uninstalling: bool) -> int:
                 print(f"  {addon_name} needs {', '.join(deps)}")
         # A /reload interrupts whatever the player is doing. Asking for one
         # after a run that moved nothing is worse than merely redundant.
-        if changed:
-            print("\n/reload in game, or restart the client, to pick these up.")
-        else:
-            print("\nEverything was already in place; no /reload needed.")
+        print(f"\n{applied.advice(ADDONS)}")
     return 0
 
 

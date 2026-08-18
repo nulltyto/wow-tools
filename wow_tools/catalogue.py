@@ -64,10 +64,13 @@ class Catalogue:
 
     noun: str
     discover: Callable
-    plan: Callable
     when_unnamed: WhenUnnamed
     place: Callable
     unplace: Callable
+    # How harnesses are grouped into install targets. None for a kind whose
+    # destination comes from a flag rather than from a harness: nothing reads
+    # an addon on a harness's behalf, so there is nothing to group.
+    plan: Callable = None
     # Said once at the end of a run, chosen by whether anything actually moved.
     # Empty for a kind that has nothing to say: a rule is read at the start of
     # the next session, so there is nothing to restart and nothing to advise.

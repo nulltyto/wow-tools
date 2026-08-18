@@ -132,34 +132,3 @@ def discover(root: Path | None = None) -> tuple[list[Addon], list[str]]:
         if addon is not None:
             found.append(addon)
     return found, problems
-
-
-def resolve_names(requested: list[str], available: list[Addon]) -> list[Addon]:
-    """Map `--addons` values to addons. 'all' selects everything, 'none' nothing."""
-    lowered = [r.strip().lower() for r in requested]
-    if any(r == "none" for r in lowered):
-        return []
-    if any(r == "all" for r in lowered):
-        return list(available)
-
-    # Addon names are CamelCase and painful to type exactly, so match without
-    # regard to case rather than rejecting EllesmereUISecretsdiag.
-    by_lower = {a.name.lower(): a for a in available}
-    picked: list[Addon] = []
-    unknown: list[str] = []
-    for raw in requested:
-        r = raw.strip()
-        if not r:
-            continue
-        hit = by_lower.get(r.lower())
-        if hit is not None:
-            if hit not in picked:
-                picked.append(hit)
-        else:
-            unknown.append(r)
-    if unknown:
-        raise KeyError(
-            f"unknown addon(s): {', '.join(unknown)}. "
-            f"Available: {', '.join(sorted(a.name for a in available))}"
-        )
-    return picked
