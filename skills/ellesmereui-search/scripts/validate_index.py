@@ -26,6 +26,8 @@ import re
 import sys
 from pathlib import Path
 
+# Kept even though direct execution adds this directory anyway: -P and
+# PYTHONSAFEPATH=1 do not. See docs/adr/0001-skill-scripts-do-not-share-code.md.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_index import DEFAULT_STORE, iter_lua, mask_lua  # noqa: E402
 

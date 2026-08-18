@@ -28,6 +28,9 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+# Not redundant. Python adds a script's own directory for direct execution, but
+# not under -P or PYTHONSAFEPATH=1, and not when this file is loaded by path.
+# See docs/adr/0001-skill-scripts-do-not-share-code.md.
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import build_index  # noqa: E402
