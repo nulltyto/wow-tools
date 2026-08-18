@@ -107,8 +107,20 @@ all: they write into a repository you have to name.
 | `list` | every skill, addon, harness, and WoW install found |
 | `status` | what is installed where right now |
 | `doctor` | whether an edit to an addon here reaches the game |
-| `install` | `--dry-run`, `--copy`, `--force`, `--scope user\|project` |
+| `install` | `--dry-run`, `--copy`, `--force`, `--json`, `--scope user\|project` |
 | `uninstall` | removes only what this installer placed |
+
+`--json` reports the run on stdout as one document instead of as prose: what
+was chosen, which directory each thing went to and by what method, what
+happened to it, and which harnesses were passed over and why. Intended for a
+caller that is a program — an agent driving the installer, most obviously —
+rather than for reading. It implies `--yes`, because a confirmation prompt
+would corrupt the output. The exit code is unchanged and agrees with the
+document's `ok` field, so either may be read.
+
+```bash
+python -m wow_tools install --harness claude-code --skills all --json | jq '.sections[].results'
+```
 
 Both are **symlinked** by default, so `git pull` updates every harness — and
 the running game — at once. Where symlinks are unavailable — Windows without

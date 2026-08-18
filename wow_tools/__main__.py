@@ -25,13 +25,15 @@ from a bare clone before anything is set up.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from collections import OrderedDict
+from dataclasses import replace
 from pathlib import Path
 
 from . import addons as addons_mod
-from . import catalogue, registry, wow
+from . import catalogue, registry, report, wow
 from . import hooks as hooks_mod
 from . import install as engine
 from . import rules as rules_mod
@@ -56,6 +58,11 @@ def _ask(prompt: str) -> str:
 
 def _interactive_available() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _json(args) -> bool:
+    """Whether this run reports as JSON. Absent on subcommands that never do."""
+    return getattr(args, "json", False)
 
 
 def choose_harnesses() -> list[registry.Harness]:
@@ -496,18 +503,63 @@ def _run(args, uninstalling: bool) -> int:
         )
         return 2
 
+    run = report.Run()
     rc = 0
     if skills_wanted or not explicit:
-        rc |= _run_skills(args, uninstalling)
+        rc |= _run_skills(args, uninstalling, run)
     if rules_wanted or not explicit:
-        rc |= _run_rules(args, uninstalling)
+        rc |= _run_rules(args, uninstalling, run)
     if addons_wanted or not explicit:
-        rc |= _run_addons(args, uninstalling)
+        rc |= _run_addons(args, uninstalling, run)
     # Hooks stay out of the default run. They write into a repository the user
     # named, and there is no sensible guess for which one.
     if hooks_wanted:
-        rc |= _run_hooks(args, uninstalling)
+        rc |= _run_hooks(args, uninstalling, run)
+
+    if _json(args):
+        print(json.dumps(run.document(), indent=2))
     return rc
+
+
+def _targets_for(groups, args, uninstalling):
+    """Decide how each group will be reached, without saying anything yet.
+
+    The group key is opaque above this line: a skill's is a directory and a
+    rule's is a directory and an extension, so this is where the two are told
+    apart and both come out as a Target.
+    """
+    targets = []
+    methods = {}
+    for key, hs in groups.items():
+        directory, ext = key if isinstance(key, tuple) else (key, "")
+        method, note = _method_for(directory, args, uninstalling)
+        methods[key] = method
+        targets.append(report.Target(
+            directory=directory,
+            harnesses=tuple(h.name for h in hs),
+            # None when uninstalling: there is no link-or-copy decision to make.
+            method=method.value if method else "",
+            note=note,
+            extension=ext,
+        ))
+    return tuple(targets), methods
+
+
+def _render_plan(section) -> None:
+    """What is about to happen, in the words it has always used."""
+    verb = "Uninstalling" if section.action == "uninstall" else "Installing"
+    n = len(section.targets)
+    print()
+    if section.scope:
+        print(f"{verb} {len(section.chosen)} {section.noun}(s) into {n} "
+              f"director{'y' if n == 1 else 'ies'} ({section.scope} scope):")
+    else:
+        print(f"{verb} {len(section.chosen)} {section.noun}(s):")
+    for t in section.targets:
+        as_ext = f"  (as *{t.extension})" if t.extension else ""
+        print(f"\n{t.directory}{as_ext}{t.note}")
+        if t.harnesses:
+            print(f"  for: {', '.join(t.harnesses)}")
 
 
 def _report(applied, cat, n_groups: int) -> None:
@@ -527,7 +579,7 @@ def _report(applied, cat, n_groups: int) -> None:
         print(result)
 
 
-def _run_rules(args, uninstalling: bool) -> int:
+def _run_rules(args, uninstalling: bool, run: report.Run) -> int:
     found, problems = rules_mod.discover()
     if problems:
         print("Rule validation problems:", file=sys.stderr)
@@ -565,43 +617,63 @@ def _run_rules(args, uninstalling: bool) -> int:
     # Being skipped is the normal outcome here, not an edge case: most
     # harnesses keep their instructions in a single file the user owns, and
     # this installer will not write into one of those.
-    for h in skipped:
-        if h.takes_rules:
-            print(f"\n{h.name}: no rules directory for {args.scope} scope.")
-        else:
-            print(f"\n{h.name}: no rules directory to install into.")
-        if h.rules_note:
-            print(f"  {h.rules_note}")
-        _print_manual_rule_line(h, chosen)
+    skipped_rows = tuple(
+        report.Skipped(
+            harness=h.name,
+            reason=(f"no rules directory for {args.scope} scope"
+                    if h.takes_rules else "no rules directory to install into"),
+            note=h.rules_note or "",
+        )
+        for h in skipped
+    )
+    if not _json(args):
+        for h in skipped:
+            if h.takes_rules:
+                print(f"\n{h.name}: no rules directory for {args.scope} scope.")
+            else:
+                print(f"\n{h.name}: no rules directory to install into.")
+            if h.rules_note:
+                print(f"  {h.rules_note}")
+            _print_manual_rule_line(h, chosen)
 
     if not groups:
+        run.add(report.Section(
+            noun="rule",
+            action="uninstall" if uninstalling else "install",
+            chosen=tuple(r.name for r in chosen),
+            skipped=skipped_rows,
+            scope=args.scope,
+        ))
         return 0
 
-    print()
-    verb = "Uninstalling" if uninstalling else "Installing"
-    print(f"{verb} {len(chosen)} rule(s) into {len(groups)} "
-          f"director{'y' if len(groups) == 1 else 'ies'} ({args.scope} scope):")
+    targets, methods = _targets_for(groups, args, uninstalling)
+    section = report.Section(
+        noun="rule",
+        action="uninstall" if uninstalling else "install",
+        chosen=tuple(r.name for r in chosen),
+        targets=targets,
+        skipped=skipped_rows,
+        scope=args.scope,
+    )
+    if not _json(args):
+        _render_plan(section)
 
-    methods = {}
-    for (directory, ext), hs in groups.items():
-        method, method_note = _method_for(directory, args, uninstalling)
-        methods[directory, ext] = method
-        print(f"\n{directory}  (as *{ext}){method_note}")
-        print(f"  for: {', '.join(h.name for h in hs)}")
-
-    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+    if not uninstalling and not args.yes and not args.dry_run \
+            and not _json(args) and _interactive_available():
         if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
             print("Aborted.")
             return 1
 
     applied = RULES.apply(chosen, groups, methods, uninstalling=uninstalling,
                           force=args.force, dry_run=args.dry_run)
-    _report(applied, RULES, len(groups))
+    run.add(replace(section, rows=report.rows_from(applied, RULES),
+                    failed=applied.failed))
 
-    if applied.failed:
-        print("\nSome entries were left alone. Re-run with --force to replace them.")
-        return 1
-    return 0
+    if not _json(args):
+        _report(applied, RULES, len(groups))
+        if applied.failed:
+            print("\nSome entries were left alone. Re-run with --force to replace them.")
+    return 1 if applied.failed else 0
 
 
 def _print_manual_rule_line(harness, chosen) -> None:
@@ -622,7 +694,7 @@ def _print_manual_rule_line(harness, chosen) -> None:
     print(f"  To apply it there, append the body of {names} to {single} by hand.")
 
 
-def _run_hooks(args, uninstalling: bool) -> int:
+def _run_hooks(args, uninstalling: bool, run: report.Run) -> int:
     if not args.repo:
         print("error: --hooks needs --repo, the repository to install into.\n"
               "  A hook lives in .git/hooks, which is per clone and never pushed.",
@@ -639,28 +711,47 @@ def _run_hooks(args, uninstalling: bool) -> int:
         return 0
 
     repo = Path(args.repo).expanduser().resolve()
-    verb = "Uninstalling" if uninstalling else "Installing"
-    print(f"\n{verb} {len(chosen)} hook(s) in {repo}:")
+    if not _json(args):
+        verb = "Uninstalling" if uninstalling else "Installing"
+        print(f"\n{verb} {len(chosen)} hook(s) in {repo}:")
 
-    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+    if not uninstalling and not args.yes and not args.dry_run \
+            and not _json(args) and _interactive_available():
         if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
             print("Aborted.")
             return 1
 
     failed = False
+    rows = []
     for hook in chosen:
         if uninstalling:
             outcome, target, detail = hooks_mod.uninstall(hook, repo, dry_run=args.dry_run)
         else:
             outcome, target, detail = hooks_mod.install(
                 hook, repo, force=args.force, dry_run=args.dry_run)
-        print(f"  {outcome:<10} {hook.event:<12} {target}")
-        if detail:
-            print(f"             {detail}")
+        # hooks.install answers in strings rather than an Outcome, because a
+        # hook is a generated shell script and has a "skipped" state the other
+        # three kinds have no equivalent for.
+        rows.append(report.Row(item=hook.name, target=target, outcome=outcome,
+                               detail=detail, ok=outcome != "blocked"))
+        if not _json(args):
+            print(f"  {outcome:<10} {hook.event:<12} {target}")
+            if detail:
+                print(f"             {detail}")
         failed = failed or outcome == "blocked"
 
+    run.add(report.Section(
+        noun="hook",
+        action="uninstall" if uninstalling else "install",
+        chosen=tuple(h.name for h in chosen),
+        targets=(report.Target(directory=repo),),
+        rows=tuple(rows),
+        failed=failed,
+    ))
+
     if failed:
-        print("\nSome hooks were left alone. Re-run with --force to replace them.")
+        if not _json(args):
+            print("\nSome hooks were left alone. Re-run with --force to replace them.")
         return 1
     return 0
 
@@ -679,7 +770,7 @@ def _method_for(directory: Path, args, uninstalling: bool):
     )
 
 
-def _run_skills(args, uninstalling: bool) -> int:
+def _run_skills(args, uninstalling: bool, run: report.Run) -> int:
     found, problems = skills_mod.discover()
     if problems:
         print("Skill validation problems:", file=sys.stderr)
@@ -724,57 +815,76 @@ def _run_skills(args, uninstalling: bool) -> int:
 
     groups, skipped = plan(harnesses, args.scope, args.project_root)
 
-    for h in skipped:
-        print(f"\n{h.name}: nothing to install for {args.scope} scope.")
-        if h.note:
-            print(f"  {h.note}")
+    skipped_rows = tuple(
+        report.Skipped(harness=h.name,
+                       reason=f"nothing to install for {args.scope} scope",
+                       note=h.note or "")
+        for h in skipped
+    )
+    if not _json(args):
+        for h in skipped:
+            print(f"\n{h.name}: nothing to install for {args.scope} scope.")
+            if h.note:
+                print(f"  {h.note}")
 
     if not groups:
+        run.add(report.Section(
+            noun="skill",
+            action="uninstall" if uninstalling else "install",
+            chosen=tuple(s.name for s in chosen),
+            skipped=skipped_rows,
+            scope=args.scope,
+        ))
         return 0
 
     # Each directory is announced once, with the harnesses reading it and the
     # method that will be used, and its results land underneath. Printing the
     # plan and then re-printing the same headings over the results said
     # everything twice for the common case of one directory.
-    print()
-    verb = "Uninstalling" if uninstalling else "Installing"
-    print(f"{verb} {len(chosen)} skill(s) into {len(groups)} director{'y' if len(groups) == 1 else 'ies'} "
-          f"({args.scope} scope):")
+    targets, methods = _targets_for(groups, args, uninstalling)
+    section = report.Section(
+        noun="skill",
+        action="uninstall" if uninstalling else "install",
+        chosen=tuple(s.name for s in chosen),
+        targets=targets,
+        skipped=skipped_rows,
+        scope=args.scope,
+    )
+    if not _json(args):
+        _render_plan(section)
 
-    methods = {}
-    for directory, hs in groups.items():
-        method, method_note = _method_for(directory, args, uninstalling)
-        methods[directory] = method
-        print(f"\n{directory}{method_note}")
-        print(f"  for: {', '.join(h.name for h in hs)}")
-
-    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+    if not uninstalling and not args.yes and not args.dry_run \
+            and not _json(args) and _interactive_available():
         if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
             print("Aborted.")
             return 1
 
     applied = SKILLS.apply(chosen, groups, methods, uninstalling=uninstalling,
                            force=args.force, dry_run=args.dry_run)
-    _report(applied, SKILLS, len(groups))
+    section = replace(section, rows=report.rows_from(applied, SKILLS),
+                      failed=applied.failed,
+                      advice="" if uninstalling or args.dry_run
+                             else applied.advice(SKILLS))
+    run.add(section)
 
-    if applied.failed:
-        print("\nSome entries were left alone. Re-run with --force to replace them.")
-        return 1
+    if not _json(args):
+        _report(applied, SKILLS, len(groups))
+        if applied.failed:
+            print("\nSome entries were left alone. Re-run with --force to replace them.")
+        elif not uninstalling and not args.dry_run:
+            notes = [h for hs in groups.values() for h in hs if h.note]
+            if notes:
+                print("\nNotes:")
+                for h in notes:
+                    print(f"  {h.name}: {h.note}")
+            # Advice to restart is only advice when something moved. Printing
+            # it after a run that changed nothing invites a pointless restart,
+            # and makes a no-op look like work.
+            print(f"\n{section.advice}")
+    return 1 if applied.failed else 0
 
-    if not uninstalling and not args.dry_run:
-        notes = [h for hs in groups.values() for h in hs if h.note]
-        if notes:
-            print("\nNotes:")
-            for h in notes:
-                print(f"  {h.name}: {h.note}")
-        # Advice to restart is only advice when something moved. Printing it
-        # after a run that changed nothing invites a pointless restart, and
-        # makes a no-op look like work.
-        print(f"\n{applied.advice(SKILLS)}")
-    return 0
 
-
-def _run_addons(args, uninstalling: bool) -> int:
+def _run_addons(args, uninstalling: bool, run: report.Run) -> int:
     found, problems = addons_mod.discover()
     if problems:
         print("Addon validation problems:", file=sys.stderr)
@@ -813,11 +923,19 @@ def _run_addons(args, uninstalling: bool) -> int:
         return 1
 
     method, method_note = _method_for(directory, args, uninstalling)
-    verb = "Uninstalling" if uninstalling else "Installing"
-    print(f"\n{verb} {len(chosen)} addon(s):")
-    print(f"\n{directory}{method_note}")
+    section = report.Section(
+        noun="addon",
+        action="uninstall" if uninstalling else "install",
+        chosen=tuple(a.name for a in chosen),
+        targets=(report.Target(directory=directory,
+                               method=method.value if method else "",
+                               note=method_note),),
+    )
+    if not _json(args):
+        _render_plan(section)
 
-    if not uninstalling and not args.yes and not args.dry_run and _interactive_available():
+    if not uninstalling and not args.yes and not args.dry_run \
+            and not _json(args) and _interactive_available():
         if (_ask("\nProceed? [Y/n]: ") or "y").lower() not in ("y", "yes"):
             print("Aborted.")
             return 1
@@ -827,6 +945,14 @@ def _run_addons(args, uninstalling: bool) -> int:
     applied = ADDONS.apply(chosen, {directory: []}, {directory: method},
                            uninstalling=uninstalling, force=args.force,
                            dry_run=args.dry_run)
+    section = replace(section, rows=report.rows_from(applied, ADDONS),
+                      failed=applied.failed,
+                      advice="" if uninstalling or args.dry_run
+                             else applied.advice(ADDONS))
+    run.add(section)
+    if _json(args):
+        return 1 if applied.failed else 0
+
     for _key, r in applied.results:
         print(r)
 
@@ -842,7 +968,7 @@ def _run_addons(args, uninstalling: bool) -> int:
                 print(f"  {addon_name} needs {', '.join(deps)}")
         # A /reload interrupts whatever the player is doing. Asking for one
         # after a run that moved nothing is worse than merely redundant.
-        print(f"\n{applied.advice(ADDONS)}")
+        print(f"\n{section.advice}")
     return 0
 
 
@@ -905,6 +1031,9 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--yes", "-y", action="store_true", help="do not prompt for confirmation")
         p.add_argument("--force", action="store_true",
                        help="replace files that are already at the target path")
+        p.add_argument("--json", action="store_true",
+                       help="report the run as JSON on stdout instead of prose; "
+                            "implies --yes, since a prompt would corrupt it")
 
     p_install = sub.add_parser("install", help="install skills for one or more harnesses")
     add_common(p_install)
