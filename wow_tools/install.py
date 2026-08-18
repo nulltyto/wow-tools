@@ -64,6 +64,14 @@ class Result:
         return f"{line}\n           {self.detail}" if self.detail else line
 
 
+def _nearest_existing(path: Path) -> Path:
+    """The closest directory at or above `path` that is already there."""
+    for candidate in (path, *path.parents):
+        if candidate.is_dir():
+            return candidate
+    return path
+
+
 def symlinks_available(probe_dir: Path) -> bool:
     """Whether this process can actually create a symlink in `probe_dir`.
 
@@ -71,8 +79,14 @@ def symlinks_available(probe_dir: Path) -> bool:
     depends on Developer Mode and on the process's privileges rather than on
     the OS version, and on Linux it depends on the filesystem -- a WoW install
     on an exFAT or NTFS mount cannot hold one.
+
+    Probed against the nearest directory that already exists, rather than by
+    creating the target. A target that does not exist yet will sit on its
+    parent's filesystem and inherit the answer, so nothing is lost -- and a
+    --dry-run stops leaving an empty directory behind, which is what the
+    creating version did on every run that had nowhere to install yet.
     """
-    probe_dir.mkdir(parents=True, exist_ok=True)
+    probe_dir = _nearest_existing(probe_dir)
     probe = probe_dir / ".wow-tools-symlink-probe"
     try:
         if probe.is_symlink() or probe.exists():

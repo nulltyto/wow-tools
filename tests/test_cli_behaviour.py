@@ -163,20 +163,24 @@ def test_an_unknown_name_exits_two_and_names_what_it_knows(flag, value, word, ho
     assert word in err, err
 
 
-def test_dry_run_installs_nothing(home, capsys):
-    """`--dry-run` is documented as "print the plan, change nothing".
+def test_dry_run_changes_nothing_at_all(home, capsys):
+    """"Print the plan, change nothing" is taken literally.
 
-    It installs nothing, which is the part that matters. It does however create
-    the target directory, because deciding between symlink and copy is done by
-    trying, and the probe has to mkdir before it can write. That is pinned here
-    as current behaviour, not endorsed: the flag's own help text says otherwise.
+    Deciding between symlink and copy is done by trying it, and the probe used
+    to mkdir the target first -- so a dry run left an empty directory tree
+    behind. It now probes the nearest directory that already exists, which sits
+    on the same filesystem and so gives the same answer.
     """
     assert main(["install", "--harness", "codex", "--skills", "all", "--dry-run"]) == 0
     assert "would" in capsys.readouterr().out
+    assert not (home / ".agents").exists(), "a dry run must leave no directory behind"
 
-    skills_dir = home / ".agents" / "skills"
-    assert not (skills_dir / "wow-api-search").exists(), "nothing may be installed"
-    assert list(skills_dir.iterdir()) == [], "and the directory it made is empty"
+
+def test_dry_run_leaves_no_probe_where_it_did_look(home, capsys):
+    """The probe walks up to a real directory, so it must clean up there too."""
+    assert main(["install", "--harness", "codex", "--skills", "all", "--dry-run"]) == 0
+    capsys.readouterr()
+    assert list(home.iterdir()) == [], sorted(p.name for p in home.iterdir())
 
 
 def test_a_directory_we_did_not_install_is_left_alone(home, capsys):
