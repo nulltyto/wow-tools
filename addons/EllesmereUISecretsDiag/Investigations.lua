@@ -2254,13 +2254,96 @@ local function cdmAlphaWatch(arg)
         tostring(cdID), tostring(vName), fr:GetAlpha()))
 end
 
+
+-- iconwatch: EUI draws its own frames for racials, trinkets, potions, custom
+-- spells and Always-Show placeholders, parents them to the bar container and
+-- positions them with SetPoint. Any of Hide, ClearAllPoints or SetAlpha(0) on
+-- one of those makes the icon vanish while cdmBarIcons still counts it, so the
+-- bar keeps the slot -- the "icon gone, gap stays" report. The census says
+-- which frame is dark; only the stack says which pass did it.
+local _iwHooked = {}
+local _iwOn = false
+
+local function iwLabel(f)
+    if f._pfKey then return tostring(f._pfKey) end
+    if f._presetItemID then return "item:" .. tostring(f._presetItemID) end
+    if f._isPlaceholderFrame then return "placeholder:" .. tostring(f._phSpellID) end
+    if f._isTrinketFrame then return "trinket" end
+    return frameLabel(f)
+end
+
+local function iwStack(depth)
+    for line in tostring(debugstack(3, depth or 6, 0)):gmatch("[^\r\n]+") do
+        outf("      %s", line)
+    end
+end
+
+local function iwHook(f, barName)
+    if _iwHooked[f] then return false end
+    _iwHooked[f] = true
+    local label = iwLabel(f) .. " @" .. barName
+    hooksecurefunc(f, "Hide", function()
+        if not _iwOn then return end
+        outf("|cffff4040Hide|r %s", label); iwStack(6)
+    end)
+    hooksecurefunc(f, "ClearAllPoints", function()
+        if not _iwOn then return end
+        outf("|cffff4040ClearAllPoints|r %s", label); iwStack(6)
+    end)
+    hooksecurefunc(f, "SetAlpha", function(_, v)
+        if not _iwOn then return end
+        if type(v) == "number" and v >= 1 then return end
+        outf("|cffffa000SetAlpha(%.2f)|r %s", tonumber(v) or -1, label); iwStack(6)
+    end)
+    hooksecurefunc(f, "SetPoint", function()
+        if not _iwOn then return end
+        outf("|cff40ff40SetPoint|r %s", label)
+    end)
+    hooksecurefunc(f, "Show", function()
+        if not _iwOn then return end
+        outf("|cff40ff40Show|r %s pts=%d", label, f:GetNumPoints())
+    end)
+    return true
+end
+
+-- Every EUI-owned icon is a direct child of its bar container (viewer frames
+-- are only re-pointed, never reparented -- they stay in the pool), so a
+-- children walk finds exactly our own frames and nothing else.
+local function cdmIconWatch(arg)
+    if arg == "off" then
+        _iwOn = false
+        result("INFO", "iconwatch", "disarmed (hooks stay, inert)")
+        return
+    end
+    local armed, seen = 0, 0
+    for k, v in pairs(_G) do
+        if type(k) == "string" and k:find("^ECME_CDMBar_") and type(v) == "table" then
+            for _, child in ipairs({ v:GetChildren() }) do
+                if child._pfKey or child._presetItemID or child._isTrinketFrame
+                   or child._isPlaceholderFrame or child._isRacialFrame
+                   or child._isCustomSpellFrame then
+                    seen = seen + 1
+                    if iwHook(child, k) then armed = armed + 1 end
+                    outf("   %s %s pts=%d parent=%s effAlpha=%.2f",
+                        iwLabel(child), shownStr(child), child:GetNumPoints(),
+                        frameLabel(child:GetParent()), effAlpha(child))
+                end
+            end
+        end
+    end
+    _iwOn = true
+    result(seen > 0 and "PASS" or "FAIL", "iconwatch",
+        format("%d EUI icon frames found, %d newly hooked -- armed", seen, armed))
+end
+
 ns.Command("cdm", {
-    usage = "cdm [catalog|frames|bars|live|watch <cdID>] [spellID ...]",
-    help  = "CDM catalog, viewer frames, EUI bar membership; watch traces one icon's SetAlpha",
+    usage = "cdm [catalog|frames|bars|live|watch <cdID>|iconwatch [off]] [spellID ...]",
+    help  = "CDM catalog, viewer frames, EUI bar membership; watch traces one viewer icon's SetAlpha, iconwatch traces EUI's own icon frames",
     fn    = function(args)
         local what = (args[1] or ""):lower()
         local first = 1
         if what == "watch" then cdmAlphaWatch(args[2]) return end
+        if what == "iconwatch" then cdmIconWatch((args[2] or ""):lower()) return end
         if what == "catalog" or what == "frames" or what == "bars" or what == "live" then
             first = 2
         else
