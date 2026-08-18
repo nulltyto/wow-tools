@@ -310,6 +310,17 @@ ADDONS = catalogue.Catalogue(
 )
 
 
+# Hooks share the naming rules and nothing else. Their membership is a static
+# tuple rather than a discovery over the tree, and they are placed by
+# hooks.install, which writes a generated shell script into a repository.
+HOOKS = catalogue.Catalogue(
+    noun="hook",
+    discover=lambda: (list(hooks_mod.HOOKS), []),
+    when_unnamed=catalogue.WhenUnnamed.ALL,
+    fold_case=True,
+)
+
+
 def cmd_list(args) -> int:
     found, problems = skills_mod.discover()
     print("Skills in this repository:\n")
@@ -702,11 +713,11 @@ def _run_hooks(args, uninstalling: bool) -> int:
               file=sys.stderr)
         return 2
 
-    specs = [h for spec in (args.hooks or ["all"]) for h in spec.replace(",", " ").split()]
+    available, _ = HOOKS.discover()
     try:
-        chosen = hooks_mod.resolve_names(specs)
-    except KeyError as e:
-        print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+        chosen = HOOKS.resolve(catalogue.split_specs(args.hooks or ["all"]), available)
+    except catalogue.UnknownName as e:
+        print(f"error: {e}", file=sys.stderr)
         return 2
     if not chosen:
         return 0

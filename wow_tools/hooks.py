@@ -139,33 +139,6 @@ HOOKS: tuple[Hook, ...] = (
 HOOK_BY_NAME = {h.name: h for h in HOOKS}
 
 
-def resolve_names(requested: list) -> list:
-    """Map `--hooks` values to hooks. 'all' selects everything, 'none' nothing."""
-    lowered = [r.strip().lower() for r in requested]
-    if any(r == "none" for r in lowered):
-        return []
-    if any(r == "all" for r in lowered):
-        return list(HOOKS)
-    picked = []
-    unknown = []
-    for raw in requested:
-        r = raw.strip().lower()
-        if not r:
-            continue
-        hit = HOOK_BY_NAME.get(r)
-        if hit is not None:
-            if hit not in picked:
-                picked.append(hit)
-        else:
-            unknown.append(raw)
-    if unknown:
-        raise KeyError(
-            f"unknown hook(s): {', '.join(unknown)}. "
-            f"Available: {', '.join(sorted(HOOK_BY_NAME))}"
-        )
-    return picked
-
-
 def hooks_dir(repo: Path) -> Path | None:
     """Where this repository keeps its hooks, or None if it is not one.
 

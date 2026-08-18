@@ -65,8 +65,13 @@ class Catalogue:
     noun: str
     discover: Callable
     when_unnamed: WhenUnnamed
-    place: Callable
-    unplace: Callable
+    # How a member is put in place and taken away again. None for a kind that
+    # shares only the naming rules: a hook is a generated shell script written
+    # into a repository's .git/hooks, which is a different job from linking a
+    # directory, and forcing it through this seam would mean a placement
+    # interface three kinds ignore half of.
+    place: Callable = None
+    unplace: Callable = None
     # How harnesses are grouped into install targets. None for a kind whose
     # destination comes from a flag rather than from a harness: nothing reads
     # an addon on a harness's behalf, so there is nothing to group.
