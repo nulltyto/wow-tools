@@ -18,9 +18,8 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wow_tools import skills as skills_mod  # noqa: E402
+from wow_tools import scripts
+from wow_tools import skills as skills_mod
 
 REPO = Path(__file__).resolve().parent.parent
 SKILL_DIRS = sorted(p for p in (REPO / "skills").iterdir() if p.is_dir())
@@ -228,18 +227,12 @@ def test_table_systems_are_not_a_sibling_table_name():
 
 
 def _eui_builder():
-    """The EllesmereUI builder, loaded from its script path.
+    """The EllesmereUI builder.
 
     The index it produces is a gitignored build artifact, so these tests drive
     the extractor over fabricated sources instead of a checkout.
     """
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "build_index.py"
-    spec = importlib.util.spec_from_file_location("eui_build_index", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("eui_build_index")
 
 
 def _callers(files: dict[str, str], modules=("ModA", "ModB")):
@@ -796,13 +789,10 @@ def _build_tree(tmp_path, files: dict[str, str]):
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text, encoding="utf-8")
-    out = tmp_path / "index"
-    out.mkdir()
-    B.INDEX_DIR = out
+    store = B.IndexStore(tmp_path / "index")
     fp, n_files, n_bytes = B.fingerprint(root)
-    B.build(root, fp, n_files, n_bytes)
-    import json as _json
-    return [_json.loads(line) for line in (out / "settings.jsonl").read_text().splitlines() if line]
+    B.build(root, fp, n_files, n_bytes, store)
+    return store.read("settings")
 
 
 _SUITE_TOC = "## Title: EllesmereUI\n## SavedVariables: EllesmereUIDB\nEllesmereUI.lua\n"
@@ -863,6 +853,88 @@ def test_an_options_page_credits_only_the_module_it_configures(tmp_path):
         "a Nameplates page must not build a Quickdraw control"
 
 
+# --- Where a built index lives -----------------------------------------------
+#
+# `build()` used to write to a module global, so a test that redirected it left
+# the new path in place for every later caller. The store carries the
+# destination instead, and answers freshness -- a question that was previously
+# asked in two places, in two slightly different ways.
+
+
+ADDON_ROOT = Path("/addons")
+
+
+def _store(tmp_path, **meta):
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path / "index")
+    store.dir.mkdir(parents=True)
+    for name in B.INDEX_FILES:
+        store.write(name, [])
+    base = {"source_fingerprint": "fp", "builder_version": B.BUILDER_VERSION,
+            "addon_root": str(ADDON_ROOT)}
+    base.update(meta)
+    store.write_meta(base)
+    return store
+
+
+def test_a_table_name_resolves_with_or_without_its_extension(tmp_path):
+    """query.py asked for `settings`, validate_index.py for `settings.jsonl`."""
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path)
+    assert store.path("settings") == store.path("settings.jsonl")
+    assert store.path("meta.json").name == "meta.json"
+
+
+def test_two_stores_do_not_share_a_destination(tmp_path):
+    """The property the module global could not offer."""
+    B = _eui_builder()
+    a = B.IndexStore(tmp_path / "a")
+    b = B.IndexStore(tmp_path / "b")
+    a.dir.mkdir()
+    b.dir.mkdir()
+    a.write("settings", [{"key": "x"}])
+    b.write("settings", [{"key": "y"}])
+    assert a.read("settings") == [{"key": "x"}]
+    assert b.read("settings") == [{"key": "y"}]
+
+
+def test_a_complete_matching_index_is_fresh(tmp_path):
+    assert _store(tmp_path).is_fresh("fp", ADDON_ROOT)
+
+
+@pytest.mark.parametrize("fp,root", [
+    ("moved", ADDON_ROOT),
+    ("fp", Path("/elsewhere")),
+])
+def test_a_changed_source_is_not_fresh(tmp_path, fp, root):
+    assert not _store(tmp_path).is_fresh(fp, root)
+
+
+def test_an_older_builder_is_not_fresh(tmp_path):
+    """A builder change alters what the same source produces."""
+    assert not _store(tmp_path, builder_version=0).is_fresh("fp", ADDON_ROOT)
+
+
+def test_a_missing_table_is_not_fresh(tmp_path):
+    """The half-written index.
+
+    This is the arm that made the duplication worth removing: meta.json can
+    match perfectly while a table is absent, and a caller that checked only the
+    metadata would answer lookups from an index that has no settings in it.
+    """
+    store = _store(tmp_path)
+    store.path("settings").unlink()
+    assert not store.complete()
+    assert not store.is_fresh("fp", ADDON_ROOT)
+
+
+def test_no_index_at_all_is_not_fresh(tmp_path):
+    B = _eui_builder()
+    store = B.IndexStore(tmp_path / "nothing-here")
+    assert store.meta() is None
+    assert not store.is_fresh("fp", ADDON_ROOT)
+
+
 # --- The index query CLI -----------------------------------------------------
 #
 # The index was current and unread through two whole sessions because a lookup
@@ -871,13 +943,7 @@ def test_an_options_page_credits_only_the_module_it_configures(tmp_path):
 
 
 def _query_module():
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-search" / "scripts" / "query.py"
-    spec = importlib.util.spec_from_file_location("eui_query", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("eui_query")
 
 
 @pytest.mark.parametrize("skill,before,after", [
@@ -959,13 +1025,7 @@ def test_query_labels_a_substring_match_as_one(capsys):
 
 
 def _api_query_module():
-    import importlib.util
-
-    path = REPO / "skills" / "wow-api-search" / "scripts" / "query.py"
-    spec = importlib.util.spec_from_file_location("api_query", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return scripts.load("api_query")
 
 
 # --- Staleness --------------------------------------------------------------
@@ -1100,7 +1160,7 @@ def test_api_query_says_when_the_index_is_the_one_without_prose(capsys):
     assert "the bundled copy omits" in out and "1307" in out
 
 
-def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys):
+def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys, monkeypatch):
     """Events are keyed by literal AND camelCase name; a search must not double."""
     Q = _api_query_module()
     index = {"events": {
@@ -1110,7 +1170,7 @@ def test_api_query_lists_an_event_once_though_it_is_indexed_twice(capsys):
             "literal_name": "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "system": "Unit"},
     }}
     args = argparse.Namespace(pattern="Specialization", limit=25, index=None, json=False)
-    Q.load_index = lambda explicit=None: (index, Path("fake.json"))
+    monkeypatch.setattr(Q, "load_index", lambda explicit=None: (index, Path("fake.json")))
     Q.cmd_search(args)
     out = capsys.readouterr().out
     assert out.count("ACTIVE_PLAYER_SPECIALIZATION_CHANGED") == 1, out
@@ -1202,14 +1262,8 @@ def test_bundled_index_carries_the_profiler_surface():
 
 
 def _style_checker():
-    """The EllesmereUI style checker, loaded from its script path."""
-    import importlib.util
-
-    path = REPO / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py"
-    spec = importlib.util.spec_from_file_location("eui_check_style", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    """The EllesmereUI style checker."""
+    return scripts.load("eui_check_style")
 
 
 def _budget(text: str, scope=None):
@@ -1434,9 +1488,7 @@ def test_harness_runs_every_check_before_reporting(tmp_path):
 
 
 def _tracer_module():
-    sys.path.insert(0, str(TRACER.parent))
-    import new_tracer  # noqa: PLC0415
-    return new_tracer
+    return scripts.load("eui_new_tracer")
 
 
 def test_unit_aura_payload_is_entirely_secret():
@@ -1723,6 +1775,18 @@ def test_mask_preserves_length_and_every_newline():
             ], (name, repr(text))
 
 
+def _fuzz_cases():
+    """Random strings over the characters that drive the scanner."""
+    import random
+
+    rand = random.Random(1979)
+    alphabet = "-[]=\"'\\\nabc "
+    return [
+        "".join(rand.choice(alphabet) for _ in range(rand.randint(0, 60)))
+        for _ in range(3000)
+    ]
+
+
 def test_mask_never_moves_a_newline_on_arbitrary_input():
     """The invariant above, fuzzed over the characters that drive the scanner.
 
@@ -1730,16 +1794,8 @@ def test_mask_never_moves_a_newline_on_arbitrary_input():
     indexes depend on. A property test states that once instead of guessing
     which literal will regress next.
     """
-    import random
-
-    rand = random.Random(1979)
-    alphabet = "-[]=\"'\\\nabc "
-    cases = [
-        "".join(rand.choice(alphabet) for _ in range(rand.randint(0, 60)))
-        for _ in range(3000)
-    ]
     for name, mask_lua in _mask_fns():
-        for text in cases:
+        for text in _fuzz_cases():
             got = mask_lua(text)
             assert len(got) == len(text), (name, repr(text))
             assert [i for i, c in enumerate(got) if c == "\n"] == [
@@ -1748,6 +1804,59 @@ def test_mask_never_moves_a_newline_on_arbitrary_input():
             # Masking only ever blanks: a non-space in the output is untouched.
             for i, c in enumerate(got):
                 assert c == " " or c == text[i], (name, repr(text), i)
+
+
+# --------------------------------------------------------------------------
+#  ... and that the two copies agree
+# --------------------------------------------------------------------------
+# The copies cannot import each other (ADR-0001), so what holds them together
+# is a test rather than a symbol. Everything above runs both through the same
+# expectation, which does prove agreement -- for the four literals somebody
+# thought to write down. Masking Lua is where the case nobody imagined lives.
+
+
+def _disagreement(a: str, b: str, text: str) -> str:
+    """Where two masks first differ, in terms of the source that produced it."""
+    if len(a) != len(b):
+        return f"lengths differ: {len(a)} vs {len(b)}"
+    i = next(i for i in range(len(a)) if a[i] != b[i])
+    return (f"first differ at offset {i} (line {text.count(chr(10), 0, i) + 1}): "
+            f"build_index {a[i]!r} vs check_style {b[i]!r}\n"
+            f"  source: {text[max(0, i - 40):i + 40]!r}")
+
+
+def _lua_corpus():
+    """Every Lua file this repo ships."""
+    files = sorted((REPO / "addons").rglob("*.lua")) + sorted((REPO / "tools").rglob("*.lua"))
+    return [(p.relative_to(REPO), p.read_text(encoding="utf-8", errors="replace"))
+            for p in files]
+
+
+def test_the_two_maskers_agree_on_the_lua_this_repo_ships():
+    """Real Lua, rather than the shapes a test author happened to picture.
+
+    The diagnostics addon and the two harnesses are several thousand lines of
+    it, already in the tree and needing no fixture.
+    """
+    B, C = _eui_builder(), _style_checker()
+    corpus = _lua_corpus()
+    assert corpus, "no Lua found -- the corpus moved and this test stopped testing"
+    for rel, text in corpus:
+        a, b = B.mask_lua(text), C.mask_lua(text)
+        assert a == b, f"{rel}: {_disagreement(a, b, text)}"
+
+
+def test_the_two_maskers_agree_on_arbitrary_input():
+    """The same claim where neither copy's author chose the input.
+
+    The fuzz above asserts each copy keeps its own invariants; two maskers can
+    both preserve every newline and still disagree about which characters are
+    inside a string.
+    """
+    B, C = _eui_builder(), _style_checker()
+    for text in _fuzz_cases():
+        a, b = B.mask_lua(text), C.mask_lua(text)
+        assert a == b, _disagreement(a, b, text)
 
 
 # --------------------------------------------------------------------------

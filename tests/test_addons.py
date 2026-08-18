@@ -146,18 +146,27 @@ def test_bundled_diag_toc_load_order_puts_core_first():
 # --------------------------------------------------------------------------
 
 def test_resolve_names(tmp_path):
+    """Resolution moved to the catalogue; the rules for addons did not change.
+
+    The shared cases live in test_catalogue.py. What is worth keeping here is
+    that real Addon objects resolve, and that case folding -- which only addons
+    and hooks do -- still applies to this kind.
+    """
+    from wow_tools.__main__ import ADDONS
+    from wow_tools.catalogue import UnknownName
+
     a = addons_mod.validate(make_addon(tmp_path, "Alpha"))[0]
     b = addons_mod.validate(make_addon(tmp_path, "Beta"))[0]
     available = [a, b]
 
-    assert addons_mod.resolve_names(["all"], available) == [a, b]
-    assert addons_mod.resolve_names(["none"], available) == []
-    assert addons_mod.resolve_names(["Alpha"], available) == [a]
+    assert ADDONS.resolve(["all"], available) == [a, b]
+    assert ADDONS.resolve(["none"], available) == []
+    assert ADDONS.resolve(["Alpha"], available) == [a]
     # CamelCase addon names are painful to type exactly.
-    assert addons_mod.resolve_names(["alpha"], available) == [a]
-    assert addons_mod.resolve_names(["Alpha", "Alpha"], available) == [a]
-    with pytest.raises(KeyError):
-        addons_mod.resolve_names(["Nope"], available)
+    assert ADDONS.resolve(["alpha"], available) == [a]
+    assert ADDONS.resolve(["Alpha", "Alpha"], available) == [a]
+    with pytest.raises(UnknownName):
+        ADDONS.resolve(["Nope"], available)
 
 
 # --------------------------------------------------------------------------

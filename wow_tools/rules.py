@@ -120,30 +120,3 @@ def discover(root: Path = None) -> tuple:
         if rule is not None:
             found.append(rule)
     return found, problems
-
-
-def resolve_names(requested: list, available: list) -> list:
-    """Map `--rules` values to rules. 'all' selects everything, 'none' nothing."""
-    lowered = [r.strip().lower() for r in requested]
-    if any(r == "none" for r in lowered):
-        return []
-    if any(r == "all" for r in lowered):
-        return list(available)
-    by_name = {r.name: r for r in available}
-    picked = []
-    unknown = []
-    for raw in requested:
-        r = raw.strip()
-        if not r:
-            continue
-        if r in by_name:
-            if by_name[r] not in picked:
-                picked.append(by_name[r])
-        else:
-            unknown.append(r)
-    if unknown:
-        raise KeyError(
-            f"unknown rule(s): {', '.join(unknown)}. "
-            f"Available: {', '.join(sorted(by_name))}"
-        )
-    return picked

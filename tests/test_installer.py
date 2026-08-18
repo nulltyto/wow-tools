@@ -6,17 +6,15 @@ Everything here runs in tmp_path, so a test run never touches the real
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from wow_tools import install as engine  # noqa: E402
 from wow_tools import registry  # noqa: E402
 from wow_tools import skills as skills_mod
 from wow_tools.__main__ import main, plan  # noqa: E402
+from wow_tools.errors import UnknownName
 from wow_tools.install import Method, Outcome  # noqa: E402
 
 
@@ -249,9 +247,9 @@ def test_a_near_miss_harness_key_is_suggested():
     common typo -- and a wall of twenty keys does not answer which was meant."""
     from wow_tools import registry
 
-    with pytest.raises(KeyError) as excinfo:
+    with pytest.raises(UnknownName) as excinfo:
         registry.get("claude")
-    assert "claude-code" in excinfo.value.args[0]
+    assert "claude-code" in str(excinfo.value)
 
     assert registry.suggest("gemini") == ["gemini-cli"]
     assert registry.suggest("vscode") == ["vscode-copilot"]
@@ -269,9 +267,9 @@ def test_harness_keys_are_case_insensitive():
 def test_an_unrecognisable_key_still_lists_them_all():
     from wow_tools import registry
 
-    with pytest.raises(KeyError) as excinfo:
+    with pytest.raises(UnknownName) as excinfo:
         registry.get("zzzz")
-    assert "Known:" in excinfo.value.args[0]
+    assert "Known:" in str(excinfo.value)
 
 
 def test_restart_advice_only_appears_when_something_moved(tmp_path, capsys):

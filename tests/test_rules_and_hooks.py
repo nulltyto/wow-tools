@@ -18,12 +18,11 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wow_tools import hooks as hooks_mod  # noqa: E402
+from wow_tools import hooks as hooks_mod
 from wow_tools import install as engine  # noqa: E402
 from wow_tools import registry  # noqa: E402
 from wow_tools import rules as rules_mod  # noqa: E402
+from wow_tools.catalogue import UnknownName  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -265,7 +264,11 @@ def test_status_reports_a_foreign_hook_distinctly(repo):
 
 
 def test_resolve_names_rejects_an_unknown_hook():
-    assert hooks_mod.resolve_names(["all"]) == list(hooks_mod.HOOKS)
-    assert hooks_mod.resolve_names(["none"]) == []
-    with pytest.raises(KeyError):
-        hooks_mod.resolve_names(["no-such-hook"])
+    """Hooks share the naming rules with the other three kinds, and nothing else."""
+    from wow_tools.__main__ import HOOKS as HOOKS_CAT
+
+    available = list(hooks_mod.HOOKS)
+    assert HOOKS_CAT.resolve(["all"], available) == available
+    assert HOOKS_CAT.resolve(["none"], available) == []
+    with pytest.raises(UnknownName):
+        HOOKS_CAT.resolve(["no-such-hook"], available)

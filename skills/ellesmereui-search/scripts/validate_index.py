@@ -22,13 +22,14 @@ from __future__ import annotations
 
 import argparse
 import bisect
-import json
 import re
 import sys
 from pathlib import Path
 
+# Kept even though direct execution adds this directory anyway: -P and
+# PYTHONSAFEPATH=1 do not. See docs/adr/0001-skill-scripts-do-not-share-code.md.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_index import INDEX_DIR, iter_lua, mask_lua  # noqa: E402
+from build_index import DEFAULT_STORE, iter_lua, mask_lua  # noqa: E402
 
 FUNCTION_KW = re.compile(r"\bfunction\b")
 ANON_FUNCTION = re.compile(r"\bfunction\s*\(")
@@ -123,7 +124,7 @@ class Checker:
 
 
 def load(name: str) -> list[dict]:
-    return [json.loads(line) for line in (INDEX_DIR / name).open()]
+    return DEFAULT_STORE.read(name)
 
 
 def main() -> int:
@@ -131,10 +132,9 @@ def main() -> int:
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
-    meta_path = INDEX_DIR / "meta.json"
-    if not meta_path.is_file():
+    meta = DEFAULT_STORE.meta()
+    if meta is None:
         sys.exit("No index found. Run build_index.py --ensure first.")
-    meta = json.loads(meta_path.read_text())
     root = Path(meta["addon_root"])
     c = Checker(root, args.verbose)
 
@@ -153,7 +153,7 @@ def main() -> int:
 
     # Settings declared in a defaults table point at the declaration; keys on a
     # SavedVariables global point at their first reference instead.
-    settings = load("settings.jsonl")
+    settings = load("settings")
     bad = [
         f"{r['file']}:{r['line']} claims key={r['key']!r}"
         for r in settings
@@ -179,7 +179,7 @@ def main() -> int:
     # this definition through this receiver. Rebuild the expected expression
     # from the record's own fields and require the cited line to contain it,
     # which is what separates a real edge from a same-named function elsewhere.
-    symbols = load("symbols.jsonl")
+    symbols = load("symbols")
     pairs = [(r, s) for r in symbols for s in r.get("callers", [])]
     bad = []
     for r, s in pairs:
@@ -187,7 +187,7 @@ def main() -> int:
             bad.append(f"{s} does not call {r['full']!r}")
     c.report("symbols callers", len(pairs), bad)
 
-    modules = load("modules.jsonl")
+    modules = load("modules")
     load_order = [(m["module"], f) for m in modules for f in m["load_order"]]
     bad = [f"{mod}: {f} listed in TOC but not on disk" for mod, f in load_order
            if not (root / f).is_file()]
@@ -297,7 +297,7 @@ def main() -> int:
     # Re-derive the export lines and the calls through them with a
     # line-oriented scan, and require every one to be cited.
     lua = sorted(iter_lua(root))
-    module_names = {m["module"] for m in load("modules.jsonl")}
+    module_names = {m["module"] for m in load("modules")}
     private: set[str] = set()
     exports: dict[str, list[tuple[str, str]]] = {}
     masks: dict[str, list[str]] = {}

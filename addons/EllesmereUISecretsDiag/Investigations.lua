@@ -1988,3 +1988,379 @@ ns.Command("hunt", {
     help  = "sweep every spell ID for the NeverSecret aura/cast whitelist (slow)",
     fn    = function(args) whitelistHunt(tonumber(args[1]), tonumber(args[2])) end,
 })
+
+-------------------------------------------------------------------------------
+--  cdm -- Cooldown Manager catalog / frame / bar census
+--
+--  Built for the 2026-08-17 Mistweaver report (EllesmereUI PR #1555). Untainted
+--  by construction: slash-driven, and both C_CooldownViewer getters are
+--  AllowedWhenUntainted. The three section comments below carry the detail.
+-------------------------------------------------------------------------------
+local CDM_CATEGORY_NAME = {
+    [0] = "Essential",
+    [1] = "Utility",
+    [2] = "TrackedBuff",
+    [3] = "TrackedBar",
+    [4] = "GroupBuff",
+    [5] = "SpecAgnosticEssential",
+    [6] = "SpecAgnosticTracked",
+    [7] = "EquipSlotEssential",
+    [8] = "EquipSlotTracked",
+}
+
+local CDM_VIEWERS = {
+    "EssentialCooldownViewer",
+    "UtilityCooldownViewer",
+    "BuffIconCooldownViewer",
+    "BuffBarCooldownViewer",
+}
+
+-- Never interpolated raw: a spell name read in restricted content comes back
+-- classified, and string.format on a secret raises rather than printing.
+local function spellName(id)
+    if type(id) ~= "number" or id <= 0 then return "?" end
+    local ok, n = try(C_Spell and C_Spell.GetSpellName, id)
+    if not ok or n == nil then return "?" end
+    if isSecret(n) then return "SECRET" end
+    return n
+end
+
+local function frameLabel(f)
+    if not f then return "nil" end
+    local ok, n = pcall(f.GetName, f)
+    if ok and n then return n end
+    local ok2, dn = pcall(function() return f.GetDebugName and f:GetDebugName() end)
+    if ok2 and dn then return dn end
+    return tostring(f)
+end
+
+local function shownStr(f)
+    local ok, s = pcall(f.IsShown, f)
+    local ok2, v = pcall(f.IsVisible, f)
+    local ok3, a = pcall(f.GetAlpha, f)
+    return format("shown=%s visible=%s alpha=%s",
+        ok and tostring(s) or "?", ok2 and tostring(v) or "?",
+        ok3 and format("%.2f", a) or "?")
+end
+
+local function pointStr(f)
+    local ok, p, rel, rp, x, y = pcall(f.GetPoint, f, 1)
+    if not ok or not p then return "point=none" end
+    return format("point=%s->%s.%s (%.0f,%.0f)", tostring(p),
+        frameLabel(rel), tostring(rp), tonumber(x) or 0, tonumber(y) or 0)
+end
+
+-- Section 1: the whole catalog, per category, learned entries only (the set the
+-- viewer can actually build frames from).
+local function cdmCatalog(filter)
+    header("CDM catalog (GetCooldownViewerCategorySet, allowUnlearned=false)")
+    if not (C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCategorySet) then
+        result("ERR", "catalog", "C_CooldownViewer missing")
+        return
+    end
+    for cat = 0, 8 do
+        local ok, ids = try(C_CooldownViewer.GetCooldownViewerCategorySet, cat, false)
+        local n = (ok and type(ids) == "table") and #ids or 0
+        outf("[%d] %s -- %d entries", cat, CDM_CATEGORY_NAME[cat] or "?", n)
+        if ok and type(ids) == "table" then
+            for _, cdID in ipairs(ids) do
+                local ok2, info = try(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
+                if ok2 and type(info) == "table" then
+                    local sid = info.spellID
+                    local show = true
+                    if filter then
+                        show = filter[sid] or filter[info.overrideSpellID] or filter[cdID] or false
+                        if not show and type(info.linkedSpellIDs) == "table" then
+                            for _, lid in ipairs(info.linkedSpellIDs) do
+                                if filter[lid] then show = true break end
+                            end
+                        end
+                    end
+                    if show then
+                        local links = ""
+                        if type(info.linkedSpellIDs) == "table" and #info.linkedSpellIDs > 0 then
+                            local t = {}
+                            for _, lid in ipairs(info.linkedSpellIDs) do t[#t + 1] = tostring(lid) end
+                            links = " linked=" .. table.concat(t, "/")
+                        end
+                        outf("   cd=%s sid=%s (%s) cat=%s hasAura=%s selfAura=%s charges=%s known=%s invis=%s buffSlot=%s override=%s spellCat=%s equip=%s%s",
+                            tostring(cdID), tostring(sid), spellName(sid),
+                            tostring(info.category), tostring(info.hasAura),
+                            tostring(info.selfAura), tostring(info.charges),
+                            tostring(info.isKnown), tostring(info.isInvisible),
+                            tostring(info.buffSlot), tostring(info.overrideSpellID),
+                            tostring(info.spellCategoryID), tostring(info.equipSlot), links)
+                    end
+                elseif not filter then
+                    outf("   cd=%s -- no cooldownInfo", tostring(cdID))
+                end
+            end
+        end
+    end
+end
+
+-- Section 2: every live viewer frame, with its current parent -- which stays the
+-- VIEWER even for a frame EUI has diverted, because EUI re-points rather than
+-- reparents. Read the anchor, not the parent, to tell where an icon renders.
+local function cdmFrames()
+    header("CDM viewer frames (itemFramePool active set)")
+    for _, vName in ipairs(CDM_VIEWERS) do
+        local v = _G[vName]
+        if not v then
+            outf("%s -- absent", vName)
+        elseif not (v.itemFramePool and v.itemFramePool.EnumerateActive) then
+            outf("%s -- no itemFramePool", vName)
+        else
+            outf("%s (%s)", vName, shownStr(v))
+            local count = 0
+            for f in v.itemFramePool:EnumerateActive() do
+                count = count + 1
+                local cdID = f.cooldownID
+                local sid
+                if type(cdID) == "number" then
+                    local ok, info = try(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
+                    sid = ok and info and info.spellID
+                end
+                outf("   cd=%s sid=%s (%s) layoutIdx=%s parent=%s %s %s",
+                    tostring(cdID), tostring(sid), spellName(sid),
+                    tostring(f.layoutIndex), frameLabel(f:GetParent()),
+                    shownStr(f), pointStr(f))
+            end
+            if count == 0 then outf("   (pool empty)") end
+        end
+    end
+end
+
+-- Effective alpha: EUI anchors a routed viewer frame onto its bar with SetPoint
+-- and never reparents it, so the frame keeps inheriting the Blizzard viewer's
+-- alpha. Own alpha 1 with an effective 0 is that inheritance, and it is a
+-- different bug from an icon EUI deliberately faded.
+local function effAlpha(f)
+    local a, guard = 1, 0
+    local cur = f
+    while cur and guard < 12 do
+        local ok, v = pcall(cur.GetAlpha, cur)
+        if ok and type(v) == "number" then a = a * v end
+        local ok2, par = pcall(cur.GetParent, cur)
+        cur = ok2 and par or nil
+        guard = guard + 1
+    end
+    return a
+end
+
+-- Section 3: everything ANCHORED to an EUI bar, found by walking every frame
+-- rather than by GetChildren -- EUI parents nothing to its bars (placeholders
+-- hang off UIParent, viewer frames stay in their pool), so a children walk
+-- reports every bar as empty.
+local function cdmBars()
+    header("EUI CDM bars -- frames anchored to ECME_CDMBar_*")
+    local barName = {}
+    local any = false
+    for k, v in pairs(_G) do
+        if type(k) == "string" and k:find("^ECME_CDMBar_") and type(v) == "table" then
+            barName[v] = k
+            any = true
+        end
+    end
+    if not any then outf("(no ECME_CDMBar_* frames)") return end
+
+    local rows = {}
+    local f = EnumerateFrames()
+    local guard = 0
+    while f and guard < 200000 do
+        guard = guard + 1
+        local ok, _, rel, _, x = pcall(f.GetPoint, f, 1)
+        if ok and rel and barName[rel] then
+            local bk = barName[rel]
+            rows[bk] = rows[bk] or {}
+            table.insert(rows[bk], { f = f, x = tonumber(x) or 0 })
+        end
+        f = EnumerateFrames(f)
+    end
+
+    local names = {}
+    for _, n in pairs(barName) do names[#names + 1] = n end
+    table.sort(names)
+    for _, n in ipairs(names) do
+        local bar = _G[n]
+        outf("%s %s effAlpha=%.2f %s", n, shownStr(bar), effAlpha(bar), pointStr(bar))
+        local list = rows[n]
+        if not list then
+            outf("   (nothing anchored)")
+        else
+            table.sort(list, function(a, b) return a.x < b.x end)
+            for _, r in ipairs(list) do
+                local fr = r.f
+                local cdID = fr.cooldownID
+                local sid
+                if type(cdID) == "number" then
+                    local ok2, info = try(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
+                    sid = ok2 and info and info.spellID
+                end
+                local kind = "frame"
+                if fr._isPlaceholderFrame then kind = "placeholder(" .. tostring(fr._phSpellID) .. ")"
+                elseif fr._isCustomSpellFrame then kind = "customSpell"
+                elseif fr._isRacialFrame then kind = "racial"
+                elseif fr._isTrinketFrame then kind = "trinket"
+                elseif fr._isPresetFrame or fr._isItemPresetFrame then kind = "preset" end
+                outf("   x=%4d %s cd=%s sid=%s (%s) parent=%s %s effAlpha=%.2f",
+                    r.x, kind, tostring(cdID), tostring(sid), spellName(sid),
+                    frameLabel(fr:GetParent()), shownStr(fr), effAlpha(fr))
+            end
+        end
+    end
+end
+
+-- alphawatch: hook SetAlpha on one routed frame and print who calls it. The
+-- census says an icon sits at alpha 0; only the stack says which pass put it
+-- there, and EUI has six of them.
+local _alphaHooked = {}
+local _alphaWatch = {}
+
+local function findFrameByCdID(cdID)
+    for _, vName in ipairs(CDM_VIEWERS) do
+        local v = _G[vName]
+        if v and v.itemFramePool and v.itemFramePool.EnumerateActive then
+            for fr in v.itemFramePool:EnumerateActive() do
+                if fr.cooldownID == cdID then return fr, vName end
+            end
+        end
+    end
+end
+
+local function cdmAlphaWatch(arg)
+    if arg == "off" then
+        wipe(_alphaWatch)
+        result("INFO", "alphawatch", "all watches disarmed (hooks stay, inert)")
+        return
+    end
+    local cdID = tonumber(arg)
+    if not cdID then result("ERR", "alphawatch", "need a cooldownID, or `off`") return end
+    local fr, vName = findFrameByCdID(cdID)
+    if not fr then result("FAIL", "alphawatch", "no active frame with cooldownID " .. cdID) return end
+    _alphaWatch[fr] = cdID
+    if not _alphaHooked[fr] then
+        _alphaHooked[fr] = true
+        hooksecurefunc(fr, "SetAlpha", function(self, v)
+            if not _alphaWatch[self] then return end
+            outf("SetAlpha(%s) on cd=%s eff=%.2f", tostring(v),
+                tostring(_alphaWatch[self]), effAlpha(self))
+            for line in tostring(debugstack(2, 6, 0)):gmatch("[^\r\n]+") do
+                outf("      %s", line)
+            end
+        end)
+    end
+    result("PASS", "alphawatch", format("armed on cd=%s (%s), own alpha now %.2f",
+        tostring(cdID), tostring(vName), fr:GetAlpha()))
+end
+
+
+-- iconwatch: EUI draws its own frames for racials, trinkets, potions, custom
+-- spells and Always-Show placeholders, parents them to the bar container and
+-- positions them with SetPoint. Any of Hide, ClearAllPoints or SetAlpha(0) on
+-- one of those makes the icon vanish while cdmBarIcons still counts it, so the
+-- bar keeps the slot -- the "icon gone, gap stays" report. The census says
+-- which frame is dark; only the stack says which pass did it.
+local _iwHooked = {}
+local _iwOn = false
+
+local function iwLabel(f)
+    if f._pfKey then return tostring(f._pfKey) end
+    if f._presetItemID then return "item:" .. tostring(f._presetItemID) end
+    if f._isPlaceholderFrame then return "placeholder:" .. tostring(f._phSpellID) end
+    if f._isTrinketFrame then return "trinket" end
+    return frameLabel(f)
+end
+
+local function iwStack(depth)
+    for line in tostring(debugstack(3, depth or 6, 0)):gmatch("[^\r\n]+") do
+        outf("      %s", line)
+    end
+end
+
+local function iwHook(f, barName)
+    if _iwHooked[f] then return false end
+    _iwHooked[f] = true
+    local label = iwLabel(f) .. " @" .. barName
+    hooksecurefunc(f, "Hide", function()
+        if not _iwOn then return end
+        outf("|cffff4040Hide|r %s", label); iwStack(6)
+    end)
+    hooksecurefunc(f, "ClearAllPoints", function()
+        if not _iwOn then return end
+        outf("|cffff4040ClearAllPoints|r %s", label); iwStack(6)
+    end)
+    hooksecurefunc(f, "SetAlpha", function(_, v)
+        if not _iwOn then return end
+        if type(v) == "number" and v >= 1 then return end
+        outf("|cffffa000SetAlpha(%.2f)|r %s", tonumber(v) or -1, label); iwStack(6)
+    end)
+    hooksecurefunc(f, "SetPoint", function()
+        if not _iwOn then return end
+        outf("|cff40ff40SetPoint|r %s", label)
+    end)
+    hooksecurefunc(f, "Show", function()
+        if not _iwOn then return end
+        outf("|cff40ff40Show|r %s pts=%d", label, f:GetNumPoints())
+    end)
+    return true
+end
+
+-- Every EUI-owned icon is a direct child of its bar container (viewer frames
+-- are only re-pointed, never reparented -- they stay in the pool), so a
+-- children walk finds exactly our own frames and nothing else.
+local function cdmIconWatch(arg)
+    if arg == "off" then
+        _iwOn = false
+        result("INFO", "iconwatch", "disarmed (hooks stay, inert)")
+        return
+    end
+    local armed, seen = 0, 0
+    for k, v in pairs(_G) do
+        if type(k) == "string" and k:find("^ECME_CDMBar_") and type(v) == "table" then
+            for _, child in ipairs({ v:GetChildren() }) do
+                if child._pfKey or child._presetItemID or child._isTrinketFrame
+                   or child._isPlaceholderFrame or child._isRacialFrame
+                   or child._isCustomSpellFrame then
+                    seen = seen + 1
+                    if iwHook(child, k) then armed = armed + 1 end
+                    outf("   %s %s pts=%d parent=%s effAlpha=%.2f",
+                        iwLabel(child), shownStr(child), child:GetNumPoints(),
+                        frameLabel(child:GetParent()), effAlpha(child))
+                end
+            end
+        end
+    end
+    _iwOn = true
+    result(seen > 0 and "PASS" or "FAIL", "iconwatch",
+        format("%d EUI icon frames found, %d newly hooked -- armed", seen, armed))
+end
+
+ns.Command("cdm", {
+    usage = "cdm [catalog|frames|bars|live|watch <cdID>|iconwatch [off]] [spellID ...]",
+    help  = "CDM catalog, viewer frames, EUI bar membership; watch traces one viewer icon's SetAlpha, iconwatch traces EUI's own icon frames",
+    fn    = function(args)
+        local what = (args[1] or ""):lower()
+        local first = 1
+        if what == "watch" then cdmAlphaWatch(args[2]) return end
+        if what == "iconwatch" then cdmIconWatch((args[2] or ""):lower()) return end
+        if what == "catalog" or what == "frames" or what == "bars" or what == "live" then
+            first = 2
+        else
+            what = "all"
+        end
+        local filter
+        for i = first, #args do
+            local id = tonumber(args[i])
+            if id then filter = filter or {}; filter[id] = true end
+        end
+        local specIdx = GetSpecialization and GetSpecialization()
+        local specID = specIdx and GetSpecializationInfo and GetSpecializationInfo(specIdx)
+        outf("player: class=%s specIndex=%s specID=%s combat=%s",
+            classify(select(2, UnitClass("player"))), classify(specIdx), classify(specID),
+            tostring(InCombatLockdown and InCombatLockdown() or false))
+        if what == "all" or what == "catalog" then cdmCatalog(filter) end
+        if what == "all" or what == "live" or what == "frames" then cdmFrames() end
+        if what == "all" or what == "live" or what == "bars" then cdmBars() end
+    end,
+})

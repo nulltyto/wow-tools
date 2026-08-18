@@ -122,30 +122,3 @@ def discover(root: Path | None = None) -> tuple[list[Skill], list[str]]:
         if skill is not None:
             found.append(skill)
     return found, problems
-
-
-def resolve_names(requested: list[str], available: list[Skill]) -> list[Skill]:
-    """Map `--skills` values to skills. 'all' selects everything, 'none' nothing."""
-    lowered = [r.strip().lower() for r in requested]
-    if any(r == "none" for r in lowered):
-        return []
-    if any(r == "all" for r in lowered):
-        return list(available)
-    by_name = {s.name: s for s in available}
-    picked: list[Skill] = []
-    unknown: list[str] = []
-    for r in requested:
-        r = r.strip()
-        if not r:
-            continue
-        if r in by_name:
-            if by_name[r] not in picked:
-                picked.append(by_name[r])
-        else:
-            unknown.append(r)
-    if unknown:
-        raise KeyError(
-            f"unknown skill(s): {', '.join(unknown)}. "
-            f"Available: {', '.join(sorted(by_name))}"
-        )
-    return picked

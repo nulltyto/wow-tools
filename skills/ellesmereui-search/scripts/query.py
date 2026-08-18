@@ -28,11 +28,14 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+# Not redundant. Python adds a script's own directory for direct execution, but
+# not under -P or PYTHONSAFEPATH=1, and not when this file is loaded by path.
+# See docs/adr/0001-skill-scripts-do-not-share-code.md.
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import build_index  # noqa: E402
 
-INDEX_DIR = build_index.INDEX_DIR
+STORE = build_index.DEFAULT_STORE
 
 
 # --------------------------------------------------------------------------
@@ -42,33 +45,16 @@ INDEX_DIR = build_index.INDEX_DIR
 def ensure_index(root_arg, quiet=False):
     """Rebuild if the source moved. Returns the resolved addon root."""
     root = build_index.resolve_root(root_arg)
-    meta = build_index.load_meta()
     fp, n_files, n_bytes = build_index.fingerprint(root)
-    fresh = (
-        meta is not None
-        and meta.get("source_fingerprint") == fp
-        and meta.get("builder_version") == build_index.BUILDER_VERSION
-        and meta.get("addon_root") == str(root)
-        and all((INDEX_DIR / f).is_file() for f in
-                ("modules.jsonl", "symbols.jsonl", "settings.jsonl",
-                 "locale.jsonl", "events.jsonl", "slash.jsonl"))
-    )
-    if not fresh:
+    if not STORE.is_fresh(fp, root):
         if not quiet:
             print("index stale -- rebuilding (~12s)", file=sys.stderr)
-        build_index.build(root, fp, n_files, n_bytes)
+        build_index.build(root, fp, n_files, n_bytes, STORE)
     return root
 
 
 def records(name):
-    path = INDEX_DIR / (name + ".jsonl")
-    if not path.is_file():
-        sys.exit("no %s in the index -- run build_index.py --force" % path.name)
-    with path.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if line:
-                yield json.loads(line)
+    return STORE.read(name)
 
 
 def find(name, field, needle, exact_first=True):
@@ -449,7 +435,7 @@ def cmd_grep(args):
 
 
 def cmd_status(args):
-    meta = build_index.load_meta()
+    meta = STORE.meta()
     if not meta:
         print("no index built yet")
         return 1

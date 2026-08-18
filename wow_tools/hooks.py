@@ -27,7 +27,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from . import scripts
 
 # Every hook is a marker, the git hook it occupies, and the command it runs.
 # The marker goes in a comment inside the generated hook so that a later run,
@@ -121,14 +121,14 @@ HOOKS: tuple[Hook, ...] = (
     Hook(
         name="ascii-git-text",
         event="commit-msg",
-        script=REPO_ROOT / "tools" / "lint" / "ascii_text.py",
+        script=scripts.path("ascii_text"),
         args='--commit-msg "$1"',
         summary="reject a commit message containing non-ASCII characters",
     ),
     Hook(
         name="eui-style",
         event="pre-commit",
-        script=REPO_ROOT / "skills" / "ellesmereui-pr-check" / "scripts" / "check_style.py",
+        script=scripts.path("eui_check_style"),
         args='--root "$(git rev-parse --show-toplevel)" --staged',
         summary="run the EllesmereUI style check over the staged lines",
         requires=("EllesmereUI.toc",),
@@ -137,33 +137,6 @@ HOOKS: tuple[Hook, ...] = (
 )
 
 HOOK_BY_NAME = {h.name: h for h in HOOKS}
-
-
-def resolve_names(requested: list) -> list:
-    """Map `--hooks` values to hooks. 'all' selects everything, 'none' nothing."""
-    lowered = [r.strip().lower() for r in requested]
-    if any(r == "none" for r in lowered):
-        return []
-    if any(r == "all" for r in lowered):
-        return list(HOOKS)
-    picked = []
-    unknown = []
-    for raw in requested:
-        r = raw.strip().lower()
-        if not r:
-            continue
-        hit = HOOK_BY_NAME.get(r)
-        if hit is not None:
-            if hit not in picked:
-                picked.append(hit)
-        else:
-            unknown.append(raw)
-    if unknown:
-        raise KeyError(
-            f"unknown hook(s): {', '.join(unknown)}. "
-            f"Available: {', '.join(sorted(HOOK_BY_NAME))}"
-        )
-    return picked
 
 
 def hooks_dir(repo: Path) -> Path | None:
