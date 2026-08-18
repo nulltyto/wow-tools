@@ -31,6 +31,15 @@ _Avoid_: mod, plugin
 A check this repo installs into a git repository, which runs on commit and can
 refuse one.
 
+**Item**:
+One thing that can be installed, whichever kind it is. A skill, a rule, an
+addon or a hook.
+
+**Catalogue**:
+One kind of item, together with the rules for that kind: what its members are
+called, what "nothing named" means for it, and where its members go.
+_Avoid_: kind, type, category
+
 **Scope**:
 Whether an install is for the whole user or for one project directory.
 
