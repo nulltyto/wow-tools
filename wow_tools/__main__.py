@@ -554,8 +554,8 @@ def _run_rules(args, uninstalling: bool) -> int:
         keys = [k for spec in args.harness for k in spec.replace(",", " ").split()]
         try:
             harnesses = [registry.get(k) for k in keys]
-        except KeyError as e:
-            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+        except catalogue.UnknownName as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     else:
         harnesses = [h for h in registry.HARNESSES if h.takes_rules]
@@ -694,10 +694,8 @@ def _run_skills(args, uninstalling: bool) -> int:
         keys = [k for spec in args.harness for k in spec.replace(",", " ").split()]
         try:
             harnesses = [registry.get(k) for k in keys]
-        except KeyError as e:
-            # KeyError reprs its argument, which wraps a written-out message in
-            # quotes. The message is the whole value here, so unwrap it.
-            print(f"error: {e.args[0] if e.args else e}", file=sys.stderr)
+        except catalogue.UnknownName as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     elif _interactive_available():
         harnesses = choose_harnesses()

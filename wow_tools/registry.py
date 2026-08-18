@@ -24,6 +24,8 @@ from __future__ import annotations
 import difflib
 from dataclasses import dataclass, field
 
+from .errors import UnknownName
+
 # The cross-agent path from the open standard. Honoured by the large majority
 # of harnesses; a handful predate it or namespace everything under their own
 # directory, and those are the entries that carry a brand path first.
@@ -340,9 +342,9 @@ def get(key: str) -> Harness:
         return HARNESS_BY_KEY[normalised]
     near = suggest(key)
     if near:
-        raise KeyError(
+        raise UnknownName(
             f"unknown harness {key!r}. Did you mean: {', '.join(near)}?"
         ) from None
-    raise KeyError(
+    raise UnknownName(
         f"unknown harness {key!r}. Known: {', '.join(sorted(HARNESS_BY_KEY))}"
     ) from None

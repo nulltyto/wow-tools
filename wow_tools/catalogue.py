@@ -28,17 +28,8 @@ from . import install as engine
 from . import registry
 from . import rules as rules_mod
 from . import skills as skills_mod
+from .errors import UnknownName
 from .install import Outcome
-
-
-class UnknownName(Exception):
-    """A name the user gave that nothing in the catalogue matches.
-
-    Carries a finished sentence. This was a KeyError, whose repr wraps its
-    argument in quotes -- so all four call sites unwrapped `e.args[0]` behind
-    the same four-line comment explaining why. Raising something that means
-    what it says deletes the comment along with the workaround.
-    """
 
 
 class WhenUnnamed(Enum):
