@@ -36,6 +36,7 @@ from . import hooks as hooks_mod
 from . import install as engine
 from . import rules as rules_mod
 from . import skills as skills_mod
+from .catalogue import ADDONS, HOOKS, RULES, SKILLS, plan, plan_rules
 from .install import Method
 
 # --------------------------------------------------------------------------
@@ -226,99 +227,14 @@ def choose_addons_dir(explicit) -> Path | None:
 #  Planning
 # --------------------------------------------------------------------------
 
-def plan(harnesses, scope: str, project_root: Path | None):
-    """Group harnesses by the directory they resolve to.
-
-    Most harnesses read the cross-agent path, so selecting eight of them
-    usually means one directory. Reporting eight identical installs would
-    misrepresent what happened, so they are collapsed and credited together.
-    """
-    groups: OrderedDict[Path, list[registry.Harness]] = OrderedDict()
-    skipped: list[registry.Harness] = []
-    for h in harnesses:
-        directory = engine.resolve_directory(h, scope, project_root)
-        if directory is None:
-            skipped.append(h)
-            continue
-        groups.setdefault(directory, []).append(h)
-    return groups, skipped
-
-
-def plan_rules(harnesses, scope: str, project_root: Path | None):
-    """Group harnesses by the (directory, extension) a rule would install as.
-
-    Keyed on the extension as well as the path because that is what makes a
-    rule install different from a skill install: the same file becomes
-    `x.md` for Claude Code, `x.mdc` for Cursor, and `x.instructions.md` for
-    Copilot, so two harnesses only share an install when both agree.
-    """
-    groups: OrderedDict = OrderedDict()
-    skipped: list[registry.Harness] = []
-    for h in harnesses:
-        directory = engine.resolve_directory(h, scope, project_root, kind="rules")
-        if directory is None:
-            skipped.append(h)
-            continue
-        groups.setdefault((directory, h.rules_ext), []).append(h)
-    return groups, skipped
-
-
 # --------------------------------------------------------------------------
 #  Commands
 # --------------------------------------------------------------------------
 
-SKILLS = catalogue.Catalogue(
-    noun="skill",
-    discover=skills_mod.discover,
-    plan=lambda hs, scope, root: plan(hs, scope, root),
-    when_unnamed=catalogue.WhenUnnamed.ALL,
-    place=lambda item, directory, method, *, force, dry_run: engine.install_item(
-        item, directory, method, force=force, dry_run=dry_run),
-    unplace=lambda item, directory, *, dry_run: engine.uninstall_item(
-        item, directory, dry_run=dry_run),
-    moved_advice="Restart your harness (or reload its skills) to pick these up.",
-    unchanged_advice="Everything was already in place; nothing to restart.",
-)
 
 
-RULES = catalogue.Catalogue(
-    noun="rule",
-    discover=rules_mod.discover,
-    plan=lambda hs, scope, root: plan_rules(hs, scope, root),
-    when_unnamed=catalogue.WhenUnnamed.NONE,
-    place=lambda item, key, method, *, force, dry_run: engine.install_rule(
-        item, key[0], method, filename=item.filename(key[1]),
-        force=force, dry_run=dry_run),
-    unplace=lambda item, key, *, dry_run: engine.uninstall_rule(
-        item, key[0], filename=item.filename(key[1]), dry_run=dry_run),
-    directory_of=lambda key: key[0],
-)
 
 
-ADDONS = catalogue.Catalogue(
-    noun="addon",
-    discover=addons_mod.discover,
-    when_unnamed=catalogue.WhenUnnamed.REFUSE,
-    place=lambda item, directory, method, *, force, dry_run: engine.install_item(
-        item, directory, method, force=force, dry_run=dry_run),
-    unplace=lambda item, directory, *, dry_run: engine.uninstall_item(
-        item, directory, dry_run=dry_run),
-    moved_advice="/reload in game, or restart the client, to pick these up.",
-    unchanged_advice="Everything was already in place; no /reload needed.",
-    refusal="--wow-addons given without --addons.",
-    fold_case=True,
-)
-
-
-# Hooks share the naming rules and nothing else. Their membership is a static
-# tuple rather than a discovery over the tree, and they are placed by
-# hooks.install, which writes a generated shell script into a repository.
-HOOKS = catalogue.Catalogue(
-    noun="hook",
-    discover=lambda: (list(hooks_mod.HOOKS), []),
-    when_unnamed=catalogue.WhenUnnamed.ALL,
-    fold_case=True,
-)
 
 
 def cmd_list(args) -> int:
