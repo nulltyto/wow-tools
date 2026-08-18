@@ -61,7 +61,9 @@ def test_several_kinds_in_one_run_are_several_sections(home, capsys):
 def test_a_target_says_where_and_how(home, capsys):
     _, doc = run_json(capsys, "--harness", "claude-code", "--skills", "wow-api-search")
     target = doc["sections"][0]["targets"][0]
-    assert target["directory"].endswith("/.claude/skills")
+    # Compared as a path, not as a string: the separator is the platform's, and
+    # asserting on "/" passes everywhere except the one OS worth testing on.
+    assert Path(target["directory"]) == home / ".claude" / "skills"
     assert target["harnesses"] == ["Claude Code"]
     assert target["method"] in ("symlink", "copy")
 

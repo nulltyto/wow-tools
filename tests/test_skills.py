@@ -861,6 +861,9 @@ def test_an_options_page_credits_only_the_module_it_configures(tmp_path):
 # asked in two places, in two slightly different ways.
 
 
+ADDON_ROOT = Path("/addons")
+
+
 def _store(tmp_path, **meta):
     B = _eui_builder()
     store = B.IndexStore(tmp_path / "index")
@@ -868,7 +871,7 @@ def _store(tmp_path, **meta):
     for name in B.INDEX_FILES:
         store.write(name, [])
     base = {"source_fingerprint": "fp", "builder_version": B.BUILDER_VERSION,
-            "addon_root": "/addons"}
+            "addon_root": str(ADDON_ROOT)}
     base.update(meta)
     store.write_meta(base)
     return store
@@ -896,17 +899,20 @@ def test_two_stores_do_not_share_a_destination(tmp_path):
 
 
 def test_a_complete_matching_index_is_fresh(tmp_path):
-    assert _store(tmp_path).is_fresh("fp", Path("/addons"))
+    assert _store(tmp_path).is_fresh("fp", ADDON_ROOT)
 
 
-@pytest.mark.parametrize("fp,root", [("moved", "/addons"), ("fp", "/elsewhere")])
+@pytest.mark.parametrize("fp,root", [
+    ("moved", ADDON_ROOT),
+    ("fp", Path("/elsewhere")),
+])
 def test_a_changed_source_is_not_fresh(tmp_path, fp, root):
-    assert not _store(tmp_path).is_fresh(fp, Path(root))
+    assert not _store(tmp_path).is_fresh(fp, root)
 
 
 def test_an_older_builder_is_not_fresh(tmp_path):
     """A builder change alters what the same source produces."""
-    assert not _store(tmp_path, builder_version=0).is_fresh("fp", Path("/addons"))
+    assert not _store(tmp_path, builder_version=0).is_fresh("fp", ADDON_ROOT)
 
 
 def test_a_missing_table_is_not_fresh(tmp_path):
@@ -919,14 +925,14 @@ def test_a_missing_table_is_not_fresh(tmp_path):
     store = _store(tmp_path)
     store.path("settings").unlink()
     assert not store.complete()
-    assert not store.is_fresh("fp", Path("/addons"))
+    assert not store.is_fresh("fp", ADDON_ROOT)
 
 
 def test_no_index_at_all_is_not_fresh(tmp_path):
     B = _eui_builder()
     store = B.IndexStore(tmp_path / "nothing-here")
     assert store.meta() is None
-    assert not store.is_fresh("fp", Path("/addons"))
+    assert not store.is_fresh("fp", ADDON_ROOT)
 
 
 # --- The index query CLI -----------------------------------------------------
