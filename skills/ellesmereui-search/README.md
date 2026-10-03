@@ -4,7 +4,7 @@ A [Claude Code](https://claude.com/claude-code) skill for navigating the
 [EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI) World of Warcraft
 addon suite.
 
-EllesmereUI is ~148 Lua files and ~447k lines across 21 addon modules, with several
+EllesmereUI is a few hundred Lua files across ~21 addon modules, with several
 single files over 1 MB. Asking Claude "where is `ApplyCastBarTexture` defined",
 "what's the default for `absorbCleanAlpha` and which module owns it", or "where does
 the options UI for that setting live" means grepping a megabyte of Lua and reading

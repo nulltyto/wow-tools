@@ -64,16 +64,16 @@ channels).
 
 ### 2. Locate the edge, do not read the file
 
-The tree is ~137 Lua files and single files over 1 MB. Use `ellesmereui-search`
+The tree has single files over 1 MB. Use `ellesmereui-search`
 to find the module that owns the setting, the line that reads it, and the handler
 that acts on it. Raw `grep` across the tree followed by `sed -n` on line ranges
 works, and it costs a dozen round trips to learn what one index query answers.
 
 A report names a **label**, not a key — "Always Show Buttons", not
 `alwaysShowButtons`. The label lives in the options row that also names the
-key, so start there: Grep the module's `_Options.lua` for the quoted label and
-read the `getValue`/`SGet` beside it. That one grep converts the report into
-something the index can answer.
+key, so start there: `query.py label "Always Show Buttons"` finds the options
+row, and the `getValue`/`SGet` beside it names the key. That one query converts
+the report into something the rest of the index can answer.
 
 Find all of these before editing anything:
 
@@ -168,7 +168,9 @@ Reach for a tracer when the question is about **sequence over time** — what
 arrived, in what order, in which frame. That is the one thing `/euidiag` does
 not do, and it is what a tracer is for:
 
-    python3 scripts/new_tracer.py AuraTrace --events UNIT_AURA --unit player
+    python3 <skill>/scripts/new_tracer.py AuraTrace --events UNIT_AURA --unit player
+
+`<skill>` is this skill's own directory, the one holding this file.
 
 That writes a loadable addon into the client's `AddOns/`, prints every dispatch
 with a frame number, and prints the in-game steps. Use it, rather than writing
@@ -193,10 +195,10 @@ distinction worth designing the trace around is almost always **same frame
 versus adjacent frames**: a remove and an add of a new instance in one frame is
 a replacement, and the same pair one frame apart is a real drop.
 
-Remove it when the question is answered: `scripts/new_tracer.py <Name> --remove`.
+Remove it when the question is answered: `<skill>/scripts/new_tracer.py <Name> --remove`.
 
 If you extend the generated Lua, run it against the harness before sending it —
-`lua5.1 scripts/tracer_harness.lua <the generated .lua>` fires stubbed events at
+`lua5.1 <skill>/scripts/tracer_harness.lua <the generated .lua>` fires stubbed events at
 it and checks it prints. A tracer that loads and stays silent is indistinguishable
 from a theory that was wrong.
 

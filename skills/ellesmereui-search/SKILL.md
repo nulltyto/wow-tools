@@ -1,12 +1,13 @@
 ---
 name: ellesmereui-search
-description: Search the EllesmereUI World of Warcraft addon suite's own source code — find where a function is defined, which module owns a settings key and what its default is, where a setting is read, which file builds its options UI, where a locale string is used, which module registers an event, or what a slash command maps to. Use it whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, and the EllesmereUI* child addons). Triggers on "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "which files handle event E", "what calls this function and what breaks if I change it", or any navigation or survey task in this addon. Reach for it first when a bug report, a feature request, or a performance question arrives, before grepping by hand — including when adding something, since a new variant must be wired everywhere the existing one is. This indexes EllesmereUI's own code — for Blizzard's API, use wow-api-search.
+description: >-
+  Query a prebuilt index of the EllesmereUI World of Warcraft addon suite instead of grepping it - one call answers where a function is defined and who calls it, which module owns a settings key and its default, where a setting is read, which file builds an options page, where a locale string or event is used, or what a slash command maps to. Use it instead of Grep or rg whenever working in the EllesmereUI/EUI codebase (EllesmereUI.lua, EUI_*_Options.lua, the EllesmereUI* child addons), where single files exceed 1 MB and raw grep is slow and noisy. Triggers on "where is X defined", "what's the default for setting Y", "which module owns Z", "where does the options UI for W live", "which files handle event E", "what calls this and what breaks if I change it", and any navigation or survey step. Reach for it first when a bug report, feature request, or performance question arrives, including when adding something, since a new variant must be wired everywhere the existing one is - and name it in the prompt of any subagent you send to search this code. For Blizzard's API, use wow-api-search.
 ---
 
 # EllesmereUI Search
 
-EllesmereUI is ~148 Lua files and ~447k lines across 21 addon modules, with single
-files over 1 MB (`EUI_CooldownManager_Options.lua`, `EUI_UnitFrames_Options.lua`).
+EllesmereUI is a few hundred Lua files across ~21 addon modules (`query.py status`
+has the current counts), with single files over 1 MB (`EUI_CooldownManager_Options.lua`, `EUI_UnitFrames_Options.lua`).
 Grepping that raw is slow and noisy. This skill maintains a greppable index of
 definitions, settings keys, locale strings, events, and slash commands.
 
@@ -80,13 +81,13 @@ often defined in several modules — check `module` before opening a file.
 `kind` is one of five, and the last two are worth reading before you trust a
 caller list:
 
-| `kind` | What it is | Rows |
-|---|---|---|
-| `field` | `ns.Foo`, `EllesmereUI.Foo` | 2,282 |
-| `method` | `obj:Foo` | 470 |
-| `local` | a local, whether `local function Foo` or a forward-declared `Foo = function()` filled in later | 7,250 |
-| `tablefield` | `Foo = function()` written inside a `{ ... }` constructor | 6,951 |
-| `global` | a real global — nothing declares it `local` and it is not in a table | 22 |
+| `kind` | What it is |
+|---|---|
+| `field` | `ns.Foo`, `EllesmereUI.Foo` |
+| `method` | `obj:Foo` |
+| `local` | a local, whether `local function Foo` or a forward-declared `Foo = function()` filled in later |
+| `tablefield` | `Foo = function()` written inside a `{ ... }` constructor |
+| `global` | a real global — nothing declares it `local` and it is not in a table |
 
 `tablefield` is the option-table and handler idiom, and it is the largest class
 in the index. Such a function is invoked through whatever table holds it, which
@@ -176,7 +177,7 @@ count as unproven rather than as an answer. One grep settles it, and it is the
 bare name you want — the receiver is the part that varies:
 
 ```
-grep -rn '[.:]ToPixels(' --include=*.lua . | grep -v '/\.release/'
+grep -rn '[.:]ToPixels(' --include='*.lua' . | grep -v '/\.release/'
 ```
 
 Drop `.release/`: it is the packager's copy of the whole tree, the index skips
@@ -352,7 +353,7 @@ carries a label also carries its key:
 
 ```
 $ python3 <skill>/scripts/query.py label "Hide Unusable Entries"
-EllesmereUIOptions/EUI_Quickdraw_Options.lua:3626  { type="toggle", text="Hide Unusable Entries", noCapture=true,
+EllesmereUIOptions/EUI_Quickdraw_Options.lua:<line>  { type="toggle", text="Hide Unusable Entries", noCapture=true,
   keys nearby: hideUnusable
   -> query.py setting hideUnusable
 ```

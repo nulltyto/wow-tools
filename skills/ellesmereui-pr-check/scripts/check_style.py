@@ -901,7 +901,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="path to the EllesmereUI checkout")
-    ap.add_argument("--base", help="git ref to diff against (default: origin/main, then main)")
+    ap.add_argument("--base", help="git ref to diff against (default: whichever of main, origin/main, upstream/main has the merge-base closest to HEAD)")
     ap.add_argument("--staged", action="store_true",
                     help="check staged lines only -- what the next commit records")
     ap.add_argument("--all", action="store_true", help="check every file, not just the diff")
