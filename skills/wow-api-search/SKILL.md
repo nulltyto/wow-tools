@@ -274,6 +274,8 @@ For understanding a folder's contents, check its `.toc` file first — it lists 
 
 The bundled index is committed and works standalone, so — unlike `ellesmereui-search` — this skill does **not** rebuild on every use. It has no way to know the game patched; nothing checks freshness unless you ask.
 
+When `query.py` prints `warning: this index is STALE`, run the rebuild command it prints before answering, and tell the user. Do not filter the warning out of the output: the answers below it describe the older build.
+
 ```bash
 python3 <skill>/scripts/generate_index.py --check    # FRESH/STALE, exit 1 if stale
 python3 <skill>/scripts/generate_index.py --ensure   # rebuild only if the export changed

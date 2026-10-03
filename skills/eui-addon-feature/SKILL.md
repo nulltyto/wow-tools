@@ -67,7 +67,7 @@ families, and a new member of a family is a wiring job with a known shape.
 # The kind strings are table-driven config. The index holds definitions and
 # identifier references, not string literals compared against a field, so this
 # first step really is a grep -- and it is the only one that is.
-grep -rn 'kind == "dynamicrez"' --include=*.lua . | grep -v '/\.release/'
+grep -rn 'kind == "dynamicrez"' --include='*.lua' . | grep -v '/\.release/'
 
 # Everything after it the index answers: what each dispatch site is reached
 # from, and what else calls the functions you are about to widen.

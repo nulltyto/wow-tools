@@ -347,7 +347,9 @@ def main():
     )
     sub = ap.add_subparsers(dest="command", metavar="COMMAND")
     for name, (fn, arg, help_text) in COMMANDS.items():
-        p = sub.add_parser(name, help=help_text, parents=[common])
+        # "grep" because ellesmereui-search spells the same command that way
+        p = sub.add_parser(name, help=help_text, parents=[common],
+                           aliases=["grep"] if name == "search" else [])
         if arg:
             p.add_argument(arg)
         p.set_defaults(fn=fn)

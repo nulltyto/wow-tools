@@ -19,10 +19,16 @@ python3 <skill>/scripts/check_style.py
 `python` instead of `python3` on Windows; the scripts need only the standard
 library and Python 3.9+.
 
-It checks **only the lines your branch changes** against the merge-base with
-`main`, including uncommitted edits. That default matters: the tree carries
-legacy violations that predate the rules (377 non-ASCII lines, 3 already
-corrupted), so a whole-tree run is noise and a diff-scoped run is a gate.
+It checks **only the lines your branch changes**, including uncommitted edits,
+against the merge-base of whichever of `main`, `origin/main`, or `upstream/main`
+sits closest to HEAD (on a fork, `origin/main` can trail the real mainline). That
+default matters: the tree carries legacy violations that predate the rules, so a
+whole-tree run is noise and a diff-scoped run is a gate.
+
+Run it with no file arguments; the diff already scopes it. When you do need
+`--files`, list the paths literally after the flag. Never pass them through an
+unquoted variable like `$F` -- the Bash tool runs zsh, which does not word-split,
+so the whole list arrives as one nonexistent path.
 
 Exit status is 1 on any error-severity finding. Fix every error before opening
 the PR.
@@ -75,7 +81,7 @@ to touch it and prints the line to add by hand.
 | `dualrow-nil` | error | Exact. Missing or `nil` right slot. |
 | `dualrow-left-gap` | error | Exact. Placeholder label in the left slot. |
 | `comment-budget` | error | Exact on the count. More than 8 comment lines in one block, or 30 in the file header. Counts only the lines your diff adds, so a long legacy block reports nothing until you extend it. Whether the prose earns its length is still your call — see below. |
-| `thirdparty-credit` | error | Exact on the words. A third-party addon named within 2 lines of unambiguous derivation language (`adapted from`, `taken from`, `credit to`, `ported from`). Zero such pairs exist in the tree, so a hit is new. Softer phrasing (`based on`, `derived from`, `inspired by`) is the same rule at warning severity — the tree has three, all about values rather than provenance. |
+| `thirdparty-credit` | error | Exact on the words. A third-party addon named within 2 lines of unambiguous derivation language (`adapted from`, `taken from`, `credit to`, `ported from`). Zero such pairs exist in the tree, so a hit is new. Softer phrasing (`based on`, `derived from`, `inspired by`) is the same rule at warning severity — the tree has a handful, all about values rather than provenance. |
 | `thirdparty` | warning | Exact on the name. One of ~500 CurseForge addons named in code or a comment. A name is not an accusation: see below. |
 | `tooltip` | warning | Heuristic. A `GameTooltip` session (`SetOwner` → `Show`) that only ever gets `SetText`/`AddLine` with no data setter. A rich multi-line tooltip on a Blizzard frame looks identical, so read it before acting. |
 | `dualrow-empty` | note | Never fails. See below. |
@@ -114,7 +120,7 @@ the fix is not always to delete: read the block and decide which it is.
 line count, not design work, and it does not need the model that wrote the
 change. Hand each file to a subagent on a small model and give it the file, the
 reported lines, and the budget. In Claude Code that is the Agent tool with
-`subagent_type: mech-executor` and `model: "sonnet"` — or `"haiku"` when the
+`subagent_type: "general-purpose"` and `model: "sonnet"` — or `"haiku"` when the
 block is plainly redundant narration. Reserve the expensive model for the
 judgment call above: decide the box each block falls into, then delegate the
 rewriting.
@@ -133,7 +139,7 @@ credit comment, a "based on" note, a copied identifier, a link to the source.
 
 The tree names plenty of addons legitimately — a conflict registry, compat
 shims for FarmHud and Myslot, unit-frame globals it must not fight with — so
-293 of these exist already and the diff-scoped default is what keeps the rule
+hundreds of these exist already and the diff-scoped default is what keeps the rule
 usable. **Resolve every `thirdparty*` finding in your diff before the PR.**
 
 For each one, read the surrounding block and put it in one of three boxes:
@@ -193,16 +199,16 @@ you: look at the row, confirm nothing follows it in the same section.
 slider, swatch, cog popup — open the nearest existing example in the same file
 and copy its shape. Use `ellesmereui-search` to find one:
 
-```
-Grep pattern="\"key\":\"<settingName>\"" path="<ellesmereui-search>/references/index/settings.jsonl"
+```bash
+python3 <ellesmereui-search>/scripts/query.py setting <settingName>
 ```
 
-`<ellesmereui-search>` is that skill's directory; run its `build_index.py
---ensure` first, since the index is a build artifact and is not committed. If
-that skill is not installed, grep the `_Options.lua` file directly instead.
+`<ellesmereui-search>` is that skill's directory, beside this one; `query.py`
+rebuilds the index itself when it is stale. If that skill is not installed,
+grep the `_Options.lua` file directly instead.
 
-The `options_refs` field points straight at the `_Options.lua` line that builds
-the control for a comparable setting. The codebase is consistent on purpose;
+The `read at` lines include the `_Options.lua` line that builds the control for
+a comparable setting. The codebase is consistent on purpose;
 a widget that works but reads differently still bounces in review.
 
 ## Before you open the PR
@@ -210,10 +216,10 @@ a widget that works but reads differently still bounces in review.
 The style check is one gate. Two more the repo actually enforces:
 
 **Locale keys.** CI fails the PR when source strings changed and
-`Locales/_keys.txt` is stale. It rewrites the file, so run it deliberately:
+`EllesmereUILocales/_keys.txt` is stale. It rewrites the file, so run it deliberately:
 
 ```bash
-bash .tools/extract-locale-keys.sh && git diff --stat -- Locales/_keys.txt
+bash .tools/extract-locale-keys.sh && git diff --stat -- EllesmereUILocales/_keys.txt
 ```
 
 Commit the result if it changed.

@@ -45,9 +45,13 @@ instructions you give the user, or the analysis step fails on a missing file.
 Then, offline:
 
 ```bash
-./tools/perf/euidiag-perf.py                 # newest recording, summarised
-./tools/perf/euidiag-perf.py --share run.json
+<wow-tools>/tools/perf/euidiag-perf.py                 # newest recording, summarised
+<wow-tools>/tools/perf/euidiag-perf.py --share run.json
 ```
+
+`<wow-tools>` is the repository holding this skill, two levels up from its
+directory (`<skill>/../..`). Use the absolute path: Claude usually runs from the
+addon checkout, where `./tools` does not exist.
 
 That summary carries the frame budget, mean vs P95 per module, in-combat vs
 out-of-combat split, per-encounter rows, the real spike steps, and the worst
@@ -55,7 +59,7 @@ frames with the module that led each one. `tools/perf/README` explains what
 each section means and what sample rate can and cannot buy.
 
 If the addon is not installed in the user's game, installing it is the first
-step of the task, not a detour: `./install.sh --addons EllesmereUISecretsDiag`.
+step of the task, not a detour: `<wow-tools>/install.sh --addons EllesmereUISecretsDiag`.
 
 ### The instrument is not free, and it is loud
 
@@ -153,14 +157,14 @@ complaining about.
 
 ### 3. Find the code with the index, not with grep
 
-`ellesmereui-search` — `--ensure` first. It answers the three questions an audit
-asks, each in one grep:
+`ellesmereui-search`'s `query.py` answers the three questions an audit asks,
+each in one command (it rebuilds a stale index itself):
 
-- **which handlers exist and how often they can fire** — `events.jsonl` gives
-  every `RegisterEvent`/`RegisterUnitEvent` site for an event across the suite
-- **what breaks if I change this** — the `callers` field. A function with
-  `caller_count: 1` has a blast radius of one line, and that is the whole answer
-- **what a settings guard costs** — `settings.jsonl` for the key and its reads
+- **which handlers exist and how often they can fire** — `query.py event <EVENT>`
+  gives every `RegisterEvent`/`RegisterUnitEvent` site for it across the suite
+- **what breaks if I change this** — `query.py callers <Function>`. A function
+  with one caller has a blast radius of one line, and that is the whole answer
+- **what a settings guard costs** — `query.py setting <key>` for the key and its reads
 
 Grepping a 1 MB file for `RegisterEvent` is the thing this index exists to
 replace, and it costs a dozen round trips to learn less.
@@ -242,12 +246,16 @@ spread, which in a dungeon is a couple of milliseconds.
 The clean A/B, in one sitting:
 
 ```
-/euidiag rec start 0.1   ... one pull ...   /euidiag rec stop   /reload
-git stash                                    # remove the change
-/euidiag rec start 0.1   ... comparable pull ...  rec stop   /reload
+/euidiag rec start 0.1   ... one pull ...   /euidiag rec stop   /reload   # writes run A (changed code)
+git stash                                    # remove the change on disk
+/reload                                      # the client now runs the original code
+/euidiag rec start 0.1   ... comparable pull ...  /euidiag rec stop   /reload   # writes run B
 git stash pop
-./tools/perf/euidiag-perf.py --list          # both recordings are in the file
+<wow-tools>/tools/perf/euidiag-perf.py --list   # both recordings are in the file
 ```
+
+The `/reload` after `git stash` is the step that makes it an A/B: without it the
+client is still running the changed code and both runs measure the same thing.
 
 `euidiag-perf.py -r <n>` reads either one, and modules keep the same colour
 between plots so two traces read side by side.
@@ -280,8 +288,9 @@ have to go in every prompt or the results come back confidently wrong:
   dimension in this codebase turned out to be inert because an engine-side path
   had taken it over.
 
-Subagents cannot call skills. Give them the index paths, or accept that they
-will grep the megabyte again, once each.
+Subagents do not reach for skills on their own. Name `ellesmereui-search` in
+their prompt and give the absolute path of its `query.py` with a subcommand or
+two (`def`, `callers`), or accept that they will grep the megabyte again, once each.
 
 Verify every load-bearing claim against the source before acting on it. On the
 last full audit, three of four headline findings did not survive that check.
