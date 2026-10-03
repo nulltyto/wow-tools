@@ -1,6 +1,7 @@
 ---
 name: eui-addon-debug
-description: Debug a reported EllesmereUI bug correctness-first — reproduce it, locate the edge, verify Blizzard's own contract before theorizing, fix it, then account for the cost. Use this skill whenever a bug report, a user complaint, or an in-game symptom arrives for the EllesmereUI/EUI addon suite: "this option does not work", "it shows when it should not", "why does this only happen in combat", "the bar flickers", "let's find and fix this issue" — and before changing any event handler, guard, or visibility rule in this codebase. It sequences the other skills: ellesmereui-search to locate, wow-api-search to verify Blizzard's behaviour, wow-secret-values for combat-time reads, ellesmereui-pr-check at the ship gate. Load it before you form a theory, not after you have one.
+description: >-
+  Debug a reported EllesmereUI bug correctness-first — reproduce it, locate the edge, verify Blizzard's own contract before theorizing, fix it, then account for the cost. Use this skill whenever a bug report, a user complaint, or an in-game symptom arrives for the EllesmereUI/EUI addon suite: "this option does not work", "it shows when it should not", "why does this only happen in combat", "the bar flickers", "let's find and fix this issue" — and before changing any event handler, guard, or visibility rule in this codebase. It sequences the other skills: ellesmereui-search to locate, wow-api-search to verify Blizzard's behaviour, wow-secret-values for combat-time reads, ellesmereui-pr-check at the ship gate. Load it before you form a theory, not after you have one.
 ---
 
 # EllesmereUI Addon Debug
