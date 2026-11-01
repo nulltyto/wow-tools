@@ -10,6 +10,7 @@ caught by nothing else.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -1696,6 +1697,28 @@ def test_base_warns_when_the_scope_is_not_your_work(tmp_path):
          "--root", str(tmp_path), "--base", "origin/main"],
         capture_output=True, text=True, timeout=120)
     assert "commits behind HEAD" in proc.stdout, proc.stdout
+
+
+def test_ascii_finding_prints_through_a_cp1252_pipe(tmp_path):
+    """The character the ascii rule quotes must not crash the report.
+
+    Piped stdout on Windows is cp1252, which has no arrow; the run used to die
+    on the first ascii finding with UnicodeEncodeError, before the totals.
+    """
+    (tmp_path / "EllesmereUI.toc").write_text("## Interface: 120100\n", encoding="utf-8")
+    lua = tmp_path / "f.lua"
+    lua.write_text('local s = "a\u2192b"\n', encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO / "skills" / "ellesmereui-pr-check" /
+                             "scripts" / "check_style.py"),
+         "--root", str(tmp_path), "--files", str(lua)],
+        capture_output=True, encoding="utf-8", timeout=120,
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+    assert "UnicodeEncodeError" not in proc.stderr, proc.stderr
+    assert "U+2192" in proc.stdout, proc.stdout
+    assert "1 error(s)" in proc.stdout, proc.stdout
+    assert proc.returncode == 1
 
 
 # --------------------------------------------------------------------------
