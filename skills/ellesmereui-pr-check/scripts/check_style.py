@@ -898,6 +898,9 @@ LABEL = {ERROR: "error", WARNING: "warn ", NOTE: "note "}
 
 
 def main() -> int:
+    # Findings quote the offending character, and piped stdout on Windows is
+    # cp1252, which cannot encode most of them.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="path to the EllesmereUI checkout")
